@@ -6,13 +6,12 @@ import sys
 from .bed import BED
 from .exceptions import G2GError, G2GBAMError, G2GBedError, G2GChainFileError, G2GVCFError, G2GValueError, G2GLocationError, G2GFastaError
 from .g2g_utils import Location, app_exit, configure_logging, get_logger, parse_location
-from .g2g_fileutils import gen_file_name, prepend_before_extension
-from .g2g import file_convert, gtf2chain, db2chain, vcf2chain, offset2chain, fasta_extract_exons, fasta_extract_transcripts, dbfetch, fasta_transform
+from .g2g import file_convert, gtf2chain, db2chain, offset2chain, fasta_extract_exons, fasta_extract_transcripts, dbfetch, fasta_transform
 from .gtf_db import gtf2db, get_genes_simple
 from .fasta import extract as fasta_extract
 from .fasta import extract_id as fasta_extract_id
 from .fasta_patch import fasta_patch
-
+from .vcf2chain import vcf2chain
 LOG = get_logger()
 
 
