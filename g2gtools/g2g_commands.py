@@ -6,13 +6,12 @@ import sys
 from .bed import BED
 from .exceptions import G2GError, G2GBAMError, G2GBedError, G2GChainFileError, G2GVCFError, G2GValueError, G2GLocationError, G2GFastaError
 from .g2g_utils import Location, app_exit, configure_logging, get_logger, parse_location
-from .g2g_fileutils import gen_file_name, prepend_before_extension
-from .g2g import file_convert, gtf2chain, db2chain, vcf2chain, offset2chain, fasta_extract_exons, fasta_extract_transcripts, dbfetch, fasta_transform
+from .g2g import file_convert, gtf2chain, db2chain, offset2chain, fasta_extract_exons, fasta_extract_transcripts, dbfetch, fasta_transform
 from .gtf_db import gtf2db, get_genes_simple
 from .fasta import extract as fasta_extract
 from .fasta import extract_id as fasta_extract_id
 from .fasta_patch import fasta_patch
-
+from .vcf2chain import vcf2chain
 LOG = get_logger()
 
 
@@ -541,6 +540,18 @@ def command_fasta_extract(raw_args, prog=None):
     reverse = (args.reverse or args.reversecomplement)
     complement = (args.complement or args.reversecomplement)
 
+    if args.database:
+        # allow only either exon, gene, or transcript extraction, bot all
+        output_count = 0
+        output_count += (1 if args.genes else 0)
+        output_count += (1 if args.transcripts else 0)
+        output_count += (1 if args.exons else 0)
+
+        if output_count == 0:
+            app_exit("Please specify one of: -e, -g, or -t", parser)
+        elif output_count > 1:
+            app_exit("Please specify only one of: -e, -g, or -t", parser)
+
     location_count = 0
     location_count += (1 if args.location else 0)
     location_count += (1 if args.bed_file else 0)
@@ -564,21 +575,11 @@ def command_fasta_extract(raw_args, prog=None):
             for bed_rec in bed_file:
                 if bed_file.current_line_is_bed:
                     strand = bed_rec.strand if bed_rec.strand else '+'
-                    l = Location(bed_rec.chrom, bed_rec.start, bed_rec.end, strand, bed_rec.name, 0)
                     all_locations.append(Location(bed_rec.chrom, bed_rec.start, bed_rec.end, strand, bed_rec.name, 0))
 
         elif args.database:
             if flag_count == 1:
                 app_exit("Options -c, -r, -rc cannot be used with Database.", parser)
-
-            if args.fasta.lower().endswith(('.fasta', '.fa')):
-                file_name_genes = prepend_before_extension(args.fasta, 'genes')
-                file_name_transcripts = prepend_before_extension(args.fasta, 'transcripts')
-                file_name_exons = prepend_before_extension(args.fasta, 'exons')
-            else:
-                file_name_genes = "{0}.genes.fa".format(args.fasta)
-                file_name_transcripts = "{0}.transcripts.fa".format(args.fasta)
-                file_name_exons = "{0}.exons.fa".format(args.fasta)
 
             if args.genes:
                 LOG.info("Extracting genes from database...")
@@ -586,20 +587,20 @@ def command_fasta_extract(raw_args, prog=None):
 
                 LOG.debug("Genes extracted, transforming to locations")
                 for gene in genes:
-                    #LOG.debug("gene.start = {0}".format(gene.start))
                     l = Location(gene.seqid, gene.start-1, gene.end, gene.strand, name=gene.ensembl_id, original_base=1)
-                    #LOG.debug("....... {0}".format(l))
                     all_locations.append(l)
 
                 LOG.info("Extracting genes sequences...")
-                fasta_extract(args.fasta, all_locations, file_name_genes, reverse=reverse, complement=complement, raw=args.raw)
+                fasta_extract(args.fasta, all_locations, None, reverse=reverse, complement=complement, raw=args.raw)
                 LOG.info("Extracting genes done")
 
-            if args.transcripts:
-                fasta_extract_transcripts(args.fasta, args.database, file_name_transcripts, raw=args.raw)
+            elif args.transcripts:
+                fasta_extract_transcripts(args.fasta, args.database, None, raw=args.raw)
 
-            if args.exons:
-                fasta_extract_exons(args.fasta, args.database, file_name_exons, raw=args.raw)
+            elif args.exons:
+                fasta_extract_exons(args.fasta, args.database, None, raw=args.raw)
+            else:
+                LOG.error("Nothing to do")
 
             return
 

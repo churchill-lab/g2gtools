@@ -189,3 +189,67 @@ def parse_gt(vcf_record, sample_index):
             LOG.debug(ie)
 
     return GTData(vcf_record.REF, left, right, gt, fi, phase)
+
+
+def parse_gt_new(vcf_tuple, sample_index):
+    """
+    Parse the GT field within the VCF line.
+
+    :param vcf_record: the VCF record
+    :type vcf_record: :class:`.vcf.VCFRecord`
+    :param sample_index: the strain or sample index
+    :type sample_index: int
+    :return: :class:`.vcf.GTData`
+    """
+    if not sample_index:
+        raise G2GVCFError("Sample index must contain a value")
+
+    sample_data = vcf_tuple[sample_index]
+    gt = None
+    fi = None
+    left = None
+    right = None
+    phase = None
+
+    if sample_data != '.':
+        gt_index = vcf_tuple.format.split(':').index('GT')
+        fi_index = vcf_tuple.format.split(':').index('FI')
+
+        try:
+            # parse the GT field
+            gt = sample_data.split(':')[gt_index]
+
+            # make sure a call can be made
+            if gt != '.' and gt != './.' and gt != '.|.':
+                if GENOTYPE_PHASED in gt:
+                    genotypes = map(int, gt.split(GENOTYPE_PHASED))
+                    phase = GENOTYPE_PHASED
+                elif GENOTYPE_UNPHASED in gt:
+                    genotypes = map(int, gt.split(GENOTYPE_UNPHASED))
+                    phase = GENOTYPE_UNPHASED
+                else:
+                    raise ValueError("Unknown phase in GT, {0}".format(gt))
+
+                # assuming no triploids for now
+                if genotypes[0] == 0:
+                    left = vcf_tuple.ref
+                else:
+                    left = vcf_tuple.alt.split(',')[genotypes[0]-1]
+
+                if genotypes[1] == 0:
+                    right = vcf_tuple.ref
+                else:
+                    right = vcf_tuple.alt.split(',')[genotypes[1]-1]
+
+        except ValueError, ve:
+            LOG.debug(ve)
+        except IndexError, ie:
+            LOG.debug(ie)
+        try:
+            fi = sample_data.split(':')[fi_index]
+        except ValueError, ve:
+            LOG.debug(ve)
+        except IndexError, ie:
+            LOG.debug(ie)
+
+    return GTData(vcf_tuple.ref, left, right, gt, fi, phase)
