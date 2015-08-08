@@ -70,7 +70,7 @@ def get_pos(fai, chromosome, start, end):
     return byte_start, byte_end, byte_len_seq
 
 
-def process_piece(filename_vcf, chrom, start, end, sample_index, diploid, pass_only):
+def process_piece(filename_vcf, chrom, start, end, sample_index, diploid, pass_only, quality):
     """
     Process a section of the VCF file specified by the location.
 
@@ -88,6 +88,8 @@ def process_piece(filename_vcf, chrom, start, end, sample_index, diploid, pass_o
     :type diploid: boolean
     :param pass_only: `True` to only process 'PASS' VCF records
     :type pass_only: boolean
+    :param quality:
+    :type quality: boolean
     :return: a dict of 2 elements, 'chrom' and 'count' specifying how many SNPs were patched
     """
     ret = {'count': 0, 'chrom': chrom}
@@ -109,6 +111,10 @@ def process_piece(filename_vcf, chrom, start, end, sample_index, diploid, pass_o
 
             #LOG.debug(rec)
             #LOG.debug(gt)
+
+            # FI : Whether a sample was a Pass(1) or fail (0) based on FILTER values
+            if quality and gt.fi == '0':
+                continue
 
             global mm_l
             global mm_r
@@ -155,7 +161,7 @@ def wrapper(args):
 
 
 def patch(filename_original_fasta, filename_vcf, strain, filename_new_fasta_l, filename_new_fasta_r,
-          num_processes, pass_only, diploid):
+          num_processes, pass_only, quality, diploid):
     """
     Perform patch via multiprocess.
 
@@ -173,6 +179,8 @@ def patch(filename_original_fasta, filename_vcf, strain, filename_new_fasta_l, f
     :type num_processes: int
     :param pass_only: Only process those VCF records with a 'PASS'
     :type pass_only: boolean
+    :param quality: filter on quality, FI=PASS
+    :type quality: boolean
     :param diploid: don't ignore hets and create 2 files
     :type diploid: boolean
     :return: Nothing
@@ -222,9 +230,10 @@ def patch(filename_original_fasta, filename_vcf, strain, filename_new_fasta_l, f
         all_diploids = [diploid] * len(all_start_pos)
         all_vcffiles = [filename_vcf] * len(all_start_pos)
         all_passonly = [pass_only] * len(all_start_pos)
+        all_quality = [quality] * len(all_start_pos)
 
         args = zip(all_vcffiles, all_chrom, all_start_pos, all_end_pos,
-                   all_sample_index, all_diploids, all_passonly)
+                   all_sample_index, all_diploids, all_passonly, all_quality)
 
         pool = multiprocessing.Pool(num_processes)
         results = pool.map(wrapper, args)
@@ -342,7 +351,7 @@ def prepare_fasta_patch(filename_fasta, filename_output, bgzip=False, diploid=Fa
 
 
 def fasta_patch(filename_fasta, filename_vcf, strain, filename_output, bgzip=False,
-                num_processes=None, pass_only=False, diploid=False):
+                num_processes=None, pass_only=False, quality=False, diploid=False):
     """
     Patch a Fasta file by replacing the bases where the SNPs are located in the VCF file.
 
@@ -360,6 +369,8 @@ def fasta_patch(filename_fasta, filename_vcf, strain, filename_output, bgzip=Fal
     :type num_processes: int
     :param pass_only: Only process those VCF records with a 'PASS'
     :type pass_only: boolean
+    :param quality: filter on quality, FI=PASS
+    :type quality: boolean
     :param diploid: don't ignore hets and create 2 files
     :type diploid: boolean
     :return: Nothing
@@ -373,6 +384,7 @@ def fasta_patch(filename_fasta, filename_vcf, strain, filename_output, bgzip=Fal
     LOG.info("VCF FILE: {0}".format(filename_vcf))
     LOG.info("STRAIN: {0}".format(strain))
     LOG.info("PASS FILTER ON: {0}".format(str(pass_only)))
+    LOG.info("QUALITY FILTER ON: {0}".format(str(quality)))
     LOG.info("DIPLOID: {0}".format(str(diploid)))
 
     if not strain:
@@ -404,7 +416,7 @@ def fasta_patch(filename_fasta, filename_vcf, strain, filename_output, bgzip=Fal
 
     try:
         patch(filename_fasta, filename_vcf, strain, filename_output_l, filename_output_r,
-              num_processes, pass_only, diploid)
+              num_processes, pass_only, quality, diploid)
 
         LOG.info("Patching complete")
 
