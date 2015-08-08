@@ -738,6 +738,7 @@ def command_fasta_patch(raw_args, prog=None):
     --diploid                        ignore hetorzygotes, create 2 files
     -n, --num_processes <number>     the number of processes to use, defaults to the number of cores
     -p, --pass                       use only VCF lines that have a PASS for the filter value
+    --quality                        filter on quality, FI=PASS
 
     Help Parameters:
     -h, --help                       print the help and exit
@@ -770,6 +771,7 @@ def command_fasta_patch(raw_args, prog=None):
     parser.add_argument("--diploid", dest="diploid", action='store_true')
     parser.add_argument("-n", "--numprocesses", type=int, dest="numprocesses", metavar="number_of_processes")
     parser.add_argument("-p", "--pass", dest="passonly", action='store_true')
+    parser.add_argument("--quality", dest="quality", action='store_true')
 
     # debugging and help
     parser.add_argument("-h", "--help", dest="help", action='store_true')
@@ -795,7 +797,7 @@ def command_fasta_patch(raw_args, prog=None):
         app_exit("No output Fasta file was specified.", parser)
 
     try:
-        fasta_patch(args.fasta, args.vcf, args.strain, args.output, args.bgzip, args.numprocesses, args.passonly, args.diploid)
+        fasta_patch(args.fasta, args.vcf, args.strain, args.output, args.bgzip, args.numprocesses, args.passonly, args.quality, args.diploid)
     except KeyboardInterrupt, ki:
         app_exit(ki, parser)
     except G2GValueError, e:
