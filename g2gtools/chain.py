@@ -522,7 +522,7 @@ class ChainIter(object):
             self.current_chain_header = [score, t_name, t_size, t_strand, t_start, t_end, q_name, q_size, q_strand, q_start, q_end, id]
 
             return self.current_chain_header
-        elif fields[0] != 'chain' and ((self.version == 1 and len(fields) == 3) or (self.version == 2 and len(fields) == 7)):
+        elif fields[0] != 'chain' and (len(fields) == 3 or len(fields) == 7):
             # normal data line
             return [int(fields[_size]), int(fields[_dt]), int(fields[_dq]), fields[_same_bases], fields[_dt_bases], fields[_dq_bases], fields[_vcf_pos]]
         elif fields[0] != 'chain' and len(fields) == 1:
