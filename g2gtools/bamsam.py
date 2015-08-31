@@ -929,14 +929,18 @@ def _cigar_fix_lengths(cigar, sequence):
                 before = cigar[x]
                 break
 
+
         for x in xrange(i+1, len(cigar)):
             if cigar[x].code == CIGAR_M:
                 after = cigar[x]
                 break
 
+        # special case of 89M2000N11M
+        # what happens when thi sis converted to 89M-1N11S (no M at end)
+        # we should have 89M11S
+
         LOG.debug("Before: {0}".format(before))
         LOG.debug("After: {0}".format(after))
-
 
         # check if all cigar elements from here to end do not have a length
         a = i
@@ -947,7 +951,7 @@ def _cigar_fix_lengths(cigar, sequence):
 
         # if a == len(cigar_mapping) -1 than all the rest have no length
         LOG.debug("a={0}, len(cigar_mapping) - 1={1}".format(a, len(cigar) - 1))
-        if a == len(cigar) - 1 and cigar[a].start == -1:
+        if (a == len(cigar) - 1 and cigar[a].start == -1) or not after or not before:
             # take the rest as a clip
             LOG.debug("Found a clip")
             temp_cigar_mappings = cigar[:i]
