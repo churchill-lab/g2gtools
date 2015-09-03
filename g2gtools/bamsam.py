@@ -296,14 +296,6 @@ def convert_bam_file(chain_file, file_in, file_out, reverse=False):
 
                 mappings = chain_file.find_mappings(read_chr, read_start, read_end)
 
-                print "alignment.aend={}".format(alignment.aend)
-                print "alignment.reference_end={}".format(alignment.reference_end)
-                print "alignment.query_alignment_end={}".format(alignment.query_alignment_end)
-                print "alignment.query_alignment_length={}".format(alignment.query_alignment_length)
-                print "alignment.get_reference_positions={}".format(alignment.get_reference_positions())
-
-
-
                 # unmapped
                 if mappings is None:
                     LOG.debug("\tFail due to no mappings")
