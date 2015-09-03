@@ -296,6 +296,14 @@ def convert_bam_file(chain_file, file_in, file_out, reverse=False):
 
                 mappings = chain_file.find_mappings(read_chr, read_start, read_end)
 
+                print "alignment.aend={}".format(alignment.aend)
+                print "alignment.reference_end={}".format(alignment.reference_end)
+                print "alignment.query_alignment_end={}".format(alignment.query_alignment_end)
+                print "alignment.query_alignment_length={}".format(alignment.query_alignment_length)
+                print "alignment.get_reference_positions={}".format(alignment.get_reference_positions())
+
+
+
                 # unmapped
                 if mappings is None:
                     LOG.debug("\tFail due to no mappings")
@@ -684,6 +692,8 @@ def _cigar_convert(cigar, chromosome, chain, strand='+', position=0):
 
         LOG.debug("Element #{0}, '{1}{2}' specified, location: {3}".format(cigar_no, c[1], CIGAR_N2C[c[0]], current_pos))
 
+        increment = c[1]
+
         if c[0] == CIGAR_m:
             new_mappings = chain.find_mappings(chromosome, current_pos, current_pos + c[1])
 
@@ -731,6 +741,8 @@ def _cigar_convert(cigar, chromosome, chain, strand='+', position=0):
             cigar_new.append(Cigar(CIGAR_I, c[1], 0, 0))
             cigar_new.append(Cigar(CIGAR_D, -1, 0, 0))
 
+            increment = 0
+
         elif c[0] == CIGAR_d:
 
             LOG.debug("Adding 'D'")
@@ -752,7 +764,9 @@ def _cigar_convert(cigar, chromosome, chain, strand='+', position=0):
             LOG.debug("OTHER CODE '{0}' found, looking at {1} at {2}".format(CIGAR_N2C[c[0]], c, current_pos))
             raise G2GCigarFormatError("ERROR: Not handling the values in this cigar string: {0}".format(cigar))
 
-        current_pos += c[1]
+        #current_pos += c[1]
+        current_pos += increment
+
         LOG.debug("Current CIGAR: {0}".format(cigar_new))
 
     return cigar_new
@@ -929,14 +943,18 @@ def _cigar_fix_lengths(cigar, sequence):
                 before = cigar[x]
                 break
 
+
         for x in xrange(i+1, len(cigar)):
             if cigar[x].code == CIGAR_M:
                 after = cigar[x]
                 break
 
+        # special case of 89M2000N11M
+        # what happens when thi sis converted to 89M-1N11S (no M at end)
+        # we should have 89M11S
+
         LOG.debug("Before: {0}".format(before))
         LOG.debug("After: {0}".format(after))
-
 
         # check if all cigar elements from here to end do not have a length
         a = i
@@ -947,7 +965,7 @@ def _cigar_fix_lengths(cigar, sequence):
 
         # if a == len(cigar_mapping) -1 than all the rest have no length
         LOG.debug("a={0}, len(cigar_mapping) - 1={1}".format(a, len(cigar) - 1))
-        if a == len(cigar) - 1 and cigar[a].start == -1:
+        if (a == len(cigar) - 1 and cigar[a].start == -1) or not after or not before:
             # take the rest as a clip
             LOG.debug("Found a clip")
             temp_cigar_mappings = cigar[:i]
@@ -967,7 +985,15 @@ def _cigar_fix_lengths(cigar, sequence):
 
             done = False
 
-    return cigar
+    LOG.debug("Removing 0 length elements, if any")
+    new_cigar = []
+    for cm in cigar:
+        if cm[1] == 0:
+            LOG.debug("Removing {}".format(cm))
+            continue
+        new_cigar.append(cm)
+
+    return new_cigar
 
 
 def convert_cigar(cigar, chromosome, chain, sequence, strand='+', position=0):
@@ -1013,13 +1039,6 @@ def convert_cigar(cigar, chromosome, chain, sequence, strand='+', position=0):
         LOG.debug("CIGAR CONVERSION : Skipping to end since only 1 element")
 
     else:
-
-        #
-        # PHASE: Remove 0 length elements
-        #
-
-        #LOG.debug("CIGAR CONVERSION : PHASE 2 : Remove 0 length elements")
-        #new_cigar = [cm for cm in new_cigar if cm[1] != 0]
 
         #
         # PHASE 2: Remove S if surrounded by M
