@@ -2,7 +2,16 @@
 
 from collections import OrderedDict
 import os
-from pysqlite2 import dbapi2 as sqlite3
+import sys
+try:
+    from pysqlite2 import dbapi2 as sqlite3
+except:
+    try:
+        import sqlite3
+    except:
+        print 'sqlite module needs to be installed'
+        sys.exit()
+
 import time
 
 from . import G2GValueError
