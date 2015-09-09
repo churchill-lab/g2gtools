@@ -189,8 +189,6 @@ class ChainFile:
                     if 'VERSION' == header_values[0].strip():
                         try:
                             self.version = int(header_values[1].strip())
-                            if self.check_version and self.version != self.check_version:
-                                raise G2GChainFileError("Invalid chain file version '{0}', requested '{1}'".format(self.version, self.check_version))
                         except ValueError, e:
                             raise G2GChainFileError("Invalid chain file version '{0}'".format(self.version))
                 continue
