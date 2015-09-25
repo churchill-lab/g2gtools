@@ -87,7 +87,11 @@ def process_piece(filename_vcf, chrom, chrom_length, sample_index, chain_info, d
         for vcf_rec in tb.fetch(chrom, parser=pysam.asVCF()):
             line_no += 1
 
-            gt = parse_gt_new(vcf_rec, sample_index)
+            try:
+                gt = parse_gt_new(vcf_rec, sample_index)
+            except:
+                LOG.info("Unable to parse record, improper VCF file?")
+                continue
 
             LOG.debug('\n')
             LOG.debug(vcf_rec)
@@ -148,8 +152,8 @@ def process_piece(filename_vcf, chrom, chrom_length, sample_index, chain_info, d
 
                 if gt.ref == alt_seq:
 
-                    LOG.debug("TOSSED, REF AND ALT ARE EQUAL")
-                    lr.stats = update_stats(lr.stats, 'REF AND ALT ARE EQUAL')
+                    LOG.debug("TOSSED, REF AND ALT SAME")
+                    lr.stats = update_stats(lr.stats, 'REF AND ALT SAME')
 
                     if vcf_keep:
                         vcf_discard.write(vcf_rec)
