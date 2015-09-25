@@ -171,6 +171,12 @@ SELECT g._key, g.ensembl_id transcript_id, g.seqid transcript_seqid, g.start tra
 
 SQL_TRANSCRIPTS_SIMPLE_ORDER_BY = " ORDER BY l._key "
 
+def count_me(conn, table):
+    c = conn.cursor()
+    c.execute("select count(1) from {}".format(table))
+    for row in c:
+        print str(row)
+    c.close()
 
 def gtf2db(input_file, output_file):
     """
@@ -198,6 +204,8 @@ def gtf2db(input_file, output_file):
     c.execute(SQL_CREATE_GTF_SOURCES_TABLE)
     c.execute(SQL_CREATE_GTF_TYPES_TABLE)
     c.execute(SQL_CREATE_GTF_ATTRIBUTES_TABLE)
+
+
 
     gtf_types = {}
     gtf_sources = {}
@@ -262,12 +270,15 @@ def gtf2db(input_file, output_file):
 
     for source, _key in gtf_sources.iteritems():
         c.execute(SQL_INSERT_GTF_SOURCES_TABLE, (_key, source))
+        conn.commit()
 
     for type, _key in gtf_types.iteritems():
         c.execute(SQL_INSERT_GTF_TYPES_TABLE, (_key, type))
+        conn.commit()
 
     for attribute, _key in gtf_attributes.iteritems():
         c.execute(SQL_INSERT_GTF_ATTRIBUTES_TABLE, (_key, attribute))
+        conn.commit()
 
     LOG.info("GTF File parsed")
 
