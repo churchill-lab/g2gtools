@@ -61,7 +61,7 @@ def _show_error():
 
 def update_stats(stats, reason):
     if not stats:
-        stats = {}
+        stats = OrderedDict()
 
     if reason in stats:
         stats[reason] += 1
@@ -70,10 +70,12 @@ def update_stats(stats, reason):
 
     return stats
 
+
 def process_piece(filename_vcf, chrom, chrom_length, sample_index, chain_info, diploid, passed, quality, vcf_keep, vcf_discard_file):
     ret = {'chrom': chrom, 'stats': {}, 'chain_info': chain_info}
 
-    stats = {}
+    stats = OrderedDict()
+    stats['ACCEPTED'] = 0
 
     if vcf_keep:
         vcf_discard = open(vcf_discard_file, "w")
@@ -122,8 +124,8 @@ def process_piece(filename_vcf, chrom, chrom_length, sample_index, chain_info, d
 
             elif gt.left is None and gt.right is None:
 
-                LOG.debug("TOSSED: NO STRAIN DATA")
-                stats = update_stats(stats, 'NO STRAIN DATA')
+                LOG.debug("TOSSED: NOT RELEVANT")
+                stats = update_stats(stats, 'NOT RELEVANT')
 
                 if vcf_keep:
                     vcf_discard.write(vcf_rec)
@@ -152,8 +154,8 @@ def process_piece(filename_vcf, chrom, chrom_length, sample_index, chain_info, d
 
                 if gt.ref == alt_seq:
 
-                    LOG.debug("TOSSED, REF AND ALT SAME")
-                    lr.stats = update_stats(lr.stats, 'REF AND ALT SAME')
+                    LOG.debug("TOSSED, SAME AS REF")
+                    lr.stats = update_stats(lr.stats, 'SAME AS REF')
 
                     if vcf_keep:
                         vcf_discard.write(vcf_rec)
@@ -175,9 +177,9 @@ def process_piece(filename_vcf, chrom, chrom_length, sample_index, chain_info, d
                 base_pos_diff = 0
 
                 if position < lr.prev_next_ref_pos:
-                    LOG.debug("TOSSED: VCF ROLLBACK: {0}".format(vcf_rec))
+                    LOG.debug("TOSSED: CONFLICTING VCF ENTRIES: {0}".format(vcf_rec))
 
-                    lr.stats = update_stats(lr.stats, 'VCF ROLLBACK')
+                    lr.stats = update_stats(lr.stats, 'CONFLICTING VCF ENTRIES')
 
                     if vcf_keep:
                         vcf_discard.write(vcf_rec)
@@ -225,9 +227,9 @@ def process_piece(filename_vcf, chrom, chrom_length, sample_index, chain_info, d
 
                 # fix any 0 length
                 if fragment_size < 0:
-                    LOG.debug("TOSSED: FRAGMENT: {0}".format(vcf_rec))
+                    LOG.debug("TOSSED: CONFLICTING VCF ENTRIES: {0}".format(vcf_rec))
 
-                    lr.stats = update_stats(lr.stats, 'FRAGMENT SIZE < 0')
+                    lr.stats = update_stats(lr.stats, 'CONFLICTING VCF ENTRIES')
 
                     if vcf_keep:
                         vcf_discard.write(vcf_rec)
@@ -259,7 +261,6 @@ def process_piece(filename_vcf, chrom, chrom_length, sample_index, chain_info, d
                 #lr.prev_chrom = vcf_rec.contig
             chain_info[ci] = lr
 
-
         for ci, lr in chain_info.iteritems():
             #LOG.debug("CHROMOSOME[{0}] LENGTH = {1}".format(lr.prev_chrom, chrom_length))
 
@@ -274,17 +275,16 @@ def process_piece(filename_vcf, chrom, chrom_length, sample_index, chain_info, d
         if vcf_keep:
             vcf_discard.close()
 
-
     except KeyboardInterrupt:
         raise KeyboardInterruptError()
     except Exception, e:
-        #_show_error()
         pass
 
     ret['stats'] = stats
     ret['chain_info'] = chain_info
 
     return ret
+
 
 def wrapper(args):
     """
@@ -294,6 +294,7 @@ def wrapper(args):
     :return: the same as process_piece
     """
     return process_piece(*args)
+
 
 def log_stats(stats):
     LOG.info("STATISTICS")
@@ -402,6 +403,7 @@ def vcf2chain(input_file, fasta_file, strain, output_file, vcf_keep=False, passe
                    all_quality, all_vcf_keep, all_vcf_discard_file)
 
         pool = multiprocessing.Pool(8)
+        #pool = multiprocessing.Pool(1)
         results = pool.map(wrapper, args)
 
         # parse results
@@ -454,7 +456,7 @@ def vcf2chain(input_file, fasta_file, strain, output_file, vcf_keep=False, passe
                     write(CHAIN_STRING.format(CHAIN_STRING,
                         from_chr=c['chrom'], from_length=chrom_length,
                         from_start=0, from_end=chrom_length,
-                        to_chr=seqid, to_length=chrom_length,
+                        to_chr=c['chrom'], to_length=chrom_length,
                         to_start=0, to_end=chrom_length, id=c['chrom']))
 
                     write("\n")
