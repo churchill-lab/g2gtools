@@ -450,7 +450,7 @@ def convert_bam_file(chain_file, file_in, file_out, reverse=False):
                     new_file.write(alignment_new)
                     map_statistics_pair['success_1_simple_2_complex'] += 1
 
-                elif read1_mappings and len(read2_mappings) > 1 and read2_mappings is None:
+                elif read1_mappings and len(read1_mappings) > 1 and read2_mappings is None:
 
                     alignment_new.flag |= FLAG_MUNMAP
 
