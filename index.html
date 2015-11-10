@@ -97,20 +97,22 @@
 </select>
 
 <ul id="menu">
-    <li data-menuanchor="firstPage"><a href="#firstPage">Overview</a></li>
-    <li data-menuanchor="secondPage"><a href="#secondPage">Installation</a></li>
-    <li data-menuanchor="3rdPage"><a href="#3rdPage">Third slide</a></li>
-    <li data-menuanchor="4thpage"><a href="#4thpage">Fourth slide</a></li>
+    <li data-menuanchor="overview"><a href="#overview">Overview</a></li>
+    <li data-menuanchor="installation"><a href="#installation">Installation</a></li>
+    <li data-menuanchor="quickstart"><a href="#quickstart">Quick Start</a></li>
+    <li data-menuanchor="features"><a href="#features">Features</a></li>
+    <li data-menuanchor="contributing"><a href="#contributing">Contributing</a></li>
+    <li data-menuanchor="history"><a href="#history">History</a></li>
+    <li data-menuanchor="credit"><a href="#credit">Credit</a></li>
 </ul>
 
 <div id="fullpage">
 
     <div class="section" id="section0">
-        <h1>g2gtools</h1>
+        <h1>Overview</h1>
 
-        <p>Create Beautiful Fullscreen Scrolling Websites</p>
-
-        <h3>KB is the man!</h3>
+        <p>g2gtools is a suite of tools that support creation of custom genomes/transcriptomes by incorporating genetic
+            variants (snps and indels) into a reference genome. g2gtools and </p>
         <img src="imgs/fullPage.png" alt="fullPage"/>
     </div>
 
@@ -195,7 +197,7 @@
 
         $('#fullpage').fullpage({
             sectionsColor: ['#1bbc9b', '#4BBFC3', '#7BAABE', 'whitesmoke', '#ccddff'],
-            anchors: ['firstPage', 'secondPage', '3rdPage', '4thpage', 'lastPage'],
+            anchors: ['overview', 'installation', 'quickstart', 'features', 'lastPage'],
             menu: '#menu',
             scrollingSpeed: 500
         });
