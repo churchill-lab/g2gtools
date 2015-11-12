@@ -357,6 +357,12 @@ def convert_bam_file(chain_file, file_in, file_out, reverse=False):
                 read1_strand = '-' if alignment.is_reverse else '+'
                 read1_mappings = chain_file.find_mappings(read1_chr, read1_start, read1_end) #, read1_strand)
 
+                read2_chr = None
+                read2_start = None
+                read2_end = None
+                read2_strand = None
+                read2_mappings = None
+
                 if alignment.mate_is_unmapped:
                     alignment_new.flag |= FLAG_MUNMAP
                 else:
@@ -365,7 +371,7 @@ def convert_bam_file(chain_file, file_in, file_out, reverse=False):
                     read2_end = read2_start + 1
                     read2_strand = '-' if alignment.mate_is_reverse else '+'
                     try:
-                        read2_mappings = chain_file.find_mappings(read2_chr, read2_start, read2_end) #, read2_strand)
+                        read2_mappings = chain_file.find_mappings(read2_chr, read2_start, read2_end)
                     except:
                         read2_mappings = None
 
