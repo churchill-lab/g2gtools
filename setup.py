@@ -41,25 +41,25 @@ except ImportError:
     from distutils.command.build_py import build_py
 command_classes['build_py'] = build_py
 
-requirements = []
+#requirements = []
 
-with open('requirements.txt') as requirements_file:
-    for line in requirements_file:
-        requirements.append(line.strip())
+#with open('requirements.txt') as requirements_file:
+#    for line in requirements_file:
+#        requirements.append(line.strip())
 
-test_requirements = [
-    # TODO: put package test requirements here
-]
+#test_requirements = [
+#    # TODO: put package test requirements here
+#]
 
 
 import os
 on_rtd = os.environ.get('READTHEDOCS', None)
 
 if not on_rtd:
-    requirements.append('bx-python>=0.7.2')
-    requirements.append('pysam>=0.8.1')
-    requirements.append('biopython>=1.63')
-    requirements.append('pysqlite>=2.6.3')
+#    requirements.append('bx-python>=0.7.2')
+#    requirements.append('pysam>=0.8.1')
+#    requirements.append('biopython>=1.63')
+#    requirements.append('pysqlite>=2.6.3')
 
 import g2gtools
 
@@ -85,7 +85,7 @@ def main():
         ext_modules=get_extension_modules(),
         cmdclass=command_classes,
         include_package_data=True,
-        install_requires=requirements,
+        #install_requires=requirements,
         license="GPLv3",
         keywords='g2gtools',
         classifiers=[
@@ -98,7 +98,7 @@ def main():
             'Programming Language :: Python :: 2.7'
         ],
         test_suite='tests',
-        tests_require=test_requirements,
+        #tests_require=test_requirements,
         zip_safe=False
     )
 
