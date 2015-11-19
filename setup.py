@@ -55,7 +55,7 @@ command_classes['build_py'] = build_py
 import os
 on_rtd = os.environ.get('READTHEDOCS', None)
 
-if not on_rtd:
+#if not on_rtd:
 #    requirements.append('bx-python>=0.7.2')
 #    requirements.append('pysam>=0.8.1')
 #    requirements.append('biopython>=1.63')
