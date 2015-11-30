@@ -73,7 +73,7 @@ def main():
 
     setup(
         name='g2gtools',
-        version='v0.1.18',
+        version='v0.1.19',
         description="A set of tools that facilitates genome to genome conversion for studying multiparent populations",
         long_description=readme + '\n\n' + history,
         author='Kwangbom "KB" Choi & Matthew Vincent, The Jackson Laboratory',
