@@ -137,7 +137,7 @@ def parse_gt(vcf_record, sample_index):
     :type sample_index: int
     :return: :class:`.vcf.GTData`
     """
-    if not sample_index:
+    if sample_index is None:
         raise G2GVCFError("Sample index must contain a value")
 
     sample_data = vcf_record.SAMPLES[sample_index]
@@ -201,7 +201,7 @@ def parse_gt_new(vcf_tuple, sample_index):
     :type sample_index: int
     :return: :class:`.vcf.GTData`
     """
-    if not sample_index:
+    if sample_index is None:
         raise G2GVCFError("Sample index must contain a value")
 
     sample_data = vcf_tuple[sample_index]
