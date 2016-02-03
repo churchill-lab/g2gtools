@@ -14,9 +14,9 @@ Contents:
    readme
    installation
    usage
-   contributing
    authors
    history
+   contributing
 
 Indices and tables
 ==================

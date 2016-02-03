@@ -73,13 +73,13 @@ def main():
 
     setup(
         name='g2gtools',
-        version='v0.1.19',
+        version='v0.1.20',
         description="A set of tools that facilitates genome to genome conversion for studying multiparent populations",
         long_description=readme + '\n\n' + history,
         author='Kwangbom "KB" Choi & Matthew Vincent, The Jackson Laboratory',
         author_email='kb.choi@jax.org',
-        url='https://github.com/jax-cgd/g2gtools',
-        packages = find_packages('.'),
+        url='https://github.com/churchill-lab/g2gtools',
+        packages=find_packages('.'),
         package_dir={'g2gtools': 'g2gtools'},
         scripts=glob("bin/*"),
         ext_modules=get_extension_modules(),
