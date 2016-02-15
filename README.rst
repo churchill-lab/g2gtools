@@ -8,9 +8,6 @@ g2gtools
 .. image:: https://travis-ci.org/churchill-lab/g2gtools.png?branch=master
     :target: https://travis-ci.org/churchill-lab/g2gtools
 
-.. image:: https://pypip.in/d/g2gtools/badge.png
-    :target: https://pypi.python.org/pypi/g2gtools
-
 .. image:: https://readthedocs.org/projects/g2gtools/badge/?version=latest
     :target: http://g2gtools.readthedocs.org/en/latest/?badge=latest
     :alt: Documentation Status

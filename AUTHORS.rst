@@ -5,13 +5,8 @@ Credits
 Development Lead
 ----------------
 
-* Software design
-
-    - Kwangbom "KB" Choi, The Jackson Laboratory <kb.choi@jax.org>
-
-* Software engineering
-
-    - Matthew Vincent, The Jackson Laboratory <matt.vincent@jax.org>
+* Software design: **Kwangbom "KB" Choi, Ph. D.**, The Jackson Laboratory <kb.choi@jax.org>
+* Software engineering: **Matthew Vincent**, The Jackson Laboratory <matt.vincent@jax.org>
 
 Contributors
 ------------
