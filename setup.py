@@ -61,7 +61,7 @@ if not on_rtd:
     requirements.append('biopython>=1.63')
     requirements.append('pysqlite>=2.6.3')
 
-#import g2gtools
+import g2gtools
 
 
 def main():
@@ -73,7 +73,7 @@ def main():
 
     setup(
         name='g2gtools',
-        version='v0.1.20',
+        version=g2gtools.__version__,
         description="A set of tools that facilitates genome to genome conversion for studying multiparent populations",
         long_description=readme + '\n\n' + history,
         author='Kwangbom "KB" Choi & Matthew Vincent, The Jackson Laboratory',
