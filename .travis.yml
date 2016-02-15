@@ -17,7 +17,7 @@ install:
   - conda config --set always_yes yes --set changeps1 no
   - conda update -q conda
   - conda info -a
-  - conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION biopython>=1.63
+  - conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION biopython>=1.63 cython pysqlite>=2.6.3
   - source activate test-environment
   - conda install -c https://conda.binstar.org/bcbio pysam
   - conda install -c https://conda.binstar.org/bcbio bx-python
