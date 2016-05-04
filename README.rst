@@ -8,6 +8,9 @@ g2gtools
 .. image:: https://travis-ci.org/churchill-lab/g2gtools.png?branch=master
     :target: https://travis-ci.org/churchill-lab/g2gtools
 
+.. image:: https://anaconda.org/kbchoi/g2gtools/badges/version.svg
+    :target: https://anaconda.org/kbchoi/g2gtools
+
 .. image:: https://readthedocs.org/projects/g2gtools/badge/?version=latest
     :target: http://g2gtools.readthedocs.org/en/latest/?badge=latest
     :alt: Documentation Status
