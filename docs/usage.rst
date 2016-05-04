@@ -5,6 +5,10 @@ Usage
 To use g2gtools in command line
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+**Note:** We will assume you installed g2gtools in its own conda virtual environment. First of all, you have to "activate" the virtual environment by doing the following::
+
+    source activate g2gtools
+
 To create a custom genome, we need the following information::
 
     ${REF}         reference genome in fasta format
