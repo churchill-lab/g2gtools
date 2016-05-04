@@ -48,7 +48,7 @@ requirements = []
 #        requirements.append(line.strip())
 
 test_requirements = [
-    # TODO: put package test requirements here
+    'pytest'
 ]
 
 
@@ -89,12 +89,11 @@ def main():
         license="GPLv3",
         keywords='g2gtools',
         classifiers=[
-            'Development Status :: 2 - Pre-Alpha',
+            'Development Status :: 4 - Beta',
             'Intended Audience :: Developers',
             'Intended Audience :: Science/Research',
             'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
             'Natural Language :: English',
-            'Programming Language :: Python :: 2',
             'Programming Language :: Python :: 2.7'
         ],
         test_suite='tests',
