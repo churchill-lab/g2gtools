@@ -3,10 +3,9 @@
 History
 -------
 
-0.1.24 (02/15/2016)
+0.1.25 (05/04/2016)
 ~~~~~~~~~~~~~~~~~~~
 
-* Lowered pysam version requirement (>=0.6) for more flexible installation
 * Uploaded the package to Anaconda.org
 
 0.1.23 (02/15/2016)

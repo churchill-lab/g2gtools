@@ -29,7 +29,6 @@ class TestG2gtools(unittest.TestCase):
         os.mkdir(self.output_dir)
         self.output_file = os.path.join(self.output_dir, "example1.out.sam")
 
-
     def test_example1(self):
         """
         TODO: Not working yet
