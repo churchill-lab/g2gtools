@@ -3,10 +3,11 @@
 History
 -------
 
-0.1.25 (05/04/2016)
+0.1.26 (05/04/2016)
 ~~~~~~~~~~~~~~~~~~~
 
 * Uploaded the package to Anaconda.org
+* Fixed Travis CI fail
 
 0.1.23 (02/15/2016)
 ~~~~~~~~~~~~~~~~~~~
