@@ -57,7 +57,7 @@ on_rtd = os.environ.get('READTHEDOCS', None)
 
 if not on_rtd:
     requirements.append('bx-python>=0.7.2')
-    requirements.append('pysam>=0.6')
+    requirements.append('pysam>=0.8.3')
     requirements.append('biopython>=1.63')
     requirements.append('pysqlite>=2.6.3')
 
