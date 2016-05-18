@@ -3,6 +3,11 @@
 History
 -------
 
+0.1.29 (05/17/2016)
+~~~~~~~~~~~~~~~~~~~
+
+* Fixed parsing issue with GATK-generated VCF files
+
 0.1.27 (05/04/2016)
 ~~~~~~~~~~~~~~~~~~~
 
