@@ -205,6 +205,7 @@ def parse_gt_new(vcf_tuple, sample_index):
         raise G2GVCFError("Sample index must contain a value")
 
     sample_data = vcf_tuple[sample_index]
+
     gt = None
     fi = None
     left = None
@@ -213,7 +214,11 @@ def parse_gt_new(vcf_tuple, sample_index):
 
     if sample_data != '.':
         gt_index = vcf_tuple.format.split(':').index('GT')
-        fi_index = vcf_tuple.format.split(':').index('FI')
+
+        try:
+            fi_index = vcf_tuple.format.split(':').index('FI')
+        except:
+            fi_index = None
 
         try:
             # parse the GT field
@@ -245,11 +250,15 @@ def parse_gt_new(vcf_tuple, sample_index):
             LOG.debug(ve)
         except IndexError, ie:
             LOG.debug(ie)
-        try:
-            fi = sample_data.split(':')[fi_index]
-        except ValueError, ve:
-            LOG.debug(ve)
-        except IndexError, ie:
-            LOG.debug(ie)
+
+        if fi_index is not None:
+            try:
+                fi = sample_data.split(':')[fi_index]
+            except ValueError, ve:
+                LOG.debug(ve)
+            except IndexError, ie:
+                LOG.debug(ie)
+        else:
+            fi = None
 
     return GTData(vcf_tuple.ref, left, right, gt, fi, phase)
