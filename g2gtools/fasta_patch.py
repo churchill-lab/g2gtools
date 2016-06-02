@@ -69,6 +69,21 @@ def get_pos(fai, chromosome, start, end):
     byte_end = fai_entry_offset + newlines_total + fai_entry_length
     return byte_start, byte_end, byte_len_seq
 
+def _show_error():
+    import traceback, sys
+    """
+    show system errors
+    """
+    et, ev, tb = sys.exc_info()
+
+    print "Error Type: %s" % et
+    print "Error Value: %s" % ev
+    while tb :
+        co = tb.tb_frame.f_code
+        filename = str(co.co_filename)
+        line_no = str(traceback.tb_lineno(tb))
+        print '    %s:%s' % (filename, line_no)
+        tb = tb.tb_next
 
 def process_piece(filename_vcf, chrom, start, end, sample_index, diploid, pass_only, quality):
     """
@@ -108,9 +123,6 @@ def process_piece(filename_vcf, chrom, start, end, sample_index, diploid, pass_o
 
             byte_start, byte_end, byte_len_seq = get_pos(fasta_index, rec.CHROM, rec.POS-1, rec.POS)
             gt = parse_gt(rec, sample_index)
-
-            #LOG.debug(rec)
-            #LOG.debug(gt)
 
             # FI : Whether a sample was a Pass(1) or fail (0) based on FILTER values
             if quality and gt.fi is not None and gt.fi == '0':
