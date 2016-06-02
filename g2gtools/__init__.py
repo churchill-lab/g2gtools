@@ -14,7 +14,7 @@ from .vcf2chain import vcf2chain
 from .bins import bins
 
 
-__version__ = '0.1.28'
+__version__ = '0.1.30'
 __author__ = 'Matthew Vincent, The Jackson Laboratory'
 __email__ = 'matt.vincent@jax.org'
 

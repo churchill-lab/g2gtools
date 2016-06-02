@@ -113,7 +113,7 @@ def process_piece(filename_vcf, chrom, start, end, sample_index, diploid, pass_o
             #LOG.debug(gt)
 
             # FI : Whether a sample was a Pass(1) or fail (0) based on FILTER values
-            if quality and gt.fi == '0':
+            if quality and gt.fi is not None and gt.fi == '0':
                 continue
 
             global mm_l
