@@ -15,6 +15,8 @@ g2gtools
     :target: http://g2gtools.readthedocs.org/en/latest/?badge=latest
     :alt: Documentation Status
 
+.. image:: https://zenodo.org/badge/39776319.svg
+    :target: https://zenodo.org/badge/latestdoi/39776319
 
 **g2gtools** creates custom genomes by incorporating (phased) SNPs and indels into reference genome, extracts regions of interest, e.g., exons or transcripts, from custom genomes, and converts coordinates of files (bam, gtf, bed) between two genomes.
 
@@ -25,4 +27,4 @@ g2gtools
 Reference
 ~~~~~~~~~
 
-Manuscript in preparation (expected in 2016).
+Manuscript in preparation (expected in 2017)
