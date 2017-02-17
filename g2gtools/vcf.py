@@ -7,6 +7,7 @@
 
 
 from collections import namedtuple
+from collections import namedtuple
 
 from .g2g_utils import get_logger
 from .g2g_fileutils import open_resource
@@ -149,7 +150,11 @@ def parse_gt(vcf_record, sample_index):
 
     if sample_data != '.':
         gt_index = vcf_record.FORMAT.split(':').index('GT')
-        fi_index = vcf_record.FORMAT.split(':').index('FI')
+
+        try:
+            fi_index = vcf_record.FORMAT.split(':').index('FI')
+        except:
+            fi_index = None
 
         try:
             # parse the GT field
@@ -181,12 +186,16 @@ def parse_gt(vcf_record, sample_index):
             LOG.debug(ve)
         except IndexError, ie:
             LOG.debug(ie)
-        try:
-            fi = sample_data.split(':')[fi_index]
-        except ValueError, ve:
-            LOG.debug(ve)
-        except IndexError, ie:
-            LOG.debug(ie)
+
+        if fi_index is not None:
+            try:
+                fi = sample_data.split(':')[fi_index]
+            except ValueError, ve:
+                LOG.debug(ve)
+            except IndexError, ie:
+                LOG.debug(ie)
+        else:
+            fi = None
 
     return GTData(vcf_record.REF, left, right, gt, fi, phase)
 
