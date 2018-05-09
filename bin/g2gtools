@@ -45,14 +45,14 @@ if len(failed_modules) > 0:
 class G2GToolsApp(object):
     """
     The most commonly used commands are:
-       vcf2vci       create VCI file from VCF file(s)
-       patch         replace bases in a fasta file from SNPs specified in a VCI file
-       transform     incorporate indels specified in a VCI file
-       convert       liftover coordinates
-       extract       get subsequences from fasta file
+       vcf2vci       Creates VCI file from VCF file(s)
+       patch         Replaces bases in a fasta file from SNPs specified in a VCI file
+       transform     Incorporates indels specified in a VCI file
+       convert       Lifts over coordinates
+       extract       Gets subsequences from fasta file
 
     Other commands:
-       gtf2db        create db file from GTF annotations
+       gtf2db        Creates db file from GTF annotations
 
     """
 
