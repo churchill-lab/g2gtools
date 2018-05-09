@@ -147,7 +147,7 @@ def command_vcf2vci(raw_args, prog=None):
         --keep                           Keep track of VCF lines that could not be converted to VCI file
         --pass                           Use only VCF lines that have a PASS for the filter value
         --quality                        Filter on quality, FI=PASS
-        --no-bgzip                        DO NOT compress and index output
+        --no-bgzip                       DO NOT compress and index output
 
     Help Parameters:
         -h, --help                       Print the help and exit
@@ -234,7 +234,7 @@ def command_fasta_extract(raw_args, prog=None):
         -R, --vci-reverse                Reverse the direction of liftover
         --complement                     Complement the extracted sequence
         --reverse                        Reverse the extracted sequence
-        --reverse-complement              Reverse complement the extracted sequence
+        --reverse-complement             Reverse complement the extracted sequence
         --raw                            Just shows the extracted sequence
 
     Help Parameters:
@@ -741,7 +741,7 @@ def command_fastaformat(raw_args, prog=None):
     Optional Parameters:
         -l, --length <line_length>       The length of the line, defaults to 60
         -o, --output <output_file>       Output fasta file
-        -s, --seqids <seqids>            Comma seperated list of seqids
+        -s, --seqids <seqids>            Comma separated list of seqids
 
     Help Parameters:
         -h, --help                       Print the help and exit
@@ -803,12 +803,12 @@ def command_gtf2db(raw_args, prog=None):
     Usage: gtf2db -i <GTF file> -o <G2G DB file> [options]
 
     Required Parameters:
-    -i, --input <GTF file>           GTF file to parse
-    -o, --output <G2G DB file>       G2G DB file to create
+        -i, --input <GTF file>           GTF file to parse
+        -o, --output <G2G DB file>       G2G DB file to create
 
     Help Parameters:
-    -h, --help                       Print the help and exit
-    -d, --debug                      Turn debugging mode on, list multiple times for more messages
+        -h, --help                       Print the help and exit
+        -d, --debug                      Turn debugging mode on (list multiple times for more messages)
 
     """
 
@@ -873,7 +873,7 @@ def command_vciquery(raw_args, prog=None):
 
     Help Parameters:
         -h, --help                       Print the help and exit
-        -d, --debug                      Turn debugging mode on, list multiple times for more messages
+        -d, --debug                      Turn debugging mode on (list multiple times for more messages)
 
     """
 

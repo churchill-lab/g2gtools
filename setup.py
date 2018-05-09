@@ -28,8 +28,6 @@ if not on_rtd:
     requirements.append('natsort>=5.0.1')
     requirements.append('future>=0.15')
 
-
-
 setup(
     name='g2gtools',
     version='0.3.0',
