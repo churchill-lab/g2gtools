@@ -15,8 +15,12 @@ install:
   - bash miniconda.sh -b -p $HOME/miniconda
   - export PATH="$HOME/miniconda/bin:$PATH"
   - hash -r
-  - conda config --set always_yes yes --set changeps1 no
+  - conda config --remove channels defaults
+  - conda config --add channels defaults
   - conda config --add channels conda-forge
+  - conda config --set show_channel_urls true
+  - conda install --yes --quiet conda-forge-build-setup
+  - conda config --set always_yes yes --set changeps1 no
   - conda update -q conda
   - conda info -a
   - conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION cython
