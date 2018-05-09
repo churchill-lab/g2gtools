@@ -4,11 +4,12 @@
 
 BIN_NEXT_SHIFT = 3    # How much to shift to get to finest bin
 BIN_FIRST_SHIFT = 17  # How much to shift to get to next larger bin
-#BIN_OFFSETS = [32768+4096+512+64+8+1, 4096+512+64+8+1, 512+64+8+1, 64+8+1, 8+1, 1, 0]
 BIN_OFFSETS = [4096+512+64+8+1, 512+64+8+1, 64+8+1, 8+1, 1, 0]
-#BIN_OFFSETS = [512+64+8+1, 64+8+1, 8+1, 1, 0]
+#BIN_OFFSETS = [32768+4096+512+64+8+1, 4096+512+64+8+1, 512+64+8+1, 64+8+1, 8+1, 1, 0]
+
 # for BED (0-based, half-open) or GFF (1-based, closed intervals)
 COORD_OFFSETS = {'bed': 0, 'gff': 1}
+
 
 def bins(start, stop, fmt='gff', one=True):
     """
@@ -61,7 +62,7 @@ def bin_info():
     """
     Useful for debugging: how large is each bin, and what are the bin IDs?
     """
-    print "level\t#bins\tstart\tend\tsize"
+    print("level\t#bins\tstart\tend\tsize")
     level = -1
     for i, offset in reversed(list(enumerate(BIN_OFFSETS))):
         level += 1
@@ -91,4 +92,8 @@ def bin_info():
 
 if __name__ == "__main__":
     bin_info()
+    print(bins(10000, 20000, one=False))
+    print(bins(10000, 10001, one=True))
+    print(bins(50000000, 60000000, one=False))
+    print(bins(50000000, 60000001, one=True))
 

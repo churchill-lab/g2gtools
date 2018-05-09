@@ -4,86 +4,116 @@
 # Collection of g2g utility functions and classes
 #
 
-import logging
-import os
+from __future__ import print_function
+from __future__ import with_statement
+from past.builtins import cmp, xrange
+from future.utils import bytes_to_native_str as n
+
+
+import itertools
 import re
+import random
+import string
 import sys
+import tempfile
+import traceback
 
-from itertools import izip_longest
-from string import maketrans
+from natsort import natsorted as _natsorted
 
-from . import G2GLocationError, G2GValueError
+from . import exceptions
+from . import compat
 
 REGEX_LOCATION = re.compile("(\w*)\s*(-|:)?\s*(\d+)\s*(MB|M|K|)?\s*(-|:|)?\s*(\d+|)\s*(MB|M|K|)?", re.IGNORECASE)
 REGEX_LOCATION_CHR = re.compile("(CHR|)*\s*([0-9]{1,2}|X|Y|MT)\s*(-|:)?\s*(\d+)\s*(MB|M|K|)?\s*(-|:|)?\s*(\d+|)\s*(MB|M|K|)?", re.IGNORECASE)
-BASES = re.compile(r"([ACTGNactgn]+)")
-TRANS = maketrans('ACTGNactgn', 'TGACNtgacn')
+BASES = re.compile(r"([ATGCYRSWKMBDHVNatgcyrswkmbdhvn]+)")
 
-LOG = logging.getLogger('G2G')
+if compat.is_py2:
+    TRANS = string.maketrans('ATGCYRSWKMBDHVNatgcyrswkmbdhvn',
+                             'TACGRYSWMKVHDBNtacgryswmkvhdbn')
+else:
+    TRANS = str.maketrans('ATGCYRSWKMBDHVNatgcyrswkmbdhvn',
+                          'TACGRYSWMKVHDBNtacgryswmkvhdbn')
 
 
-class Location(object):
-    def __init__(self, seqid, start=None, end=None, strand='+', name=None, original_base=0):
-        if start:
-            end = end if end else start + 1
-        self.seqid = seqid
-        self._strand = None
-        self._start = None
-        self._end = None
-        self.original_base = original_base
-        self.strand = strand
-        self.start = start
-        self.end = end
-        self.name = name
 
-    @property
-    def strand(self):
-        return self._strand
+def s(value):
+    if compat.is_py2:
+        if isinstance(value, unicode):
+            return value.decode('ascii', 'ignore')
 
-    @strand.setter
-    def strand(self, value):
-        if value is not None:
-            if value in ('+', '1', 1):
-                self._strand = '+'
-            elif value in ('-', '-1', -1):
-                self._strand = '-'
-            else:
-                raise G2GLocationError("Illegal value for strand {0}, must be +, -, 1, -1".format(value))
+        if isinstance(value, str):
+            return value
 
-    @property
-    def start(self):
-        return self._start
+    else:
+        if isinstance(value, bytes):
+            return n(value)
 
-    @start.setter
-    def start(self, value):
-        if value is not None:
-            if value < 0:
-                raise G2GLocationError("Illegal value for start {0}, start must be >= 0".format(value))
-            self._start = value
+        if isinstance(value, str):
+            return value
 
-    @property
-    def end(self):
-        return self._end
+    return value
 
-    @end.setter
-    def end(self, value):
-        if value is not None:
-            if self.start and value <= self.start:
-                raise G2GLocationError("Illegal value for end {0}, end must be >= start {1}".format(value, self.start))
+def _show_error():
+    """
+    show system errors
+    """
+    et, ev, tb = sys.exc_info()
 
-            self._end = value
-        else:
-            if self.start:
-                self._end = self.start + 1
+    print("Error Type: {}".format(et))
+    print("Error Value: {}".format(ev))
+    print(str(tb))
+    while tb :
+        co = tb.tb_frame.f_code
+        filename = str(co.co_filename)
+        line_no = str(tb.tb_lineno)
+        print('    {}:{}'.format(filename, line_no))
+        tb = tb.tb_next
 
-    def __str__(self):
-        if self.original_base == 1:
-            return "{0}:{1}-{2} ({3})".format(self.seqid, self.start+1, self.end, self.strand)
-        else:
-            return "{0}:{1}-{2} ({3})".format(self.seqid, self.start, self.end, self.strand)
 
-    def __repr__(self):
-        return "{0}:{1}-{2} ({3})".format(self.seqid, self.start, self.end, self.strand)
+def try_int(s):
+    """
+    Convert to integer if possible.
+    """
+    try:
+        return int(s)
+    except:
+        return s
+
+
+def natsort_key(s):
+    """
+    Used internally to get a tuple by which s is sorted.
+    """
+    import re
+    return map(try_int, re.findall(r'(\d+|\D+)', s))
+
+
+def natcmp(a, b):
+    """
+    Natural string comparison, case sensitive.
+    """
+    return cmp(natsort_key(a), natsort_key(b))
+
+
+def natcasecmp(a, b):
+    """
+    Natural string comparison, ignores case.
+    """
+    return natcmp(a.lower(), b.lower())
+
+
+def natsort(seq, cmp=natcmp):
+    """
+    In-place natural string sort.
+    """
+    seq.sort(cmp)
+
+
+def natsorted(seq, cmp=natcmp):
+    """
+    Returns a copy of seq, sorted by natural string sort.
+    """
+    return _natsorted(seq)
 
 
 def merge_dicts(*dict_args):
@@ -97,84 +127,6 @@ def merge_dicts(*dict_args):
     return result
 
 
-class G2GFormatter(logging.Formatter):
-
-    err_fmt = "ERROR: %(msg)s"
-    #dbg_fmt = "DEBUG: %(asctime)s, %(module)s: %(lineno)d: %(msg)s"
-    dbg_fmt = "DEBUG: %(asctime)s: %(msg)s"
-    info_fmt = "%(msg)s"
-
-    def __init__(self, fmt="%(levelno)s: %(msg)s"):
-        logging.Formatter.__init__(self, fmt)
-
-    def format(self, record):
-
-        # Save the original format configured by the user
-        # when the logger formatter was instantiated
-        format_orig = self._fmt
-
-        # Replace the original format with one customized by logging level
-        if record.levelno == logging.DEBUG:
-            self._fmt = G2GFormatter.dbg_fmt
-
-        elif record.levelno == logging.INFO:
-            self._fmt = G2GFormatter.info_fmt
-
-        elif record.levelno == logging.ERROR:
-            self._fmt = G2GFormatter.err_fmt
-
-        # Call the original formatter class to do the grunt work
-        result = logging.Formatter.format(self, record)
-
-        # Restore the original format configured by the user
-        self._fmt = format_orig
-
-        return result
-
-
-def get_logger():
-    return LOG
-
-
-def configure_logging(level):
-    """
-
-    :param level: 0=ERROR, 1=INFO, 2+=DEBUG
-    """
-    global LOG
-    LOG = logging.getLogger('G2G')
-
-    handler = logging.StreamHandler()
-
-    mfmt = G2GFormatter()
-    handler.setFormatter(mfmt)
-
-    if level == 0:
-    #    LOG.setLevel(logging.ERROR)
-    #elif level == 1:
-        LOG.setLevel(logging.INFO)
-    else:
-        LOG.setLevel(logging.DEBUG)
-
-    LOG.addHandler(handler)
-
-
-def app_exit(message='', parser=None):
-    """
-    Print message, help, and exit.
-
-    :param message: The message to print
-    :param parser: the argument parser
-    """
-    if parser:
-        parser.error(message)
-    else:
-        if message:
-            print str(message)
-
-    sys.exit()
-
-
 def format_time(start, end):
     """
     Format length of time between start and end.
@@ -186,31 +138,6 @@ def format_time(start, end):
     hours, rem = divmod(end-start, 3600)
     minutes, seconds = divmod(rem, 60)
     return "{:0>2}:{:0>2}:{:05.2f}".format(int(hours), int(minutes), seconds)
-
-
-def intersect_regions(chr1, start1, end1, chr2, start2, end2):
-    """
-    Return the intersection of two regions
-
-    :param chr1: chromosome 1
-    :param start1: start position 1
-    :param end1: end position 1
-    :param chr2: chromosome 2
-    :param start2: start position 2
-    :param end2: end position 2
-    :return: the intersection of the coordinated
-    """
-
-    if chr1 != chr2:
-        return None
-
-    if int(start1) > int(end2) or int(end1) < int(start2):
-        return None
-
-    if int(start1) > int(end1) or int(start2) > int(end2):
-        raise G2GLocationError("Start cannot be larger than end")
-
-    return chr1, max(start1, start2), min(end1, end2)
 
 
 def parse_chromosome(chrom_file):
@@ -230,112 +157,32 @@ def parse_chromosome(chrom_file):
                 chromosome = elem[0]
                 chromosome_length = int(elem[1])
                 chromosomes[chromosome] = chromosome_length
-            except ValueError, e1:
+            except ValueError as e1:
                 pass # most likely header line
         fd.close()
-    except IOError, e:
+    except IOError as e:
         message = "Error parsing chromosome files: {0}".format(e.message)
-        print message
+        print(message)
         return {}
 
     return chromosomes
 
 
-def get_multiplier(factor):
-    """
-    Convert the factor into a number.
-
-    :param factor: the string 'mb', 'm', or 'k'
-    :return: 10000000, 1000000, 1000 or 1
-    """
-    if factor.lower() == 'mb':
-        return 10000000
-    elif factor.lower() == 'm':
-        return 1000000
-    elif factor.lower() == 'k':
-        return 1000
-
-    return 1
-
-
-def parse_location(location_str, base=0):
-    """
-    Parse a string and return a location.
-
-    Format expected is seqid|start|end, where | is some sort of delimiter.
-
-    If end is None, 1 based was requested.
-
-    :param location_str: a string representing a genomic location
-    :return: a Location
-    """
-    loc_match = REGEX_LOCATION.match(location_str.strip().replace(',', ''))
-    one_base = False
-
-    if loc_match:
-        loc_groups = loc_match.groups()
-        identifier = loc_groups[0]
-        start_base = loc_groups[2]
-        start_mult = loc_groups[3]
-        end_base = loc_groups[5]
-        end_mult = loc_groups[6]
-
-        if not identifier:
-            raise G2GLocationError("Cannot parse location")
-
-        if start_base:
-            try:
-                start_base = int(start_base)
-            except ValueError:
-                raise G2GLocationError("Start position is not numeric")
-        else:
-            raise G2GLocationError("Cannot parse start position")
-
-        start = start_base
-
-        if start_mult:
-            if start_mult.lower() not in ['mb', 'm', 'k']:
-                raise G2GLocationError("Unknown quantifier '{0}".format(start_mult))
-            start = start_base * get_multiplier(start_mult)
-        else:
-            if base == 1:
-                start -= 1
-
-        if end_base:
-            try:
-                end_base = int(end_base)
-            except ValueError:
-                raise G2GLocationError("End position is not numeric")
-        else:
-            # special condition to allow for only 1 location to be retrieved
-            # or from this start base on
-
-            if not loc_groups[4] and not end_base and not end_mult:
-                # only 1 position requested
-                one_base = True
-            else:
-                raise G2GLocationError("Cannot parse end position")
-
-        if end_mult:
-            if end_mult.lower() not in ['mb', 'm', 'k']:
-                raise G2GLocationError("Unknown quantifier '{0}".format(end_mult))
-    else:
-        raise G2GLocationError("Cannot parse location '{0}'".format(location_str))
-
-    if one_base:
-        end = None
-    else:
-        end = end_base * get_multiplier(end_mult)
-
-    LOG.debug("identifier={0}, start={1}, end={2}, base={3}".format(identifier, start, end, base))
-
-    return Location(identifier, start, end, '+', original_base=base)
-
-
 def wrap_sequence(sequence, n=60, fillvalue=''):
     args = [iter(sequence)] * n
-    for line in izip_longest(fillvalue=fillvalue, *args):
+    for line in itertools.izip_longest(fillvalue=fillvalue, *args):
         yield ''.join(line + ('\n',))
+
+
+def write_sequence(sequence, out, n=60):
+    for i in xrange(0, len(sequence), n):
+        out.write(sequence[i:i+n])
+        out.write('\n')
+
+
+def dump_file_contents(file_name):
+    with open(file_name, "r") as f:
+        shutil.copyfileobj(f, sys.stdout)
 
 
 def reverse_sequence(sequence):
@@ -383,21 +230,229 @@ def reverse_complement_sequence(sequence):
     return reverse_sequence(complement_sequence(sequence))
 
 
-if __name__ == '__main__':
-    l = parse_location("1:0-33")
-    print l
-    print l.__repr__()
 
-    l = parse_location("1:1-33")
-    print l
-    print l.__repr__()
+import bz2
+import gzip
+import os
+import shutil
+import time
+import urllib
+from subprocess import Popen
 
-    print '1'
-    l = Location(1, 22, None, '-')
-    print l
-    print l.__repr__()
+import pysam
 
-    print 'tryng to set l.start'
-    l.start = 2
-    print l
-    print l.__repr__()
+from .exceptions import G2GValueError
+
+
+def concatenate_files(list_files, to_file, delete=False, mode='wb'):
+    with open(to_file, mode) as out:
+        for from_file in list_files:
+            with open(from_file, 'rb') as f:
+                shutil.copyfileobj(f, out)
+            if delete:
+                delete_file(from_file)
+
+
+def delete_file(file_name):
+    """
+    :param file_name:
+    :return:
+    """
+    try:
+        os.remove(file_name)
+    except:
+        pass
+
+
+def delete_index_files(filename):
+    delete_file("{0}.gzi".format(filename))
+    delete_file("{0}.fai".format(filename))
+    delete_file("{0}.tbi".format(filename))
+
+
+def bgzip_decompress(filename):
+    # gobble the output
+    with open(os.devnull, "w") as fnull:
+        p = Popen(['bgzip', '-f', '-d', filename], stdout=fnull, stderr=fnull)
+        p.wait()
+
+    delete_index_files(filename)
+
+
+def bgzip_file(original_file, new_file, delete_original=False, force=True):
+    """
+
+    :param original_file:
+    :param new_file:
+    :param force:
+    :return:
+    """
+
+    pysam.tabix_compress(original_file, new_file, force)
+
+    if delete_original:
+        delete_file(original_file)
+
+
+def index_file(original_file, file_format="vcf"):
+    """
+
+    :param original_file:
+    :param new_file:
+    :param file_format:
+    :return:
+    """
+
+    if file_format.lower() == 'fa':
+        pysam.faidx(original_file)
+    elif file_format.lower() == 'vcf':
+        pysam.tabix_index(original_file, preset="vcf", force=True)
+    elif file_format.lower() == 'vci':
+        pysam.tabix_index(original_file, seq_col=0, start_col=1, end_col=1, force=True)
+    else:
+        raise G2GValueError("Unknown file format: {0}".format(file_format))
+
+
+def bgzip_and_index_file(original_file, new_file, delete_original=False, force=True, file_format="vcf"):
+    bgzip_file(original_file, new_file, delete_original, force)
+    index_file(new_file, file_format)
+
+
+def open_resource(resource, mode='rb'):
+    """
+    Open different types of files and return the handle.
+
+    :param resource: a file located locally or on the internet.  Gzip'd and zip'd files are handled.
+    :param mode: standard file open modes
+    :return: the resource (file) handle
+    """
+    if not resource:
+        return None
+
+    if compat.is_py2:
+        if not isinstance(resource, basestring):
+            return resource
+    else:
+        if not isinstance(resource, str):
+            return resource
+
+    resource = s(resource)
+
+    if resource.endswith(('.gz', '.Z', '.z')):
+        return gzip.open(resource, mode)
+    elif resource.endswith(('.bz', '.bz2', '.bzip2')):
+        return bz2.BZ2File(resource, mode)
+    elif resource.startswith(('http://', 'https://', 'ftp://')):
+        return urllib.urlopen(resource)
+    else:
+        return open(resource, mode)
+
+
+def create_random_string(size=6, chars=string.ascii_uppercase + string.digits):
+    return ''.join(random.choice(chars) for _ in range(size))
+
+
+def gen_file_name(name=None, prefix='', output_dir='.', extension='log', append_time=True):
+    """
+    Generate a file name.
+
+    :param name: a base for the file name
+    :param output_dir: the directory
+    :param extension: give the file an extension
+    :param append_time: append time to the file name (before the extension)
+    :return: the absolute path to the file
+    """
+    if name is None:
+        name = create_random_string(15)
+
+    if extension and extension[-1] == '.':
+        extension = extension[-1:]
+
+    if append_time:
+        t = time.strftime("%Y-%m-%d.%H_%M_%S")
+        file_name = "{}{}.{}.{}".format(prefix, name, t, extension)
+    else:
+        if extension:
+            file_name = "{}{}.{}".format(prefix, name, extension)
+        else:
+            file_name = "{}{}".format(prefix, name)
+
+    return os.path.abspath(os.path.join(output_dir, file_name))
+
+
+def get_extension(filename):
+    file_first, file_extension = os.path.splitext(filename)
+    return file_extension
+
+
+def prepend_before_extension(filename, text):
+    file_first, file_extension = os.path.splitext(filename)
+
+    if file_extension:
+        return "{0}.{1}{2}".format(file_first, text, file_extension)
+
+    return filename
+
+
+def get_dir_and_file(filename):
+    abspath = os.path.abspath(filename)
+    if os.path.isdir(abspath):
+        return abspath, None
+
+    return os.path.split(abspath)
+
+
+def check_file(filename, mode='r'):
+    if mode == 'r':
+
+        if filename and os.path.exists(filename):
+            return os.path.abspath(filename)
+
+        raise G2GValueError("The following file does not exist: {0}".format(filename))
+
+    elif mode == 'w':
+        file_dir = '.'
+
+        if filename:
+            file_name = os.path.abspath(filename)
+            file_dir = os.path.dirname(file_name)
+
+            if not os.access(file_dir, os.W_OK | os.X_OK):
+                raise G2GValueError("Cannot generate file: {0}".format(filename))
+
+            return file_name
+
+    raise G2GValueError("Unspecified mode to open file, '{}'".format(mode))
+
+
+def create_temp_dir(name, prefix='.g2gtools_', dir=None):
+    new_name = "{}{}".format(prefix, name)
+    return os.path.abspath(tempfile.mkdtemp(prefix=new_name, dir=dir))
+
+
+def get_sys_exec_root_or_drive():
+    path = sys.executable
+    while os.path.split(path)[1]:
+        path = os.path.split(path)[0]
+    return path
+
+
+def delete_dir(dir):
+    dir = os.path.abspath(dir)
+    if os.path.exists(dir):
+        root = get_sys_exec_root_or_drive()
+        # bad error checking, but at least it's something
+        if root == dir:
+            raise G2GValueError("Will not delete directory: {}".format(dir))
+        try:
+            shutil.rmtree(dir)
+        except Exception as e:
+            raise G2GValueError("Will not delete directory: {}".format(dir))
+
+
+def location_to_filestring(location):
+    return "{}-{}-{}".format(location.seq_id, location.start, location.end)
+
+#######################
+
+
