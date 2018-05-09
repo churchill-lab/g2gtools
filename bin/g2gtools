@@ -1,14 +1,20 @@
 #!/usr/bin/env python
 
+from __future__ import print_function
+
 import argparse
 import importlib
 import os
 import sys
-import g2gtools
+
+import g2gtools.g2g
+import g2gtools.g2g_commands
+
+from g2gtools import __version__ as version
 
 __author__ = "Matthew Vincent mvincent@jax.org"
 
-ext_modules = ['pysam', 'bx.intervals', 'Bio']
+ext_modules = ['pysam', 'bx.intervals']
 failed_modules = []
 
 logo_text = """
@@ -18,7 +24,7 @@ logo_text = """
    __ _   ) |__ _| |_ ___   ___ | |___
   / _` | / // _` | __/ _ \ / _ \| / __|
  | (_| |/ /| (_| | || (_) | (_) | \__ \\
-  \__, |____\__, |\__\___/ \___/|_|___/
+  \__, |____\__, |\__\___/ \___/|_|___/   v""" + version + """
    __/ |     __/ |
   |___/     |___/
 
@@ -27,49 +33,67 @@ logo_text = """
 for dependency in ext_modules:
     try:
         importlib.import_module(dependency)
-    except ImportError, ie:
+    except ImportError as ie:
         failed_modules.append(dependency)
 
 if len(failed_modules) > 0:
-    print 'Error: The following modules need to be installed: '
-    print '\t' + ', '.join(failed_modules)
+    sys.stderr.write('Error: The following modules need to be installed: ')
+    sys.stderr.write('\t' + ', '.join(failed_modules))
     sys.exit(1)
 
+
 class G2GToolsApp(object):
+    """
+    The most commonly used commands are:
+       convert       convert file coordinates
+       extract       get sequence from fasta file
+       patch         replace bases in a fasta file from SNPs specified in a VCF file
+       transform     get sequence from fasta file and replace with that from Chain file
+       vcf2vci       create VCI file from VCF file(s)
+
+    Other tools
+       gtf2db        create db file from GTF
+
+    """
 
     def __init__(self):
         self.script_name = os.path.basename(__file__)
-        parser = argparse.ArgumentParser(
-            description='Genome to genome utilities',
-            usage=logo_text + self.script_name + ''' <command> [<args>]
+        parser = argparse.ArgumentParser(add_help=False)
 
-The most commonly used commands are:
-   convert       convert file coordinates
-   extract       get sequence from fasta file
-   patch         replace bases in a fasta file from SNPs specified in a VCF file
-   transform     get sequence from fasta file and replace with that from Chain file
-   vcf2chain     create chain file from VCF file
+        def print_message(message):
+            sys.stderr.write(logo_text)
+            sys.stderr.write('\n')
+            sys.stderr.write(message)
+            sys.stderr.write('\n')
+            sys.stderr.write(G2GToolsApp.__doc__)
+            sys.stderr.write('\n')
+            sys.exit(1)
 
-Other tools
-   db2chain      create chain file from db and genome chain file
-   gtf2chain     create chain file from GTF and genome chain file
-   gtf2db        create db file from GTF
-   offset2chain  create chain file from Seqnature offset file
-''')
+        parser.error = print_message
+
         parser.add_argument('command', nargs='?', help='Subcommand to run')
+        parser.add_argument("-h", "--help", dest="help", action="store_true")
+        parser.add_argument("-v", "--version", dest="version", action="store_true")
+
+        if len(sys.argv) == 1:
+            g2gtools.g2g.exit("", parser)
 
         # parse_args defaults to [1:] for args, but need to exclude
         # the rest of the args too, or validation will fail
         args = parser.parse_args(sys.argv[1:2])
 
+        if args.version:
+            print(version)
+            sys.exit(1)
+
+        if args.help:
+            g2gtools.g2g.exit("", parser)
+
         if not args.command:
-            parser.print_help()
-            exit(1)
+            g2gtools.g2g.exit("", parser)
 
         if not hasattr(self, args.command):
-            print 'Unrecognized command\n'
-            parser.print_help()
-            exit(1)
+            g2gtools.g2g.exit("Unrecognized command: {}".format(args.command), parser)
 
         # use dispatch pattern to invoke method with same name
         getattr(self, args.command)()
@@ -86,32 +110,23 @@ Other tools
     def patch(self):
         g2gtools.g2g_commands.command_fasta_patch(sys.argv[2:], self.script_name + ' patch')
 
-    def vcf2chain(self):
-        g2gtools.g2g_commands.command_vcf2chain(sys.argv[2:], self.script_name + ' vcf2chain')
-
-    def offset2chain(self):
-        g2gtools.g2g_commands.command_offset2chain(sys.argv[2:], self.script_name + ' offset2chain')
-
-    def gtf2chain(self):
-        g2gtools.g2g_commands.command_gtf2chain(sys.argv[2:], self.script_name + ' gtf2chain')
+    def vcf2vci(self):
+        g2gtools.g2g_commands.command_vcf2vci(sys.argv[2:], self.script_name + ' vcf2vci')
 
     def gtf2db(self):
         g2gtools.g2g_commands.command_gtf2db(sys.argv[2:], self.script_name + ' gtf2db')
 
-    def db2chain(self):
-        g2gtools.g2g_commands.command_db2chain(sys.argv[2:], self.script_name + ' db2chain')
-
-    def dbfetch(self):
-        g2gtools.g2g_commands.command_dbfetch(sys.argv[2:], self.script_name + ' dbfetch')
-
     def parse(self):
-        g2gtools.g2g_commands.command_parse_location(sys.argv[2:], self.script_name + ' parse')
+        g2gtools.g2g_commands.command_parse_region(sys.argv[2:], self.script_name + ' parse')
+
+    def fastaformat(self):
+        g2gtools.g2g_commands.command_fastaformat(sys.argv[2:], self.script_name + ' fastaformat')
+
+    def vciquery(self):
+        g2gtools.g2g_commands.command_vciquery(sys.argv[2:], self.script_name + ' vciquery')
 
     def logo(self):
-        print logo_text
-
-    def version(self):
-        print g2gtools.__version__
+        print(logo_text)
 
 if __name__ == '__main__':
     G2GToolsApp()

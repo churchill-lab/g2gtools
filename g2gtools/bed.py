@@ -6,47 +6,59 @@
 # 0-based
 #
 
-from collections import namedtuple
+import collections
+import sys
 
-from .chain import ChainFile
-from .exceptions import G2GBedError, G2GLocationError
-from .g2g_utils import get_logger
-import g2g_fileutils as g2g_fu
-
-LOG = get_logger()
+from . import compat
+from . import exceptions
+from . import g2g
+from . import g2g_utils
+from . import vci
 
 bed_fields = ["chrom", "start", "end", "name", "score", "strand", "extra"]
-BEDRecord = namedtuple("BEDRecord", bed_fields)
+BEDRecord = collections.namedtuple("BEDRecord", bed_fields)
+
+LOG = g2g.get_logger()
 
 
 class BED(object):
     """
-    Simple BED object for parsing BED files
+    Simple BED object for parsing and iterating BED files.
 
     Supports transparent gzip decompression.
     """
     def __init__(self, filename):
         if not filename:
-            raise G2GBedError("A filename must be supplied")
+            raise exceptions.G2GBedError("A filename must be supplied")
 
         self.filename = filename
         self.current_line = None
         self.current_line_is_bed = False
         self.current_record = None
-        self.reader = g2g_fu.open_resource(filename)
+        self.reader = g2g_utils.open_resource(filename)
         self.nitems = None
         self.current_line_no = 0
 
     def __iter__(self):
         return self
 
-    def next(self):
-        self.current_line = self.reader.next()
-        self.current_line_no += 1
+    def __next__(self):
 
-        while self.current_line and len(self.current_line.strip()) == 0:
+        if compat.is_py2:
             self.current_line = self.reader.next()
             self.current_line_no += 1
+
+            while self.current_line and len(self.current_line.strip()) == 0:
+                self.current_line = self.reader.next()
+                self.current_line_no += 1
+
+        else:
+            self.current_line = g2g_utils.s(self.reader.__next__())
+            self.current_line_no += 1
+
+            while self.current_line and len(self.current_line.strip()) == 0:
+                self.current_line = self.reader.__next__()
+                self.current_line_no += 1
 
         if self.current_line.startswith("track"):
             self.current_line = self.current_line.strip()
@@ -61,7 +73,7 @@ class BED(object):
             self.nitems = len(elem)
         else:
             if self.nitems != len(elem):
-               raise G2GBedError("Improperly formatted BED file")
+                raise exceptions.G2GBedError("Improperly formatted BED file")
 
         try:
             bed_data = {'chrom': elem[0],
@@ -74,51 +86,65 @@ class BED(object):
 
             self.current_record = BEDRecord(**bed_data)
             return self.current_record
-        except IndexError, ie:
+        except IndexError as ie:
             LOG.debug(ie.message)
-            raise G2GBedError("Improperly formatted BED file, line number: {0}, line: {1}".format(self.current_line_no, self.current_line))
-        except ValueError, ve:
+            raise exceptions.G2GBedError("Improperly formatted BED file, line number: {0}, line: {1}".format(self.current_line_no, self.current_line))
+        except ValueError as ve:
             LOG.debug(ve.message)
-            raise G2GBedError("Improperly formatted BED file, line number: {0}, line: {1}".format(self.current_line_no, self.current_line))
+            raise exceptions.G2GBedError("Improperly formatted BED file, line number: {0}, line: {1}".format(self.current_line_no, self.current_line))
 
 
-def convert_bed_file(chain_file, input_file, output_file, reverse=False):
+# TODO: kb test
+def convert_bed_file(vci_file, input_file, output_file=None, reverse=False):
     """
     Convert BED coordinates.
 
-    The mappings of coordinates are stored in the :class:`.chain.ChainFile` object.
-
-    :param chain_file: chain file used for conversion
-    :type chain_file: :class:`.chain.ChainFile`
-    :param str file_in: the input BED file
-    :type file_in: string
-    :param file_out: the output BED file
-    :type file_out: string
-    :param reverse: reverse direction of original chain file
+    :param vci_file: VCI input file
+    :type vci_file: :class:`.chain.ChainFile`
+    :param input_file: the input BED file
+    :type input_file: string
+    :param output_file: the output BED file
+    :type output_file: string
+    :param reverse: reverse direction of original file
     :type reverse: boolean
-    :return: Nothing
+    :return:
     """
-    if not isinstance(chain_file, ChainFile):
-        chain_file = g2g_fu.check_file(chain_file)
 
-    input_file = g2g_fu.check_file(input_file)
-    output_file_name = g2g_fu.check_file(output_file, 'w')
-    unmapped_file_name = "{0}.unmapped".format(output_file_name)
+    if isinstance(vci_file, vci.VCIFile):
+        LOG.info("VCI FILE: {0}".format(vci_file.filename))
+        LOG.info("VCI FILE IS DIPLOID: {0}".format(vci_file.is_diploid()))
+    else:
+        vci_file = g2g_utils.check_file(vci_file)
+        vci_file = vci.VCIFile(vci_file)
+        LOG.info("VCI FILE: {0}".format(vci_file.filename))
+        LOG.info("VCI FILE IS DIPLOID: {0}".format(vci_file.is_diploid()))
+        vci_file.parse(reverse)
 
-    LOG.info("CHAIN FILE: {0}".format(chain_file))
+    input_file = g2g_utils.check_file(input_file)
     LOG.info("INPUT FILE: {0}".format(input_file))
-    LOG.info("OUTPUT FILE: {0}".format(output_file_name))
-    LOG.info("UNMAPPED FILE: {0}".format(unmapped_file_name))
 
-    if not isinstance(chain_file, ChainFile):
-        LOG.info("Parsing chain file...")
-        chain_file = ChainFile(chain_file, reverse=reverse)
-        LOG.info("Chain file parsed")
+    bed_out = None
+    bed_unmapped_file = None
 
-    bed_out = open(output_file_name, "w")
-    bed_unmapped_file = open(unmapped_file_name, "w")
+    if output_file:
+        output_file = g2g_utils.check_file(output_file, 'w')
+        unmapped_file = "{0}.unmapped".format(output_file)
+        bed_out = open(output_file, "w")
+        bed_unmapped_file = open(unmapped_file, "w")
+        LOG.info("OUTPUT FILE: {0}".format(output_file))
+        LOG.info("UNMAPPED FILE: {0}".format(unmapped_file))
+    else:
+        input_dir, input_name = g2g_utils.get_dir_and_file(input_file)
+        unmapped_file = "{0}.unmapped".format(input_name)
+        unmapped_file = g2g_utils.check_file(unmapped_file, 'w')
+        bed_out = sys.stdout
+        bed_unmapped_file = open(unmapped_file, "w")
+        LOG.info("OUTPUT FILE: stdout")
+        LOG.info("UNMAPPED FILE: {0}".format(unmapped_file))
 
-    LOG.info("Converting BED file")
+    left_right = [''] if vci_file.is_haploid() else ['_L', '_R']
+
+    LOG.info("Converting BED file...")
 
     bed_file = BED(input_file)
 
@@ -126,47 +152,50 @@ def convert_bed_file(chain_file, input_file, output_file, reverse=False):
     success = 0
     fail = 0
 
-    # BED is 0 based, bx-python is 0 based
+    for record in bed_file:
 
-    try:
-        for record in bed_file:
-            # skip over "track" lines
-            if not bed_file.current_line_is_bed:
-                bed_out.write(bed_file.current_line)
-                bed_out.write("\n")
-                continue
+        LOG.debug("\nORIGINAL: {0}".format(str(bed_file.current_line).strip()))
 
-            total += 1
+        total += 1
 
-            mappings = chain_file.find_mappings(record.chrom, record.start, record.end)
+        if total % 100000 == 0:
+            LOG.info("Processed {0:,} lines".format(total))
+
+        for lr in left_right:
+            seqid = "{}{}".format(record.chrom, lr)
+            mappings = vci_file.find_mappings(seqid, record.start - 1, record.end)
 
             # unmapped
-            if mappings:
-                success += 1
-            else:
-                LOG.debug("Fail due to no mappings")
+            if mappings is None:
+                LOG.debug("\tFail due to no mappings")
                 bed_unmapped_file.write(bed_file.current_line)
-                fail += 1
+                fail += 0
                 continue
+            else:
+                LOG.debug("{0} mappings found".format(len(mappings)))
 
-            start = mappings[0].to_start
+            success += 1
+            start = mappings[0].to_start + 1
             end = mappings[-1].to_end
 
-            LOG.debug("({0}, {1}) => ({2}, {3})".format(record.start, record.end, start, end))
+            LOG.debug("({0}, {1}) => ({2}, {3})".format(record.start - 1, record.end, start, end))
 
-            elems = bed_file.current_line.split()
+            elems = bed_file.current_line.rstrip().split('\t')
+
+            LOG.debug(elems)
+
+            elems[0] = seqid
             elems[1] = start
             elems[2] = end
+
+            LOG.debug("     NEW: {0}".format("\t".join(map(str, elems))))
 
             bed_out.write("\t".join(map(str, elems)))
             bed_out.write("\n")
 
-        bed_out.close()
-        bed_unmapped_file.close()
+    bed_out.close()
+    bed_unmapped_file.close()
 
-        LOG.info("Converted {0} of {1} records".format(success, total))
-    except G2GLocationError, le:
-        LOG.error("{0}: {1}".format(le.message, bed_file.current_line))
-
+    LOG.info("Converted {0:,} of {1:,} records".format(success, total))
     LOG.info('BED file converted')
 

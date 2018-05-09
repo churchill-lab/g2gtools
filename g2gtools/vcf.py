@@ -5,38 +5,44 @@
 #
 # 1 based
 
+from future.utils import lmap
+from past.builtins import xrange
 
 from collections import namedtuple
-from collections import namedtuple
 
-from .g2g_utils import get_logger
-from .g2g_fileutils import open_resource
-from .exceptions import G2GVCFError
+import re
 
-VCF_FIELDS = ['CHROM', 'POS', 'ID', 'REF', 'ALT', 'QUAL', 'FILTER', 'INFO', 'FORMAT', 'SAMPLES']
+from . import g2g
+from . import g2g_utils
+from . import exceptions
+
+VCF_FIELDS = ['chrom', 'pos', 'id', 'ref', 'alt', 'qual', 'filter', 'info', 'format', 'samples']
 VCFRecord = namedtuple('VCFRecord', VCF_FIELDS)
 
-GT_DATA_FIELDS = ['ref', 'left', 'right', 'gt', 'fi', 'phase']
+GT_DATA_FIELDS = ['ref', 'left', 'right', 'gt', 'fi', 'phase', 'gt_left', 'gt_right', 'is_snp']
 GTData = namedtuple('GTData', GT_DATA_FIELDS)
 
 GENOTYPE_UNPHASED = '/'
 GENOTYPE_PHASED = '|'
 
-LOG = get_logger()
+REGEX_ALT = re.compile("(^[A|C|G|T]+)")
 
-class VCF(object):
+LOG = g2g.get_logger()
+
+
+class VCFFile(object):
     """
     Simple VCF object for parsing VCF files
     """
     def __init__(self, file_name):
         if not file_name:
-            raise G2GVCFError("A filename must be supplied")
+            raise exceptions.G2GVCFError("A filename must be supplied")
 
         self.file_name = file_name
         self.samples = None
         self.current_line = None
         self.current_record = None
-        self.reader = open_resource(file_name)
+        self.reader = g2g_utils.open_resource(file_name)
         self._parse_header()
 
     def _parse_header(self):
@@ -50,11 +56,11 @@ class VCF(object):
             samples = elems[9:]
             self.samples = dict(zip(samples, (x for x in xrange(len(samples)))))
         else:
-            raise G2GVCFError("Improperly formatted VCF file")
+            raise exceptions.G2GVCFError("Improperly formatted VCF file")
 
     def parse_gt(self, sample):
-        if not sample:
-            raise G2GVCFError("Sample must contain a value")
+        if sample is None:
+            raise exceptions.G2GVCFError("Sample must contain a value")
 
         sample_index = self.get_sample_index(sample)
         return parse_gt(self.current_record, sample_index)
@@ -73,15 +79,15 @@ class VCF(object):
         return self.current_record
 
     def get_sample_index(self, sample):
-        if not sample:
-            raise G2GVCFError("Sample must contain a value")
+        if sample is None:
+            raise exceptions.G2GVCFError("Sample must contain a value")
 
         if sample in self.samples:
             return self.samples[sample]
 
         parse_vcf_line()
 
-        raise G2GVCFError("Unknown sample: '{0}'".format(sample))
+        raise exceptions.G2GVCFError("Unknown sample: '{0}'".format(sample))
 
 
 def parse_vcf_line(line):
@@ -93,7 +99,7 @@ def parse_vcf_line(line):
     :return: :class:`.vcf.VCFRecord`
     """
 
-    if isinstance(line, basestring):
+    if isinstance(line, str):
         if line.startswith('#'):
             return None
 
@@ -139,22 +145,20 @@ def parse_gt(vcf_record, sample_index):
     :return: :class:`.vcf.GTData`
     """
     if sample_index is None:
-        raise G2GVCFError("Sample index must contain a value")
+        raise exceptions.G2GVCFError("Sample index must contain a value")
 
-    sample_data = vcf_record.SAMPLES[sample_index]
+    sample_data = vcf_record.samples[sample_index]
     gt = None
     fi = None
     left = None
     right = None
     phase = None
 
-    if sample_data != '.':
-        gt_index = vcf_record.FORMAT.split(':').index('GT')
-
-        try:
-            fi_index = vcf_record.FORMAT.split(':').index('FI')
-        except:
-            fi_index = None
+    # check for to see if ALT is <CN*> or something not ACGT
+    if vcf_record.alt.find('<') == -1 and sample_data != '.':
+    #if sample_data != '.':
+        gt_index = vcf_record.format.split(':').index('GT')
+        fi_index = vcf_record.format.split(':').index('FI')
 
         try:
             # parse the GT field
@@ -163,71 +167,73 @@ def parse_gt(vcf_record, sample_index):
             # make sure a call can be made
             if gt != '.' and gt != './.' and gt != '.|.':
                 if GENOTYPE_PHASED in gt:
-                    genotypes = map(int, gt.split(GENOTYPE_PHASED))
+                    genotypes = lmap(int, gt.split(GENOTYPE_PHASED))
                     phase = GENOTYPE_PHASED
                 elif GENOTYPE_UNPHASED in gt:
-                    genotypes = map(int, gt.split(GENOTYPE_UNPHASED))
+                    genotypes = lmap(int, gt.split(GENOTYPE_UNPHASED))
                     phase = GENOTYPE_UNPHASED
                 else:
                     raise ValueError("Unknown phase in GT, {0}".format(gt))
 
                 # assuming no triploids for now
                 if genotypes[0] == 0:
-                    left = vcf_record.REF
+                    left = vcf_record.ref
                 else:
-                    left = vcf_record.ALT[genotypes[0]-1]
+                    left = vcf_record.alt[genotypes[0]-1]
 
                 if genotypes[1] == 0:
-                    right = vcf_record.REF
+                    right = vcf_record.ref
                 else:
-                    right = vcf_record.ALT[genotypes[1]-1]
+                    right = vcf_record.alt[genotypes[1]-1]
 
-        except ValueError, ve:
+                gt_left = genotypes[0]
+                gt_right = genotypes[1]
+
+                # check for to see if ALT is <CN*> or something not ACGT
+                if not REGEX_ALT.match(gt_left):
+                    left = None
+                    gt_left = None
+
+                if not REGEX_ALT.match(gt_right):
+                    right = None
+                    gt_right = None
+
+        except ValueError as ve:
             LOG.debug(ve)
-        except IndexError, ie:
+        except IndexError as ie:
+            LOG.debug(ie)
+        try:
+            fi = sample_data.split(':')[fi_index]
+        except ValueError as ve:
+            LOG.debug(ve)
+        except IndexError as ie:
             LOG.debug(ie)
 
-        if fi_index is not None:
-            try:
-                fi = sample_data.split(':')[fi_index]
-            except ValueError, ve:
-                LOG.debug(ve)
-            except IndexError, ie:
-                LOG.debug(ie)
-        else:
-            fi = None
-
-    return GTData(vcf_record.REF, left, right, gt, fi, phase)
+    is_snp = len(vcf_record.REF) == 1 == (len(left) if left else 0) == (len(right) if right else 0)
+    return GTData(vcf_record.REF, left, right, gt, fi, phase, gt_left, gt_right, is_snp)
 
 
-def parse_gt_new(vcf_tuple, sample_index):
+def parse_gt_tuple(vcf_record, sample_index):
     """
     Parse the GT field within the VCF line.
-
-    :param vcf_record: the VCF record
-    :type vcf_record: :class:`.vcf.VCFRecord`
-    :param sample_index: the strain or sample index
-    :type sample_index: int
-    :return: :class:`.vcf.GTData`
     """
     if sample_index is None:
-        raise G2GVCFError("Sample index must contain a value")
+        raise exceptions.G2GVCFError("Sample index must contain a value")
 
-    sample_data = vcf_tuple[sample_index]
-
+    sample_data = vcf_record[sample_index]
     gt = None
     fi = None
     left = None
     right = None
     phase = None
+    gt_left = None
+    gt_right = None
 
-    if sample_data != '.':
-        gt_index = vcf_tuple.format.split(':').index('GT')
-
-        try:
-            fi_index = vcf_tuple.format.split(':').index('FI')
-        except:
-            fi_index = None
+    # check for to see if ALT is <CN*> or something not ACGT
+    if vcf_record.alt.find('<') == -1 and sample_data != '.':
+        formats = vcf_record.format.split(':')
+        gt_index = formats.index('GT')
+        fi_index = formats.index('FI') if 'FI' in formats else None
 
         try:
             # parse the GT field
@@ -236,38 +242,50 @@ def parse_gt_new(vcf_tuple, sample_index):
             # make sure a call can be made
             if gt != '.' and gt != './.' and gt != '.|.':
                 if GENOTYPE_PHASED in gt:
-                    genotypes = map(int, gt.split(GENOTYPE_PHASED))
+                    genotypes = lmap(int, gt.split(GENOTYPE_PHASED))
                     phase = GENOTYPE_PHASED
                 elif GENOTYPE_UNPHASED in gt:
-                    genotypes = map(int, gt.split(GENOTYPE_UNPHASED))
+                    genotypes = lmap(int, gt.split(GENOTYPE_UNPHASED))
                     phase = GENOTYPE_UNPHASED
                 else:
                     raise ValueError("Unknown phase in GT, {0}".format(gt))
 
                 # assuming no triploids for now
                 if genotypes[0] == 0:
-                    left = vcf_tuple.ref
+                    left = vcf_record.ref
                 else:
-                    left = vcf_tuple.alt.split(',')[genotypes[0]-1]
+                    left = vcf_record.alt.split(',')[genotypes[0]-1]
 
                 if genotypes[1] == 0:
-                    right = vcf_tuple.ref
+                    right = vcf_record.ref
                 else:
-                    right = vcf_tuple.alt.split(',')[genotypes[1]-1]
+                    right = vcf_record.alt.split(',')[genotypes[1]-1]
 
-        except ValueError, ve:
+                gt_left = genotypes[0]
+                gt_right = genotypes[1]
+
+                # check for to see if ALT is <CN*> or something not ACGT
+                #if not REGEX_ALT.match(left) or not REGEX_ALT.match(right):
+                #    LOG.error("VFC2VCI CN FOUND")
+                #    gt = None
+                #    fi = None
+                #    left = None
+                #    right = None
+                #    phase = None
+                #    gt_left = None
+                #    gt_right = None
+
+        except ValueError as ve:
             LOG.debug(ve)
-        except IndexError, ie:
+        except IndexError as ie:
+            LOG.debug(ie)
+        try:
+            if fi_index:
+                fi = sample_data.split(':')[fi_index]
+        except ValueError as ve:
+            LOG.debug(ve)
+        except IndexError as ie:
             LOG.debug(ie)
 
-        if fi_index is not None:
-            try:
-                fi = sample_data.split(':')[fi_index]
-            except ValueError, ve:
-                LOG.debug(ve)
-            except IndexError, ie:
-                LOG.debug(ie)
-        else:
-            fi = None
-
-    return GTData(vcf_tuple.ref, left, right, gt, fi, phase)
+    is_snp = len(vcf_record.ref) == 1 == (len(left) if left else 0) == (len(right) if right else 0)
+    return GTData(vcf_record.ref, left, right, gt, fi, phase, gt_left, gt_right, is_snp)
