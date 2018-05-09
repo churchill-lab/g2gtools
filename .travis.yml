@@ -16,13 +16,13 @@ install:
   - export PATH="$HOME/miniconda/bin:$PATH"
   - hash -r
   - conda config --set always_yes yes --set changeps1 no
+  - conda config --add channels conda-forge
   - conda update -q conda
   - conda info -a
   - conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION cython
   - source activate test-environment
   - conda install numpy pysam natsort future six
-  - pip install python-lzo
-  - conda install -c bioconda bx-python
+  - conda install -c conda-forge bx-python
   - python setup.py install
 
 script:

@@ -30,12 +30,12 @@ if not on_rtd:
 
 setup(
     name='g2gtools',
-    version='0.3.0',
+    version='0.2.0',
     description="A set of tools that facilitates genome to genome conversion for studying multiparent populations",
     long_description=readme + '\n\n' + history,
     author='Kwangbom "KB" Choi & Matthew Vincent, The Jackson Laboratory',
     author_email='kb.choi@jax.org',
-    url='https://github.com/jax-cgd/g2gtools',
+    url='https://github.com/churchill-lab/g2gtools',
     packages=[
         'g2gtools',
     ],
@@ -48,7 +48,7 @@ setup(
     zip_safe=False,
     keywords='g2gtools',
     classifiers=[
-        'Development Status :: 2 - Pre-Alpha',
+        'Development Status :: 4 - Beta',
         'Intended Audience :: Developers',
         'Intended Audience :: Science/Research',
         'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
@@ -56,7 +56,8 @@ setup(
         "Programming Language :: Python :: 2",
         'Programming Language :: Python :: 2.7'
         "Programming Language :: Python :: 3",
-        'Programming Language :: Python :: 3.4'
+        'Programming Language :: Python :: 3.5'
+        'Programming Language :: Python :: 3.6'
     ],
     test_suite='tests',
     tests_require=test_requirements
