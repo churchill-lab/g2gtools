@@ -19,6 +19,7 @@ install:
   - conda config --add channels conda-forge
   - conda config --set show_channel_urls true
   - conda install --yes --quiet conda-forge-build-setup
+  - source run_conda_forge_build_setup
   - conda config --set always_yes yes --set changeps1 no
   - conda update -q conda
   - conda info -a
