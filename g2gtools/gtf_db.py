@@ -1,25 +1,22 @@
 # -*- coding: utf-8 -*-
 
 from collections import OrderedDict
-import os
+from future.utils import viewitems
 import sys
-try:
-    from pysqlite2 import dbapi2 as sqlite3
-except:
-    try:
-        import sqlite3
-    except:
-        print 'sqlite module needs to be installed'
-        sys.exit()
-
 import time
 
-from . import G2GValueError
-from .g2g_utils import configure_logging, format_time, get_logger, Location
-from .gtf import GTF
-import g2g_fileutils as g2g_fu
+try:
+    import sqlite3
+except:
+    print('sqlite module needs to be installed')
+    sys.exit()
 
-LOG = get_logger()
+from . import exceptions
+from . import g2g
+from . import g2g_utils
+from . import gtf
+
+LOG = g2g.get_logger()
 
 SQL_CREATE_GTF_TABLE = """
     CREATE TABLE gtf (
@@ -130,7 +127,6 @@ SQL_INDICES_GTF_ATTRIBUTES = [
     "CREATE INDEX idx_gtf_attributes_gtf_attribute ON gtf_attributes(gtf_attribute ASC)",
 ]
 
-
 SQL_GENE_FOR_ANY = """
 SELECT g._key, g.ensembl_id, g.gene_id, g.transcript_id, g.seqid, s.gtf_source, t.gtf_type, g.seqid, g.start, g.end, g.strand, a.gtf_attribute, l.value
   FROM gtf g, gtf g2, gtf_lookup l, gtf_attributes a, gtf_sources s, gtf_types t
@@ -149,34 +145,61 @@ SELECT distinct g.ensembl_id, g.seqid, g.start, g.end, g.strand
  WHERE g.gene_id is not null
    AND g.transcript_id is null
 """
+
 SQL_GENES_SIMPLE_ORDER_BY = " ORDER BY g._key "
 
 # TODO need to get exons and transcripts
 
 SQL_TRANSCRIPTS_SIMPLE = """
-SELECT g._key, g.ensembl_id transcript_id, g.seqid transcript_seqid, g.start transcript_start, g.end transcript_end, g.strand transcript_strand, t.gtf_type transcript_type,
-       g2._key _child_key, g2.ensembl_id child_id, g2.seqid child_seqid, g2.start child_start, g2.end child_end, g2.strand child_strand, t2.gtf_type child_type,
-       g.gene_id, a.gtf_attribute, l.value
-  FROM gtf g, gtf g2, gtf_types t, gtf_types t2, gtf_lookup l, gtf_attributes a
- WHERE g.type_key = t._key
-   AND g.transcript_id is not null
-   AND t.gtf_type = 'transcript'
-   AND g2.transcript_id = g.transcript_id
-   AND g2.type_key = t2._key
-   AND t2.gtf_type in ('exon', 'transcript')
-   AND l.gtf_key = g2._key
-   AND l.attribute_key = a._key
-   AND a.gtf_attribute in ('exon_number', 'gene_name')
+SELECT  *,
+        (SELECT value 
+           FROM gtf_lookup l,
+                gtf_attributes a 
+          WHERE l.gtf_key = g._key 
+            AND l.attribute_key = a._key
+            AND a.gtf_attribute = 'exon_number') AS exon_number
+  FROM gtf g
 """
 
-SQL_TRANSCRIPTS_SIMPLE_ORDER_BY = " ORDER BY l._key "
+SQL_TRANSCRIPTS_SIMPLE_ORDER_BY = " ORDER BY g._key "
+
+
+def dictify_row(cursor, row):
+    """Turns the given row into a dictionary where the keys are the column names.
+
+    Args:
+        cursor (sqlite3.Cursor): the database cursor
+        row (dict): the current row
+
+    Returns:
+        OrderedDict: dictionary with keys being column names
+    """
+    d = OrderedDict()
+    for i, col in enumerate(cursor.description):
+        d[col[0]] = row[i]
+    return d
+
+
+def dictify_cursor(cursor):
+    """
+    Converts all cursor rows into dictionaries where keys are the column names.
+
+    Args:
+        cursor (sqlite3.Cursor): the database cursor
+
+    Returns:
+        list: list of ``OrderedDict`` objects with keys being column names
+    """
+    return [dictify_row(cursor, row) for row in cursor]
+
 
 def count_me(conn, table):
     c = conn.cursor()
     c.execute("select count(1) from {}".format(table))
     for row in c:
-        print str(row)
+        print(str(row))
     c.close()
+
 
 def gtf2db(input_file, output_file):
     """
@@ -187,10 +210,10 @@ def gtf2db(input_file, output_file):
     """
     start = time.time()
 
-    input_file = g2g_fu.check_file(input_file, 'r')
-    output_file = g2g_fu.check_file(output_file, 'w')
+    input_file = g2g_utils.check_file(input_file, 'r')
+    output_file = g2g_utils.check_file(output_file, 'w')
 
-    g2g_fu.delete_file(output_file)
+    g2g_utils.delete_file(output_file)
 
     LOG.info("GTF FILE: {0}".format(input_file))
     LOG.info("DB File: {0}".format(output_file))
@@ -205,19 +228,19 @@ def gtf2db(input_file, output_file):
     c.execute(SQL_CREATE_GTF_TYPES_TABLE)
     c.execute(SQL_CREATE_GTF_ATTRIBUTES_TABLE)
 
-
-
     gtf_types = {}
     gtf_sources = {}
     gtf_attributes = {}
 
     LOG.info("Parsing GTF file...")
 
-    gtf_file = GTF(input_file)
+    gtf_file = gtf.GTF(input_file)
 
     counter = 0
+    prev_gene_id = None
 
     for record in gtf_file:
+        LOG.debug('LINE={}'.format(record))
         if counter and counter % 100000 == 0:
             LOG.info("Processed {0:,} records".format(counter))
 
@@ -238,8 +261,15 @@ def gtf2db(input_file, output_file):
             strand = 1 if record.strand == '+' else -1
 
         gene_id = record.attributes['gene_id']
+
+        if prev_gene_id != gene_id:
+            LOG.debug('-'*80)
+            prev_gene_id = gene_id
+
         transcript_id = record.attributes['transcript_id'] if 'transcript_id' in record.attributes else None
         ensembl_id = None
+
+        LOG.debug('transcript_id = {}'.format(transcript_id))
 
         if record.type == 'gene':
             ensembl_id = record.attributes['gene_id']
@@ -250,10 +280,15 @@ def gtf2db(input_file, output_file):
         else:
             ensembl_id = record.attributes['protein_id'] if 'protein_id' in record.attributes else None
 
-        c.execute(SQL_INSERT_GTF_TABLE, (gene_id, transcript_id, ensembl_id, record.seqid, record.start, record.end, strand, record.score, _source_key, _type_key, record.frame))
-        gtf_key = c.lastrowid
+        LOG.debug('ensembl_id = {}'.format(ensembl_id))
 
-        for attribute, value in record.attributes.iteritems():
+        c.execute(SQL_INSERT_GTF_TABLE, (gene_id, transcript_id, ensembl_id, record.seqid, record.start, record.end, strand, record.score, _source_key, _type_key, record.frame))
+
+        LOG.debug('INSERTING GTF = {}'.format(str((gene_id, transcript_id, ensembl_id, record.seqid, record.start, record.end, strand, record.score, _source_key, _type_key, record.frame))))
+        gtf_key = c.lastrowid
+        LOG.debug('gtf_key={}'.format(gtf_key))
+
+        for (attribute, value) in viewitems(record.attributes):
             if attribute not in ['gene_id', 'transcript_id', 'exon_id']:
                 if attribute not in gtf_attributes:
                     _attribute_key = len(gtf_attributes.keys())
@@ -261,6 +296,7 @@ def gtf2db(input_file, output_file):
                 else:
                     _attribute_key = gtf_attributes[attribute]
 
+                LOG.debug('inserting {}'.format(str((gtf_key, _attribute_key, value))))
                 c.execute(SQL_INSERT_GTF_LOOKUP_TABLE, (gtf_key, _attribute_key, value))
 
         counter += 1
@@ -268,15 +304,15 @@ def gtf2db(input_file, output_file):
     # save (commit) the changes
     conn.commit()
 
-    for source, _key in gtf_sources.iteritems():
+    for (source, _key) in viewitems(gtf_sources):
         c.execute(SQL_INSERT_GTF_SOURCES_TABLE, (_key, source))
         conn.commit()
 
-    for type, _key in gtf_types.iteritems():
+    for (type, _key) in viewitems(gtf_types):
         c.execute(SQL_INSERT_GTF_TYPES_TABLE, (_key, type))
         conn.commit()
 
-    for attribute, _key in gtf_attributes.iteritems():
+    for (attribute, _key) in viewitems(gtf_attributes):
         c.execute(SQL_INSERT_GTF_ATTRIBUTES_TABLE, (_key, attribute))
         conn.commit()
 
@@ -309,7 +345,7 @@ def gtf2db(input_file, output_file):
     # close connection
     conn.close()
 
-    LOG.info("Execution complete: {0}".format(format_time(start, time.time())))
+    LOG.info("Execution complete: {0}".format(g2g_utils.format_time(start, time.time())))
 
 
 class GTFObject(object):
@@ -359,8 +395,8 @@ class Exon(GTFObject):
         if value:
             try:
                 self._exon_number = int(value)
-            except ValueError, ve:
-                raise G2GValueError("Illegal value for exon_number {0}, start must be an integer".format(value))
+            except ValueError as ve:
+                raise exceptions.G2GValueError("Illegal value for exon_number {0}, start must be an integer".format(value))
 
     def __str__(self):
         en = ''
@@ -421,6 +457,7 @@ def get_gene(db, ensembl_id):
     """
     conn = sqlite3.connect(db)
     conn.row_factory = sqlite3.Row
+    conn.text_factory = str
     cursor = conn.cursor()
     cursor.execute(SQL_GENE_FOR_ANY, {'ensembl_id': ensembl_id})
 
@@ -478,6 +515,7 @@ def get_gene(db, ensembl_id):
 
     cursor.close()
     conn.close()
+
     return genes
 
 
@@ -495,6 +533,7 @@ def get_genes_ids(db, location=None, use_strand=False, overlap=True):
     conn = sqlite3.connect(db)
     sqlite3.enable_callback_tracebacks(True)
     conn.row_factory = sqlite3.Row
+    conn.text_factory = str
     cursor = conn.cursor()
 
     cursor.execute(sql, sql_parameters)
@@ -536,6 +575,7 @@ def get_genes_simple(db, location=None, use_strand=False, overlap=True):
     conn = sqlite3.connect(db)
     sqlite3.enable_callback_tracebacks(True)
     conn.row_factory = sqlite3.Row
+    conn.text_factory = str
     cursor = conn.cursor()
 
     cursor.execute(sql, sql_parameters)
@@ -549,89 +589,65 @@ def get_genes_simple(db, location=None, use_strand=False, overlap=True):
 
     return genes
 
-def get_transcripts_simple(db, location=None, use_strand=False, overlap=True):
-    sql, sql_parameters = location_to_sql(location, use_strand, overlap)
-    sql = "{0} {1} {2}".format(SQL_TRANSCRIPTS_SIMPLE, sql, SQL_TRANSCRIPTS_SIMPLE_ORDER_BY)
+#def get_transcripts_simple(db, location=None, use_strand=False, overlap=True):
+def get_transcripts_simple(db):
+    sql = "{0} {1}".format(SQL_TRANSCRIPTS_SIMPLE, SQL_TRANSCRIPTS_SIMPLE_ORDER_BY)
 
     LOG.debug("SQL:\n{0}".format(sql))
-    LOG.debug("PARAMETERS: {0}".format(sql_parameters))
 
     conn = sqlite3.connect(db)
+
+    #LOG.debug('SQLite Version: {}'.format(sqlite3.sqlite_version))
+    #LOG.debug('sqlite3 driver {}, version: {}'.format(sqlite3.__name__, sqlite3.version))
     sqlite3.enable_callback_tracebacks(True)
     conn.row_factory = sqlite3.Row
+    conn.text_factory = str
     cursor = conn.cursor()
-
-    cursor.execute(sql, sql_parameters)
+    cursor.execute(sql)
 
     transcripts = OrderedDict()
     exons = OrderedDict()
+
+    counter = 0
     for r in cursor:
+        counter += 1
+        if counter % 10000 == 0:
+            LOG.debug("Parsed {} elements".format(counter))
 
-        if r['transcript_id'] == r['child_id']:
+        if r['transcript_id'] == r['ensembl_id']:
             # transcript
-            if r['_key'] not in transcripts:
-                transcripts[r['_key']] = Transcript(r['transcript_id'], r['transcript_seqid'], r['transcript_start'], r['transcript_end'], r['transcript_strand'])
-        else:
+            if r['transcript_id'] not in transcripts:
+                #LOG.debug('adding transcript {}'.format(r['transcript_id']))
+                transcripts[r['ensembl_id']] = Transcript(r['ensembl_id'], r['seqid'], r['start'], r['end'], r['strand'])
+                #LOG.debug(transcripts[r['ensembl_id']])
+        elif r['transcript_id'] is not None and (r['gene_id'] != r['ensembl_id']):
             # exon
-            exon = exons.get(r['_child_key'], Exon(r['child_id'], r['child_seqid'], r['child_start'], r['child_end'], r['child_strand']))
-            exon.gene_id = r['transcript_id']
+            #LOG.debug("ADDING exon")
+            exon = exons.get(r['ensembl_id'], Exon(r['ensembl_id'], r['seqid'], r['start'], r['end'], r['strand']))
+            exon.gene_id = r['gene_id']
             exon.transcript_ids[r['transcript_id']] = r['transcript_id']
-            attribute = r['gtf_attribute']
-            value = r['value']
+            exon.exon_number = r['exon_number']
 
-            if attribute == 'exon_number':
-                exon.exon_number = value
+            exons[r['ensembl_id']] = exon
+        else:
+            #LOG.debug('gene')
+            pass
 
-            exons[r['_child_key']] = exon
-
+    LOG.debug("Simplifying transcripts")
     transcripts = {transcript.ensembl_id: transcript for i, transcript in transcripts.iteritems()}
 
+    #LOG.debug(transcripts)
+
     for _id, exon in exons.iteritems():
+        #LOG.debug('_id={}\texon={}'.format(_id, str(exon)))
         for _tid in exon.transcript_ids:
+            #LOG.debug('_tid={}'.format(_id))
+            #LOG.debug(transcripts[_tid])
             transcripts[_tid].exons[exon.ensembl_id] = exon
 
     cursor.close()
     conn.close()
 
+    LOG.debug("Number of transcripts: {}".format(len(transcripts.values())))
+
     return transcripts.values()
-
-
-if __name__ == '__main__':
-    import sys
-    configure_logging(5)
-
-    genes = get_gene(sys.argv[1], sys.argv[2])
-    for k,v in genes.iteritems():
-        print v
-        for k1, v1 in v.transcripts.iteritems():
-            print "\t", v1
-            for k2,v2 in v1.exons.iteritems():
-                print "\t\t", v2
-
-    print '*'*80
-
-    genes = get_genes(sys.argv[1], Location('1', 21250000, 21500000, '-'), overlap=True, use_strand=True)
-    for k,v in genes.iteritems():
-        print v
-        for k1, v1 in v.transcripts.iteritems():
-            print "\t", v1
-            for k2,v2 in v1.exons.iteritems():
-                print "\t\t", v2
-
-    print len(genes)
-
-    """
-    gene_ids = get_genes_ids(sys.argv[1], Location('1', 21250000, 21500000), overlap=True)
-    print len(gene_ids)
-
-    genes = get_genes_simple(sys.argv[1], Location('1', 21250000, 21500000, '-'), overlap=False, use_strand=True)
-
-    for i, gene in enumerate(genes):
-        print gene
-
-    for i, transcript in enumerate(get_transcripts_simple(sys.argv[1], Location('12', 4833175, 4866873), overlap=False)):
-            print transcript, len(transcript.exons)
-            for k2,v2 in transcript.exons.iteritems():
-                print "\t", v2
-
-    """

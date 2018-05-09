@@ -2,164 +2,180 @@
 # -*- coding: utf-8 -*-
 
 #
-# A way to patch a Fasta file quickly
+# A way to transform a Fasta file quickly
 #
 
+import copy
 import mmap
 import multiprocessing
 import os
-import shutil
+import sys
 import time
+
+try:
+    from cStringIO import StringIO
+except ImportError:
+    from io import StringIO
 
 import pysam
 
-from .g2g_utils import format_time, get_logger
-import g2g_fileutils as g2g_fu
-from . import G2GValueError, G2GVCFError, G2GError
-from .vcf import VCF, parse_gt, parse_vcf_line
-from .fasta import FAI
+from . import compat
+from . import exceptions
+from . import fasta
+from . import g2g
+from . import g2g_utils
+from . import vci
 
-LOG = get_logger()
-
-NUM_CHUNKS = 10
-
-# globals, really... yup :-(
-fasta_index = None
-mm_l = None
-mm_r = None
+LOG = g2g.get_logger()
 
 
+class FastaPatchParams(object):
+    def __init__(self):
+        # input region, must match the format of the input fasta file
+        # if fasta file is haploid, format is chr:start-end
+        # if fasta file is diploid, format is chr(_L|_R):start-end
+        self.input_region = None
+
+        # original input fasta file
+        self.input_file = None
+
+        # temporary directory
+        self.temp_dir = None
+
+        self.output_file = None
+        self.output_region = None
+        self.output_header = None
+
+        # vci information
+        self.vci_file = None
+        self.vci_query = None
+        self.reverse = False
+
+        self.gen_temp = True
+
+        # offset
+        self.offset = 0
+
+    def __str__(self):
+        return "Input: {}\nOutput: {}\nLocation: {}\nOffset: {}".format(self.input_fasta_file, self.output_fasta_file, self.input_region, self.offset)
 
 
-class KeyboardInterruptError(Exception): pass
+class FastaPatchResult(object):
+    def __init__(self):
+        self.output_file = None
+        self.count = 0
+
+    def __str__(self):
+        return "File: {}".format(self.output_file)
 
 
-
-
-
-
-def get_pos(fai, chromosome, start, end):
+def process_piece(fasta_patch_params):
     """
-    Get the byte positions of the fasta file using the specified location
 
-    :param fasta_index: fasta index file used for sequence retrieval
-    :type fasta_index: :class:`.fasta.FAI`
-    :param chromosome: chromosome to use
-    :type chromosome: string
-    :param start: starting position
-    :type start: int
-    :param end: ending position
-    :type end: int
-    :return: a tuple of starting byte, ending byte, and byte length
+    :param fasta_patch_params:
+    :return:
     """
-    chrom = fai.records[chromosome]
-    fai_entry_length = chrom.length
-    fai_entry_offset = chrom.offset
-    fai_entry_line_length = chrom.line_length
-    fai_entry_line_length_bytes = chrom.line_length_bytes
-    seq_len = end - start
-    line_ratio = fai_entry_line_length * (fai_entry_line_length_bytes - fai_entry_line_length)
-    newlines_total = int(fai_entry_length / line_ratio)
-    newlines_before = 0
-    if start > 0:
-        newlines_before = int(start / line_ratio)
-    newlines_to_end = int(end / line_ratio)
-    byte_len_seq = newlines_to_end - newlines_before + seq_len
-    byte_start = fai_entry_offset + newlines_before + start
-    byte_end = fai_entry_offset + newlines_total + fai_entry_length
-    return byte_start, byte_end, byte_len_seq
 
-def _show_error():
-    import traceback, sys
-    """
-    show system errors
-    """
-    et, ev, tb = sys.exc_info()
-
-    print "Error Type: %s" % et
-    print "Error Value: %s" % ev
-    while tb :
-        co = tb.tb_frame.f_code
-        filename = str(co.co_filename)
-        line_no = str(traceback.tb_lineno(tb))
-        print '    %s:%s' % (filename, line_no)
-        tb = tb.tb_next
-
-def process_piece(filename_vcf, chrom, start, end, sample_index, diploid, pass_only, quality):
-    """
-    Process a section of the VCF file specified by the location.
-
-    :param filename_vcf: name of the VCF file
-    :type filename_vcf: name of the VCF file
-    :param chrom: the chromosome
-    :type chrom: string
-    :param start: starting position
-    :type start: int
-    :param end: ending position
-    :type end: int
-    :param sample_index: which sample index to process
-    :type sample_index: int
-    :param diploid: `True` to process diploid
-    :type diploid: boolean
-    :param pass_only: `True` to only process 'PASS' VCF records
-    :type pass_only: boolean
-    :param quality:
-    :type quality: boolean
-    :return: a dict of 2 elements, 'chrom' and 'count' specifying how many SNPs were patched
-    """
-    ret = {'count': 0, 'chrom': chrom}
+    LOG.debug('fasta_patch_params.input_region = {}'.format(fasta_patch_params.input_region))
+    LOG.debug('fasta_patch_params.input_file = {}'.format(fasta_patch_params.input_file))
+    LOG.debug('fasta_patch_params.temp_dir = {}'.format(fasta_patch_params.temp_dir))
+    LOG.debug('fasta_patch_params.output_file = {}'.format(fasta_patch_params.output_file))
+    LOG.debug('fasta_patch_params.output_region = {}'.format(fasta_patch_params.output_region))
+    LOG.debug('fasta_patch_params.output_header = {}'.format(fasta_patch_params.output_header))
+    LOG.debug('fasta_patch_params.vci_file = {}'.format(fasta_patch_params.vci_file))
+    LOG.debug('fasta_patch_params.vci_query = {}'.format(fasta_patch_params.vci_query))
+    LOG.debug('fasta_patch_params.reverse = {}'.format(fasta_patch_params.reverse))
+    LOG.debug('fasta_patch_params.gen_temp = {}'.format(fasta_patch_params.gen_temp))
+    LOG.debug('fasta_patch_params.offset = {}'.format(fasta_patch_params.offset))
 
     try:
-        query = "{0}:{1}-{2}".format(chrom, start, end)
-        LOG.info("Processing {0}...".format(query))
-        tb = pysam.TabixFile(filename_vcf)
+        fasta_patch_result = FastaPatchResult()
+        fasta_patch_result.output_file = fasta_patch_params.output_file
 
-        global fasta_index
-        for d in tb.fetch(chrom, start, end):
-            rec = parse_vcf_line(d)
+        fasta_file = fasta.FastaFile(fasta_patch_params.input_file)
+        vci_file = vci.VCIFile(fasta_patch_params.vci_file)
 
-            if pass_only and 'PASS' not in rec.FILTER:
+        if fasta_patch_params.gen_temp:
+            tmp_fasta = g2g_utils.gen_file_name(prefix=g2g_utils.location_to_filestring(fasta_patch_params.input_region)+'_', extension="fa", append_time=False, output_dir=fasta_patch_params.temp_dir)
+            LOG.debug('tmp_fasta={}'.format(tmp_fasta))
+
+            working = open(tmp_fasta, "w")
+            if fasta_patch_params.output_header.description:
+                fasta_header_string = ">{} {}".format(fasta_patch_params.output_header.id, fasta_patch_params.output_header.description)
+            else:
+                fasta_header_string = ">{}".format(fasta_patch_params.output_header.id)
+            working.write("{}\n".format(fasta_header_string))
+
+            LOG.debug("Fasta Fetch {}".format(fasta_patch_params.input_region))
+            LOG.debug("Fasta Fetch {}".format(fasta_patch_params.input_region.start))
+            sequence = fasta_file.fetch(fasta_patch_params.input_region.seq_id, fasta_patch_params.input_region.start - 1, fasta_patch_params.input_region.end)
+            if len(sequence) < 50:
+                LOG.debug("Fasta Fetch = {}".format(sequence))
+            else:
+                LOG.debug("Fasta Fetch = {} ... {}".format(sequence[:25], sequence[-25:]))
+            g2g_utils.write_sequence(sequence, working)
+            working.close()
+
+            fasta.FastaFile(tmp_fasta)
+            fasta_patch_result.output_file = tmp_fasta
+            fasta_index = fasta.FAI(tmp_fasta)
+        else:
+            fasta_index = fasta.FAI(fasta_patch_params.input_file)
+            tmp_fasta = fasta_patch_params.input_file
+
+        offset = fasta_patch_params.offset
+        reverse = fasta_patch_params.reverse
+
+        byte_start, byte_end, byte_len_seq = 0,0,0
+        LOG.info("Processing {0}...".format(fasta_patch_params.output_header.id))
+
+        fd_l = open(tmp_fasta, "r+b")
+        mm = mmap.mmap(fd_l.fileno(), 0)
+
+        LOG.debug("VCI Fetch {}".format(fasta_patch_params.vci_query))
+        for line in vci_file.fetch(fasta_patch_params.vci_query, parser=pysam.asTuple()):
+
+            if line[5] != '.':
                 continue
 
-            byte_start, byte_end, byte_len_seq = get_pos(fasta_index, rec.CHROM, rec.POS-1, rec.POS)
-            gt = parse_gt(rec, sample_index)
+            fasta_patch_result.count += 1
 
-            # FI : Whether a sample was a Pass(1) or fail (0) based on FILTER values
-            if quality and gt.fi is not None and gt.fi == '0':
-                continue
+            position = int(line[1]) - offset
+            deleted_bases = line[3 if not reverse else 4]
+            inserted_bases = line[4 if not reverse else 3]
 
-            global mm_l
-            global mm_r
-            if gt.left and gt.right:
-                if mm_l[byte_start] != gt.ref:
-                    LOG.warn("Reference at {0}:{1} has base '{2}', but VCF indicates '{3}', skipping".format(rec.CHROM, rec.POS, mm_l[byte_start], gt.ref))
-                    continue
+            LOG.debug('int(line[1])={}'.format(int(line[1])))
+            LOG.debug('position={}'.format(position))
+            LOG.debug('offset={}'.format(offset))
 
-                if diploid:
-                    mm_l[byte_start] = gt.left
-                    mm_r[byte_start] = gt.right
-                    ret['count'] += 1
-                    # LOG.debug("Patching {0}:{1} ({2}) from {3} to {4},{5}".format(chrom, rec.POS-1, from_base, gt.ref, gt.left, gt.right))
-                else:
-                    if gt.left == gt.right:
-                        # ignore heterozygotes 0/1, 1/0, only process 0/0 and 1/1
-                        mm_l[byte_start] = gt.left
-                        ret['count'] += 1
-                        #LOG.debug("Patching {0}:{1} from {2} to {3}:{4}".format(chrom, rec.POS-1, gt.ref, gt.left, gt))
+            byte_start, byte_end, byte_len_seq = fasta_index.get_pos(fasta_patch_params.output_region.seq_id, position-1, position)
+
+            if compat.is_py2:
+                LOG.debug("LINE: {}".format(line))
+                LOG.debug('WAS {}'.format(mm[byte_start]))
+                LOG.debug("Patching {0}:{1} from {2} to {3}".format(fasta_patch_params.output_region.seq_id, position-1, deleted_bases, inserted_bases))
+                mm[byte_start] = inserted_bases
+            else:
+                LOG.debug("LINE: {}".format(line))
+                LOG.debug('WAS {}'.format(chr(mm[byte_start])))
+                LOG.debug("Patching {0}:{1} from {2} to {3}".format(fasta_patch_params.output_region.seq_id, position - 1, deleted_bases, inserted_bases))
+                mm[byte_start] = ord(inserted_bases)
 
 
     except KeyboardInterrupt:
-        raise KeyboardInterruptError()
-    except ValueError, te:
-        LOG.debug("No SNPS found in region {0}".format(query))
-    except Exception, e:
-        LOG.error('-'*80)
-        LOG.error(e)
+        raise exceptions.KeyboardInterruptError()
+    except ValueError as te:
+        LOG.debug("No SNPS found in region {0}".format(fasta_patch_params.vci_query))
+    except Exception as e:
+        g2g_utils._show_error()
         LOG.debug("{0}, {1}, {2}".format(byte_start, byte_end, byte_len_seq))
-        LOG.debug(rec)
-        LOG.debug(gt)
+        LOG.debug(line)
 
-    return ret
+    mm.flush()
+    mm.close()
+    return fasta_patch_result
+
+    #LOG.info("Execution complete: {0}".format(g2g_utils.format_time(start_time, time.time())))
 
 
 def wrapper(args):
@@ -172,237 +188,51 @@ def wrapper(args):
     return process_piece(*args)
 
 
-def patch(filename_original_fasta, filename_vcf, strain, filename_new_fasta_l, filename_new_fasta_r,
-          num_processes, pass_only, quality, diploid):
-    """
-    Perform patch via multiprocess.
-
-    :param filename_vcf: name of the VCF file
-    :type filename_vcf: string
-    :param strain: name of strain to use in VCF file
-    :type strain: string
-    :param filename_original_fasta: name of the input Fasta file
-    :type filename_original_fasta: string
-    :param filename_new_fasta_l: name of the output Fasta file
-    :type filename_new_fasta_l: string
-    :param filename_new_fasta_r: name of the output Fasta file
-    :type filename_new_fasta_r: string
-    :param num_processes: the number of processes to spawn
-    :type num_processes: int
-    :param pass_only: Only process those VCF records with a 'PASS'
-    :type pass_only: boolean
-    :param quality: filter on quality, FI=PASS
-    :type quality: boolean
-    :param diploid: don't ignore hets and create 2 files
-    :type diploid: boolean
-    :return: Nothing
-    """
-
-    vcf_file = VCF(filename_vcf)
-
-    # the temporary fasta index
-    global fasta_index
-    fasta_index = FAI(filename_new_fasta_l)
-
-    if strain not in vcf_file.samples:
-        raise G2GVCFError("Unknown strain '{0}', valid strains are: {1}".format(strain, vcf_file.samples.keys()))
-
-    sample_index = vcf_file.get_sample_index(strain)
-
-    fd_l = open(filename_new_fasta_l, "r+b")
-    global mm_l
-    mm_l = mmap.mmap(fd_l.fileno(), 0)
-
-    if diploid:
-        fd_r = open(filename_new_fasta_r, "r+b")
-        global mm_r
-        mm_r = mmap.mmap(fd_r.fileno(), 0)
-
-    all_start_pos = []
-    all_end_pos = []
-    all_chrom = []
-
-    try:
-        for f in fasta_index.records:
-            chrom = f
-            chrom_length = fasta_index.records[f].length
-
-            # we don't want to handle to much data at a time, so chunk
-            initial_chunks = range(1, chrom_length, chrom_length/NUM_CHUNKS)
-
-            start_pos = sorted(set([i for i in initial_chunks]))
-            end_pos = [i-1 for i in start_pos][1:] + [chrom_length]
-            chroms = [chrom] * len(start_pos)
-
-            all_start_pos.extend(start_pos)
-            all_end_pos.extend(end_pos)
-            all_chrom.extend(chroms)
-
-        all_sample_index = [sample_index] * len(all_start_pos)
-        all_diploids = [diploid] * len(all_start_pos)
-        all_vcffiles = [filename_vcf] * len(all_start_pos)
-        all_passonly = [pass_only] * len(all_start_pos)
-        all_quality = [quality] * len(all_start_pos)
-
-        args = zip(all_vcffiles, all_chrom, all_start_pos, all_end_pos,
-                   all_sample_index, all_diploids, all_passonly, all_quality)
-
-        pool = multiprocessing.Pool(num_processes)
-        results = pool.map(wrapper, args)
-
-        # parse results
-        total = 0
-        chroms = {}
-
-        mm_l.flush()
-        mm_l.close()
-
-        if diploid:
-            mm_r.flush()
-            mm_r.close()
-
-        for c in results:
-            current = chroms.get(c['chrom'], 0)
-            chroms[c['chrom']] = current + c['count']
-            total += c['count']
-
-        for f in fasta_index.records:
-            LOG.info("Patched {0:,} SNPs on chromosome {1}".format(chroms.get(f, 0), f))
-
-        LOG.info("Patched {0:,} SNPs total".format(total))
-    except KeyboardInterrupt:
-        pool.terminate()
-        raise G2GError("Execution halted")
-    except Exception, e:
-        raise G2GError("Execution halted")
-
-
-def prepare_fasta_patch(filename_fasta, filename_output, bgzip=False, diploid=False):
+def prepare_fasta_patch(filename_fasta, filename_output):
     """
     Initialize fasta_patch variables
 
-    :param filename_fasta:
-    :param filename_vcf:
-    :param strain:
-    :param filename_output:
-    :param bgzip:
-    :param diploid:
-    :return:
     """
-
-    filename_output = g2g_fu.check_file(filename_output, 'w')
+    filename_output = g2g_utils.check_file(filename_output, 'w')
     output_file_dir = os.path.abspath(os.path.dirname(filename_output))
 
     new_filename_output = filename_output
 
-    # let's figure out what our output names will be
-    if filename_output.lower().endswith('.gz'):
+    # let's figure out what our output name will be
+    if new_filename_output.lower().endswith('.gz'):
         # strip off .gz
-        new_filename_output = filename_output[:-3]
+        new_filename_output = new_filename_output[:-3]
 
     if not filename_output.lower().endswith('.fa'):
-        raise G2GValueError("Expecting output filename extension to be either '.fa.gz' or '.fa'")
+        raise exceptions.G2GValueError("Expecting output filename extension to be either '.fa.gz' or '.fa'")
+
+    g2g_utils.delete_index_files(new_filename_output)
+
+    return new_filename_output
 
 
-    if diploid:
-        filename_output_l = g2g_fu.prepend_before_extension(new_filename_output, 'l')
-        filename_output_r = g2g_fu.prepend_before_extension(new_filename_output, 'r')
-
-        g2g_fu.delete_index_files(filename_output_l)
-        g2g_fu.delete_index_files(filename_output_r)
-    else:
-        filename_output_l = new_filename_output
-        filename_output_r = None
-
-        g2g_fu.delete_index_files(filename_output_l)
-
-    # at this point we are hoping for a .fa extension
-
-    # let's figure out our input and process accordingly
-    if filename_fasta.lower().endswith('.fa.gz'):
-        # decompress the fasta file if it is compressed
-
-        LOG.info("Copying and decompressing fasta file")
-
-        # copy file and preserve gz extension for bgzip -d to work
-        tmp_file_name = os.path.basename(filename_fasta)                        # something.gz
-        LOG.debug("tmp_file_name={0}".format(tmp_file_name))
-
-        tmp_fasta = os.path.join(output_file_dir, tmp_file_name)                # /path/something.fa.gz
-        LOG.debug("tmp_fasta={0}".format(tmp_fasta))
-
-        LOG.debug("COPYING {0} to {1}".format(filename_fasta, tmp_fasta))
-        shutil.copy(filename_fasta, tmp_fasta)  # cp /original/something.fa.gz /output/something.fa.gz
-
-        LOG.debug("DECOMPRESSING {0}".format(tmp_fasta))
-        g2g_fu.bgzip_decompress(tmp_fasta)
-
-        tmp_fasta = tmp_fasta[:-3]         # /path/something.fa
-        LOG.debug("tmp_fasta={0}".format(tmp_fasta))
-
-        LOG.debug("Moving '{0}' to '{1}'...".format(tmp_fasta, filename_output_l))
-        shutil.move(tmp_fasta, filename_output_l)
-
-    elif filename_fasta.lower().endswith('.fa'):
-        LOG.debug("File is not compressed")
-
-        LOG.debug("COPYING {0} to {1}".format(filename_fasta, filename_output_l))
-        shutil.copy(filename_fasta, filename_output_l)
-    else:
-        raise G2GValueError("Expecting input filename extension to be either '.fa.gz' or '.fa'")
-
-    if diploid:
-        LOG.debug("Copying '{0}' to '{1}'...".format(filename_output_l, filename_output_r))
-        shutil.copy(filename_output_l, filename_output_r)
-
-    # build a temporary fasta index
-    pysam.FastaFile(filename_output_l)
-
-    return filename_output_l, filename_output_r
-
-
-
-def fasta_patch(filename_fasta, filename_vcf, strain, filename_output, bgzip=False,
-                num_processes=None, pass_only=False, quality=False, diploid=False):
+def process(filename_fasta, filename_vci, regions, filename_output=None, bgzip=False, reverse=False, num_processes=None):
     """
     Patch a Fasta file by replacing the bases where the SNPs are located in the VCF file.
 
     :param filename_fasta: name of the input Fasta file
     :type filename_fasta: string
-    :param filename_vcf: name of the VCF file
-    :type filename_vcf: string
-    :param strain: name of strain to use in VCF file
-    :type strain: string
+    :param filename_g2g: name of the G2G file
+    :type filename_g2g: string
     :param filename_output: name of the output Fasta file
     :type filename_output: string
     :param bgzip: compress file in BGZIP format
     :type bgzip: boolean
+    :param reverse: reverse the G2G file
+    :type reverse: boolean
     :param num_processes: the number of processes to spawn
     :type num_processes: int
-    :param pass_only: Only process those VCF records with a 'PASS'
-    :type pass_only: boolean
-    :param quality: filter on quality, FI=PASS
-    :type quality: boolean
-    :param diploid: don't ignore hets and create 2 files
-    :type diploid: boolean
     :return: Nothing
     """
     start = time.time()
 
-    filename_fasta = g2g_fu.check_file(filename_fasta)
-    filename_vcf = g2g_fu.check_file(filename_vcf)
-
-    LOG.info("INPUT FASTA FILE: {0}".format(filename_fasta))
-    LOG.info("VCF FILE: {0}".format(filename_vcf))
-    LOG.info("STRAIN: {0}".format(strain))
-    LOG.info("PASS FILTER ON: {0}".format(str(pass_only)))
-    LOG.info("QUALITY FILTER ON: {0}".format(str(quality)))
-    LOG.info("DIPLOID: {0}".format(str(diploid)))
-
-    if not strain:
-        raise G2GValueError("No strain was specified.")
-
-    filename_output_l, filename_output_r = prepare_fasta_patch(filename_fasta, filename_output, bgzip, diploid)
+    filename_fasta = g2g_utils.check_file(filename_fasta)
+    filename_vci = g2g_utils.check_file(filename_vci)
 
     if not num_processes:
         num_processes = multiprocessing.cpu_count()
@@ -410,42 +240,151 @@ def fasta_patch(filename_fasta, filename_vcf, strain, filename_output, bgzip=Fal
         if num_processes <= 0:
             num_processes = 1
 
-    LOG.info("NUMBER OF PROCESSES: {0}".format(num_processes))
-    if bgzip:
-        if diploid:
-            LOG.info("OUTPUT FASTA FILES: {0}.gz".format(filename_output_l))
-            LOG.info("                    {0}.gz".format(filename_output_r))
-        else:
-            LOG.info("OUTPUT FASTA FILE: {0}.gz".format(filename_output_l))
-    else:
-        if diploid:
-            LOG.info("OUTPUT FASTA FILES: {0}".format(filename_output_l))
-            LOG.info("                    {0}".format(filename_output_r))
-        else:
-            LOG.info("OUTPUT FASTA FILE: {0}".format(filename_output_l))
+    LOG.info("Input Fasta File: {0}".format(filename_fasta))
+    LOG.info("Input VCI File: {0}".format(filename_vci))
+    LOG.info("Processes: {0}".format(num_processes))
 
-    LOG.info("Patching...")
+    dump_fasta = False
+
+    temp_directory = g2g_utils.create_temp_dir('patch_', dir='.')
+    LOG.debug("Temp directory: {}".format(temp_directory))
 
     try:
-        patch(filename_fasta, filename_vcf, strain, filename_output_l, filename_output_r,
-              num_processes, pass_only, quality, diploid)
+        if filename_output:
+            filename_output = g2g_utils.check_file(filename_output, 'w')
 
-        LOG.info("Patching complete")
+            if not regions:
+                filename_output = prepare_fasta_patch(filename_fasta, filename_output)
+                LOG.info("Output Fasta File: {0}".format(filename_output))
+            else:
+                if bgzip:
+                    if filename_output.lower().endswith((".fa", ".fasta")):
+                        LOG.info("Output Fasta File: {0}.gz".format(filename_output))
+                    elif filename_output.lower().endswith(".gz"):
+                        LOG.info("Output Fasta File: {0}".format(filename_output))
+                        filename_output = filename_output[:-3]
+                else:
+                    LOG.info("Output Fasta File: {0}".format(filename_output))
+        else:
+            filename_output = g2g_utils.gen_file_name(extension="fa", append_time=False, output_dir=temp_directory)
+            dump_fasta = True
+            LOG.debug("Temporary fasta file: {}".format(filename_output))
 
-        # remove the fai
-        LOG.debug("removing the FAI index for {0}".format(g2g_fu.delete_index_files(filename_output_l)))
-        g2g_fu.delete_index_files(filename_output_l)
+        print('hello')
 
-        # move temp to final destination
-        if bgzip:
-            LOG.info("Compressing and indexing...")
-            g2g_fu.bgzip_index(filename_output_l, "{0}.gz".format(filename_output_l), 'fa')
-            if diploid:
-                g2g_fu.bgzip_index(filename_output_r, "{0}.gz".format(filename_output_r), 'fa')
+        fasta_file = fasta.FastaFile(filename_fasta)
+        vci_file = vci.VCIFile(filename_vci)
 
-        LOG.info("Execution complete: {0}".format(format_time(start, time.time())))
-    except Exception, e:
-        LOG.debug(e)
-        raise G2GError("")
+        if fasta_file.is_diploid():
+            raise exceptions.G2GFastaError("Diploid Fasta files are not currently supported for patch")
+
+        full_file = True
+
+        if regions:
+            full_file = False
+            if len(regions) > 5:
+                LOG.info("Regions: {} (showing 1st five)".format(", ".join(l for l in map(str, regions[:5]))))
+            else:
+                LOG.info("Regions: {}".format(", ".join(l for l in map(str, regions))))
+
+        else:
+            regions = []
+            for chrom in fasta_file.references:
+                regions.append(g2g.Region(chrom, 1, fasta_file.get_reference_length(chrom)))
+
+        all_params = []
+        for region in regions:
+            LOG.debug('region={}'.format(region))
+            LOG.debug('region.original_base={}'.format(region.original_base))
+            params = FastaPatchParams()
+            params.input_region = region
+            params.input_file = filename_fasta
+            params.temp_dir = temp_directory
+            params.vci_file = filename_vci
+            params.reverse = reverse
+            params.offset = 0 if region.start <= 1 else region.start - 1
+
+            if vci_file.is_haploid():
+                LOG.debug("VCI File is haploid")
+                params.output_file = g2g_utils.gen_file_name(prefix=g2g_utils.location_to_filestring(region), extension="fa", output_dir=temp_directory, append_time=False)
+
+                if full_file:
+                    params.output_region = g2g.Region(region.seq_id, region.start, region.end)
+                    params.output_header = fasta.FastaHeader(region.seq_id, "{}:{}-{}".format(region.seq_id, region.start, region.end))
+                else:
+                    params.output_region = g2g.Region("{}:{}-{}".format(region.seq_id, region.start, region.end), region.start, region.end)
+                    params.output_header = fasta.FastaHeader("{}:{}-{}".format(region.seq_id, region.start, region.end), None)
+
+                params.vci_query = "{}:{}-{}".format(region.seq_id, region.start, region.end)
+                all_params.append(params)
+            else:
+                LOG.debug("VCI File is diploid")
+                params.output_file = g2g_utils.gen_file_name(prefix=g2g_utils.location_to_filestring(region)+"_L", extension="fa", output_dir=temp_directory, append_time=False)
+
+                if full_file:
+                    params.output_region = g2g.Region(region.seq_id+"_L", region.start, region.end)
+                    params.output_header = fasta.FastaHeader(region.seq_id+"_L", "{}:{}-{}".format(region.seq_id, region.start, region.end))
+                else:
+                    params.output_region = g2g.Region("{}_L:{}-{}".format(region.seq_id, region.start, region.end), region.start, region.end)
+                    params.output_header = fasta.FastaHeader("{}_L:{}-{}".format(region.seq_id, region.start, region.end), None)
+
+                params.vci_query = "{}_L:{}-{}".format(region.seq_id, region.start, region.end)
+                all_params.append(params)
+
+                params_r = copy.deepcopy(params)
+                params_r.output_file = g2g_utils.gen_file_name(prefix=g2g_utils.location_to_filestring(region)+"_R", extension="fa", output_dir=temp_directory, append_time=False)
+
+                if full_file:
+                    params_r.output_region = g2g.Region(region.seq_id+"_R", region.start, region.end)
+                    params_r.output_header = fasta.FastaHeader(region.seq_id+"_R", "{}:{}-{}".format(region.seq_id, region.start, region.end))
+                else:
+                    params_r.output_region = g2g.Region("{}_R:{}-{}".format(region.seq_id, region.start, region.end), region.start, region.end)
+                    params_r.output_header = fasta.FastaHeader("{}_R:{}-{}".format(region.seq_id, region.start, region.end), None)
+
+                params_r.vci_query = "{}_R:{}-{}".format(region.seq_id, region.start, region.end)
+                all_params.append(params_r)
+
+        args = zip(all_params)
+        pool = multiprocessing.Pool(num_processes)
+        results = pool.imap_unordered(wrapper, args)
+
+        # parse results
+        total = 0
+        mode = 'wb'
+
+        for c in results:
+            if c is not None:
+                total += c.count
+                g2g_utils.concatenate_files([c.output_file], filename_output, False, mode)
+                g2g_utils.delete_file(c.output_file)
+                g2g_utils.delete_index_files(c.output_file)
+                mode = 'ab'
+
+        LOG.info("Patched {0:,} SNPs total".format(total))
+
+        if dump_fasta:
+            g2g_utils.dump_file_contents(filename_output)
+        else:
+            # move temp to final destination
+            if bgzip:
+                # remove the fai
+                LOG.debug("removing the FAI index for {0}".format(filename_output))
+                g2g_utils.delete_index_files(filename_output)
+
+                LOG.info("Compressing and indexing...")
+
+                if filename_output.lower().endswith((".fa", ".fasta")):
+                    g2g_utils.bgzip_and_index_file(filename_output, "{0}.gz".format(filename_output), delete_original=True, file_format='fa')
+                elif filename_output.lower().endswith(".gz"):
+                    g2g_utils.bgzip_and_index_file(filename_output, filename_output, delete_original=True, file_format='fa')
+
+    except KeyboardInterrupt:
+        raise exceptions.KeyboardInterruptError()
+    except Exception as e:
+        raise exceptions.G2GError(str(e))
+    finally:
+        # clean up the temporary files
+        g2g_utils.delete_dir(temp_directory)
+        LOG.info("Patch complete: {0}".format(g2g_utils.format_time(start, time.time())))
 
 

@@ -77,13 +77,13 @@ class G2GFetchError(G2GError):
         super(G2GFetchError, self).__init__(self.msg)
 
 
-class G2GLocationError(G2GError):
+class G2GRegionError(G2GError):
     """
-    Location errors
+    Region errors
     """
     def __init__(self, msg=None):
         self.msg = msg
-        super(G2GLocationError, self).__init__(self.msg)
+        super(G2GRegionError, self).__init__(self.msg)
 
 
 class G2GVCFError(G2GError):
@@ -104,3 +104,8 @@ class G2GGTFError(G2GError):
         super(G2GGTFError, self).__init__(self.msg)
 
 
+class KeyboardInterruptError(Exception):
+    """
+    Keyboard Interrupt errors
+    """
+    pass

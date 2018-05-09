@@ -6,6 +6,7 @@
 
 # pysam uses 0-based coordinates
 
+from past.builtins import xrange
 from collections import namedtuple
 import os
 import re
@@ -13,11 +14,12 @@ import sys
 
 import pysam
 
-from .chain import ChainFile
-from .exceptions import G2GCigarFormatError, G2GBAMError, G2GValueError
-from .g2g_utils import get_logger
-import g2g_fileutils as g2g_fu
-
+from . import compat
+from . import exceptions
+from . import g2g
+from . import g2g_utils
+from . import vci
+from . import __version__
 
 FLAG_NONE = 0x0             # base value
 FLAG_PAIRED = 0x1           # template having multiple segments in sequencing
@@ -89,18 +91,18 @@ CIGAR_C2N = {
     'X': 8
 }
 
-LOG = get_logger()
+LOG = g2g.get_logger()
 
 Cigar = namedtuple('Cigar', ['code', 'length', 'start', 'end'])
 
 
-def convert_bam_file(chain_file, file_in, file_out, reverse=False):
+def convert_bam_file(vci_file, file_in, file_out, reverse=False):
     """
     Convert genome coordinates (in BAM/SAM format) between assemblies.  These coordinates
-    are stored in the :class:`.chain.ChainFile` object.
+    are stored in the :class:`.vci.VCIFile` object.
 
-    :param chain_file: chain file used for conversion
-    :type chain_file: :class:`.chain.ChainFile`
+    :param vci_file: vci file used for conversion
+    :type vci_file: :class:`.vci.VCIFile`
     :param str file_in: the input SAM or BAM file
     :type file_in: string
     :param file_out: the output SAM or file
@@ -108,34 +110,38 @@ def convert_bam_file(chain_file, file_in, file_out, reverse=False):
     :param reverse: reverse direction of original chain file
     :type reverse: boolean
     """
-    if not isinstance(chain_file, ChainFile):
-        chain_file = g2g_fu.check_file(chain_file)
+
+    if file_out is None:
+        raise exceptions.G2GBAMError("Conversion of BAM/SAM file needs output file")
+
+    if not isinstance(vci_file, vci.VCIFile):
+        vci_file = g2g_utils.check_file(vci_file)
 
     if not isinstance(file_in, pysam.Samfile):
-        file_in = g2g_fu.check_file(file_in)
+        file_in = g2g_utils.check_file(file_in)
 
-    output_file_name = g2g_fu.check_file(file_out, 'w')
+    output_file_name = g2g_utils.check_file(file_out, "w")
     unmapped_file_name = "{0}.unmapped".format(output_file_name)
 
-    LOG.info("CHAIN FILE: {0}".format(chain_file))
+    LOG.info("VCI FILE: {0}".format(vci_file))
     LOG.info("INPUT FILE: {0}".format(file_in))
     LOG.info("OUTPUT FILE: {0}".format(output_file_name))
     LOG.info("UNMAPPED FILE: {0}".format(unmapped_file_name))
 
-    if not isinstance(chain_file, ChainFile):
-        LOG.info("Parsing chain file...")
-        chain_file = ChainFile(chain_file, reverse=reverse)
-        LOG.info("Chain file parsed")
+    if not isinstance(vci_file, vci.VCIFile):
+        LOG.info("Parsing vci file...")
+        vci_file = vci.VCIFile(vci_file, reverse=reverse)
+        LOG.info("VCI file parsed")
 
     if not isinstance(file_in, pysam.Samfile):
         try:
             sam_file = pysam.Samfile(file_in, 'rb')
             if len(sam_file.header) == 0:
-                raise G2GBAMError("BAM File has no header information")
+                raise exceptions.G2GBAMError("BAM File has no header information")
         except:
             sam_file = pysam.Samfile(file_in, 'r')
             if len(sam_file.header) == 0:
-                raise G2GBAMError("SAM File has no header information")
+                raise exceptions.G2GBAMError("SAM File has no header information")
 
     LOG.info("Converting BAM file")
 
@@ -148,23 +154,25 @@ def convert_bam_file(chain_file, file_in, file_out, reverse=False):
     tmp = []
     name_to_id = {}
     id = 0
-    for ref_name in sorted(chain_file.chrom_size_to):
-        tmp.append({'LN': chain_file.chrom_size_from[ref_name], 'SN': ref_name})
-        name_to_id[ref_name] = id
-        id += 1
 
-    new_header['SQ'] = tmp
+    # TODO: Fix
+    #for ref_name in sorted(chain_file.chrom_size_to):
+    #    tmp.append({'LN': chain_file.chrom_size_from[ref_name], 'SN': ref_name})
+    #    name_to_id[ref_name] = id
+    #    id += 1
+
+    #new_header['SQ'] = tmp
 
     if 'PG' not in new_header:
         new_header['PG'] = []
 
-    new_header['PG'].append({'ID': 'gtgtools', 'VN': 1.0})
+    new_header['PG'].append({'ID': 'g2gtools', 'VN': __version__})
 
     if 'CO' not in new_header:
         new_header['CO'] = []
 
     new_header['CO'].append("Original file: {0}".format(file_in))
-    new_header['CO'].append("Chain File: {0}".format(chain_file.file_name))
+    new_header['CO'].append("VCI File: {0}".format(vci_file.filename))
 
     dir, temp_file_name = os.path.split(file_out)
     parts = temp_file_name.split('.')
@@ -177,7 +185,7 @@ def convert_bam_file(chain_file, file_in, file_out, reverse=False):
         new_file = pysam.Samfile(file_out, 'wh', header=new_header)
         new_file_unmapped = pysam.Samfile(unmapped_file_name, 'wh', template=sam_file)
     else:
-        raise G2GBAMError("Unable to create new file based upon file extension")
+        raise exceptions.G2GBAMError("Unable to create new file based upon file extension")
 
     total = 0
     total_unmapped = 0
@@ -213,7 +221,11 @@ def convert_bam_file(chain_file, file_in, file_out, reverse=False):
 
                 LOG.info("Processed {0:,} reads, {1:,} successful, {2:,} failed".format(total, status_success, status_failed))
 
-            alignment = sam_file.next()
+            if compat.is_py2:
+                alignment = sam_file.next()
+            else:
+                alignment = next(sam_file)
+
             alignment_new = pysam.AlignedRead()
             read_chr = sam_file.getrname(alignment.tid)
 
@@ -294,7 +306,7 @@ def convert_bam_file(chain_file, file_in, file_out, reverse=False):
                 read_end = alignment.aend
                 read_strand = '-' if alignment.is_reverse else '+'
 
-                mappings = chain_file.find_mappings(read_chr, read_start, read_end)
+                mappings = vci_file.find_mappings(read_chr, read_start, read_end)
 
                 # unmapped
                 if mappings is None:
@@ -324,7 +336,7 @@ def convert_bam_file(chain_file, file_in, file_out, reverse=False):
 
                     alignment_new.tid = name_to_id[mappings[0].to_chr]
                     alignment_new.pos = mappings[0].to_start
-                    alignment_new.cigar = convert_cigar(alignment.cigar, read_chr, chain_file, alignment.seq, read_strand, alignment.pos)
+                    alignment_new.cigar = convert_cigar(alignment.cigar, read_chr, vci_file, alignment.seq, read_strand, alignment.pos)
                     new_file.write(alignment_new)
 
                     LOG.debug("\tSuccess (complex): {0} {1}".format(alignment_new.pos, alignment_new.cigarstring))
@@ -355,13 +367,7 @@ def convert_bam_file(chain_file, file_in, file_out, reverse=False):
                 read1_start = alignment.pos
                 read1_end = alignment.aend
                 read1_strand = '-' if alignment.is_reverse else '+'
-                read1_mappings = chain_file.find_mappings(read1_chr, read1_start, read1_end) #, read1_strand)
-
-                read2_chr = None
-                read2_start = None
-                read2_end = None
-                read2_strand = None
-                read2_mappings = None
+                read1_mappings = vci_file.find_mappings(read1_chr, read1_start, read1_end) #, read1_strand)
 
                 if alignment.mate_is_unmapped:
                     alignment_new.flag |= FLAG_MUNMAP
@@ -371,7 +377,7 @@ def convert_bam_file(chain_file, file_in, file_out, reverse=False):
                     read2_end = read2_start + 1
                     read2_strand = '-' if alignment.mate_is_reverse else '+'
                     try:
-                        read2_mappings = chain_file.find_mappings(read2_chr, read2_start, read2_end)
+                        read2_mappings = vci_file.find_mappings(read2_chr, read2_start, read2_end) #, read2_strand)
                     except:
                         read2_mappings = None
 
@@ -462,7 +468,7 @@ def convert_bam_file(chain_file, file_in, file_out, reverse=False):
 
                     alignment_new.tid = name_to_id[read1_mappings[0].to_chr]
                     alignment_new.pos = read1_mappings[0].to_start
-                    alignment_new.cigar = convert_cigar(alignment.cigar, read_chr, chain_file, alignment.seq, read1_strand, alignment.pos)
+                    alignment_new.cigar = convert_cigar(alignment.cigar, read_chr, vci_file, alignment.seq, read1_strand, alignment.pos)
 
                     alignment_new.rnext = name_to_id[read1_mappings[0].to_chr]
                     alignment_new.pnext = 0
@@ -476,7 +482,7 @@ def convert_bam_file(chain_file, file_in, file_out, reverse=False):
 
                     alignment_new.tid = name_to_id[read1_mappings[0].to_chr]
                     alignment_new.pos = read1_mappings[0].to_start
-                    alignment_new.cigar = convert_cigar(alignment.cigar, read_chr, chain_file, alignment.seq, read1_strand, alignment.pos)
+                    alignment_new.cigar = convert_cigar(alignment.cigar, read_chr, vci_file, alignment.seq, read1_strand, alignment.pos)
 
                     alignment_new.rnext = name_to_id[read2_mappings[0].to_chr]
                     alignment_new.pnext = read2_mappings[0].to_start
@@ -490,7 +496,7 @@ def convert_bam_file(chain_file, file_in, file_out, reverse=False):
 
                     alignment_new.tid = name_to_id[read1_mappings[0].to_chr]
                     alignment_new.pos = read1_mappings[0].to_start
-                    alignment_new.cigar = convert_cigar(alignment.cigar, read_chr, chain_file, alignment.seq, read1_strand, alignment.pos)
+                    alignment_new.cigar = convert_cigar(alignment.cigar, read_chr, vci_file, alignment.seq, read1_strand, alignment.pos)
 
                     alignment_new.rnext = name_to_id[read2_mappings[0].to_chr]
                     alignment_new.pnext = read2_mappings[0].to_start
@@ -501,7 +507,7 @@ def convert_bam_file(chain_file, file_in, file_out, reverse=False):
                     map_statistics_pair['success_1_complex_2_complex'] += 1
 
                 else:
-                    raise G2GBAMError("Unknown BAM/SAM conversion/parse situation")
+                    raise exceptions.G2GBAMError("Unknown BAM/SAM conversion/parse situation")
 
     except StopIteration:
         LOG.info("All reads processed")
@@ -588,13 +594,13 @@ def cigarlist_to_cigarstring(cigar_list):
             for i in cigar_list:
                 cigar += str(i.length) + i.code
         except KeyError:
-            raise G2GCigarFormatError("Invalid cigar code: " + str(i))
+            raise exceptions.G2GCigarFormatError("Invalid cigar code: " + str(i))
     else:
         try:
             for i in cigar_list:
                 cigar += str(i[1]) + CIGAR_N2C[i[0]]
         except KeyError:
-            raise G2GCigarFormatError("Invalid cigar code: " + str(i))
+            raise exceptions.G2GCigarFormatError("Invalid cigar code: " + str(i))
 
     return cigar
 
@@ -620,7 +626,7 @@ def cigar_to_string(cigar):
         for i in cigar:
             cigar += str(i.length) + i.code
     except KeyError:
-        raise G2GCigarFormatError("Invalid cigar code: " + str(i))
+        raise exceptions.G2GCigarFormatError("Invalid cigar code: " + str(i))
 
     return cigar
 
@@ -644,19 +650,19 @@ def _cigar_to_list(cigar_string):
     possible_length = len(REGEX_CIGAR_LENGTH.findall(cigar_string))
 
     if len(matches) != possible_length:
-        raise G2GCigarFormatError("Invalid cigar string: {0}".format(cigar_string))
+        raise exceptions.G2GCigarFormatError("Invalid cigar string: {0}".format(cigar_string))
 
     lst = []
     try:
         for m in matches:
             lst.append(1)#(CIGAR_CODES_REV[m[1]], int(m[0])))
     except KeyError:
-        raise G2GCigarFormatError("Invalid cigar string: {0} : {1} ".format(cigar_string, str(m)))
+        raise exceptions.G2GCigarFormatError("Invalid cigar string: {0} : {1} ".format(cigar_string, str(m)))
 
     return lst
 
 
-def _cigar_convert(cigar, chromosome, chain, strand='+', position=0):
+def _cigar_convert(cigar, chromosome, vci_file, strand='+', position=0):
     """
     PHASE 1
 
@@ -674,7 +680,7 @@ def _cigar_convert(cigar, chromosome, chain, strand='+', position=0):
 
     :param cigar:
     :param chromosome:
-    :param chain:
+    :param vci_file:
     :param strand:
     :param position:
     :return:
@@ -691,7 +697,7 @@ def _cigar_convert(cigar, chromosome, chain, strand='+', position=0):
         increment = c[1]
 
         if c[0] == CIGAR_m:
-            new_mappings = chain.find_mappings(chromosome, current_pos, current_pos + c[1])
+            new_mappings = vci_file.find_mappings(chromosome, current_pos, current_pos + c[1])
 
             if not new_mappings:
                 LOG.debug("Mappings: None")
@@ -758,7 +764,7 @@ def _cigar_convert(cigar, chromosome, chain, strand='+', position=0):
         else:
             # other
             LOG.debug("OTHER CODE '{0}' found, looking at {1} at {2}".format(CIGAR_N2C[c[0]], c, current_pos))
-            raise G2GCigarFormatError("ERROR: Not handling the values in this cigar string: {0}".format(cigar))
+            raise exceptions.G2GCigarFormatError("ERROR: Not handling the values in this cigar string: {0}".format(cigar))
 
         #current_pos += c[1]
         current_pos += increment
@@ -992,7 +998,7 @@ def _cigar_fix_lengths(cigar, sequence):
     return new_cigar
 
 
-def convert_cigar(cigar, chromosome, chain, sequence, strand='+', position=0):
+def convert_cigar(cigar, chromosome, vci_file, sequence, strand='+', position=0):
     """
     Generate the cigar string of an old alignment.
 
@@ -1013,8 +1019,8 @@ def convert_cigar(cigar, chromosome, chain, sequence, strand='+', position=0):
     :type old_alignment: :class:`pysam.AlignedRead`
     :param chromosome:  the chromosome
     :type chromosome: string
-    :param chain: the chain file
-    :type chain: the chain file
+    :param vci_filevci_file: the vci_file file
+    :type chain: the vci_file file
     :return: a new cigar string based upon the mappings
     :raises: :class:`.exceptions.G2GCigarFormatError` on invalid cigar string
     """
@@ -1027,7 +1033,7 @@ def convert_cigar(cigar, chromosome, chain, sequence, strand='+', position=0):
     #
 
     LOG.debug("CIGAR CONVERSION : PHASE 1 : Converting cigar elements")
-    new_cigar = _cigar_convert(cigar, chromosome, chain, strand, position)
+    new_cigar = _cigar_convert(cigar, chromosome, vci_file, strand, position)
     LOG.debug("AFTER PHASE 1 : {0} ".format(new_cigar))
 
     if len(new_cigar) == 1:
@@ -1113,8 +1119,8 @@ if __name__ == '__main__':
     cigarstring = '5I3D4M9D3S104M7D2I'
     cigarlist = _cigar_to_list(cigarstring)
     LOG.debug(cigarstring)
-    print cigarlist
+    print(cigarlist)
     cigar_new = _cigar_remove_softs_between_m(cigarlist)
     #cigar_new = _cigar_fix_pre_and_post_M(cigarlist)
-    print cigar_to_string(cigar_new)
-    print cigar_new
+    print(cigar_to_string(cigar_new))
+    print(cigar_new)
