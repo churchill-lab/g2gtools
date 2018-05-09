@@ -588,7 +588,7 @@ def command_fasta_transform(raw_args, prog=None):
     parser.add_argument("-p", "--num-processes", type=int, dest="numprocesses", metavar="number_of_processes")
     parser.add_argument("-o", "--output", dest="output", metavar="Output_File")
     parser.add_argument("-r", "--region", dest="region", metavar="chr1:3000000-4000000")
-    parser.add_argument("-b", "--bed", dest="bed_file", metavr="BED_File")
+    parser.add_argument("-b", "--bed", dest="bed_file", metavar="BED_File")
     parser.add_argument("--reverse", dest="reverse", action="store_true", default=False)
     parser.add_argument("--bgzip", dest="bgzip", action='store_true')
 
