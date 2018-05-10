@@ -31,7 +31,7 @@ if not on_rtd:
 setup(
     name='g2gtools',
     version='0.2.0',
-    description="A set of tools that facilitates genome to genome conversion for studying multiparent populations",
+    description="A set of tools that facilitate the reconstruction of custom diploid genomes and coordinate conversion",
     long_description=readme + '\n\n' + history,
     author='Kwangbom "KB" Choi & Matthew Vincent, The Jackson Laboratory',
     author_email='kb.choi@jax.org',

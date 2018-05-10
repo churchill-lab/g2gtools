@@ -9,25 +9,26 @@ Tests for `g2gtools` module.
 """
 
 import unittest
-import os
-import shutil
-import pysam
-from g2gtools import bamsam, chain
+# import os
+# import shutil
+# import pysam
+# from . import bamsam, chain
 
 
 class TestG2gtools(unittest.TestCase):
 
     def setUp(self):
-        self.path = os.path.realpath(__file__)
-        self.dir = os.path.dirname(self.path)
-        self.dir_parent = os.path.abspath(os.path.join(self.dir, os.pardir))
-
-        self.chain_file = os.path.join(self.dir_parent, "example/example1.chain")
-        self.input_file = os.path.join(self.dir_parent, "example/example1.sam")
-        self.output_dir = os.path.join(self.dir_parent, "test_example1")
-
-        os.mkdir(self.output_dir)
-        self.output_file = os.path.join(self.output_dir, "example1.out.sam")
+        # self.path = os.path.realpath(__file__)
+        # self.dir = os.path.dirname(self.path)
+        # self.dir_parent = os.path.abspath(os.path.join(self.dir, os.pardir))
+        #
+        # self.chain_file = os.path.join(self.dir_parent, "example/example1.chain")
+        # self.input_file = os.path.join(self.dir_parent, "example/example1.sam")
+        # self.output_dir = os.path.join(self.dir_parent, "test_example1")
+        #
+        # os.mkdir(self.output_dir)
+        # self.output_file = os.path.join(self.output_dir, "example1.out.sam")
+        pass
 
     def test_example1(self):
         """
@@ -60,4 +61,5 @@ class TestG2gtools(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    unittest.main()
+    import sys
+    sys.exit(unittest.main())
