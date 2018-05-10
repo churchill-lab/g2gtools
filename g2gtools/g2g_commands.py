@@ -301,7 +301,7 @@ def command_fasta_extract(raw_args, prog=None):
     flag_count += (1 if args.reversecomplement else 0)
 
     if flag_count > 1:
-        g2g.exit("Please specify only one of: --complement, --reverse, --reversecomplement", parser)
+        g2g.exit("Please specify only one of: --complement, --reverse, --reverse-complement", parser)
 
     reverse = (args.reverse or args.reversecomplement)
     complement = (args.complement or args.reversecomplement)
@@ -314,7 +314,7 @@ def command_fasta_extract(raw_args, prog=None):
         output_count += (1 if args.exons else 0)
 
         if output_count != 1:
-            g2g.exit("Please specify one of: --exons, --genses, or --transcripts", parser)
+            g2g.exit("Please specify one of: --exons, --genes, or --transcripts", parser)
 
     location_count = 0
     location_count += (1 if args.region else 0)
