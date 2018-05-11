@@ -15,6 +15,9 @@
     <link rel="stylesheet" type="text/css" href="stylesheets/jquery.fullPage.css"/>
     <link rel="stylesheet" type="text/css" href="stylesheets/examples.css"/>
 
+    <!-- Theme used for syntax highlighting of code -->
+    <link rel="stylesheet" href="stylesheets/zenburn.css">
+
     <style>
 
         /* Sections
@@ -124,7 +127,7 @@
                 <br/><br/><br/><br/><br/><br/>
             </p>
             <div id="code" style="text-align:center">
-                <pre><code class="python" style="text-align:left">
+                <pre><code class="hljs" style="text-align:left">
                     from g2gtools import ChainFile
                     c = ChainFile("kb.chain")
                     mappings = c.findMappings('1', 1000000, 2000000)
