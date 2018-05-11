@@ -100,7 +100,7 @@
     <li data-menuanchor="overview"><a href="#overview">Overview</a></li>
     <li data-menuanchor="installation"><a href="#installation">Installation</a></li>
     <li data-menuanchor="features"><a href="#features">Features</a></li>
-    <li data-menuanchor="quickstart"><a href="#quickstart">Quick Start</a></li>
+    <li data-menuanchor="workflow"><a href="#workflow">Work Flow</a></li>
 </ul>
 
 <div id="fullpage">
@@ -116,10 +116,15 @@
         <img src="imgs/fullPage.png" alt="fullPage"/>
     </div>
 
+
     <div class="section" id="section1">
         <div class="intro">
-            <h1>Overview</h1>
+            <h1>Installation</h1>
 
+            <p>
+                Designed to fit to different screen sizes as well as tablet and mobile devices.
+                <br/><br/><br/><br/><br/><br/>
+            </p>
             <div id="code" style="text-align:center">
                 <pre><code class="python" style="text-align:left">
                     from g2gtools import ChainFile
@@ -129,17 +134,6 @@
                         print str(m)
                 </code></pre>
             </div>
-        </div>
-    </div>
-
-    <div class="section" id="section4">
-        <div class="intro">
-            <h1>Installation</h1>
-
-            <p>
-                Designed to fit to different screen sizes as well as tablet and mobile devices.
-                <br/><br/><br/><br/><br/><br/>
-            </p>
         </div>
         <img src="imgs/tablets.png" alt="tablets"/>
     </div>
@@ -222,7 +216,7 @@
 
     <div class="section" id="section3">
         <div class="intro">
-            <h1>Typical workflow</h1>
+            <h1>Typical Workflow</h1>
 
             <p>
                 Designed to fit to different screen sizes as well as tablet and mobile devices.
@@ -240,7 +234,7 @@
 
         $('#fullpage').fullpage({
             sectionsColor: ['#1bbc9b', '#4BBFC3', '#7BAABE', 'whitesmoke'],
-            anchors: ['overview', 'installation', 'quickstart', 'features'],
+            anchors: ['overview', 'installation', 'features', 'workflow'],
             menu: '#menu',
             scrollingSpeed: 500
         });
