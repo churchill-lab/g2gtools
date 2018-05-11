@@ -101,15 +101,12 @@
     <li data-menuanchor="installation"><a href="#installation">Installation</a></li>
     <li data-menuanchor="quickstart"><a href="#quickstart">Quick Start</a></li>
     <li data-menuanchor="features"><a href="#features">Features</a></li>
-    <li data-menuanchor="contributing"><a href="#contributing">Contributing</a></li>
-    <li data-menuanchor="history"><a href="#history">History</a></li>
-    <li data-menuanchor="credit"><a href="#credit">Credit</a></li>
 </ul>
 
 <div id="fullpage">
 
     <div class="section" id="section0">
-        <h2>g2gtools</h2>
+        <h1>g2gtools</h1>
             <a href="https://github.com/churchill-lab/g2gtools" class="btn">View on GitHub</a>
             <a href="https://github.com/churchill-lab/g2gtools/zipball/master" class="btn">Download .zip</a>
             <a href="https://github.com/churchill-lab/g2gtools/tarball/master" class="btn">Download .tar.gz</a>
@@ -120,9 +117,26 @@
     </div>
 
     <div class="section" id="section1">
+        <div class="intro">
+            <h1>Installation</h1>
+
+            <div id="code" style="text-align:center">
+                <pre><code class="python" style="text-align:left">
+                    from g2gtools import ChainFile
+                    c = ChainFile("kb.chain")
+                    mappings = c.findMappings('1', 1000000, 2000000)
+                    for m in mappings:
+                        print str(m)
+                </code></pre>
+            </div>
+        </div>
+    </div>
+
+
+    <div class="section" id="section2">
         <div class="slide">
             <div class="intro">
-                <h1>Create Sliders</h1>
+                <h1>Features</h1>
 
                 <p>Not only vertical scrolling but also horizontal scrolling. With fullPage.js you will be able to add
                     horizontal sliders in the most simple way ever.</p>
@@ -134,7 +148,7 @@
             <div class="intro">
                 <img src="imgs/1.png" alt="simple"/>
 
-                <h1>Simple</h1>
+                <h1>vcf2vci</h1>
 
                 <p>Easy to use. Configurable and customizable.</p>
             </div>
@@ -144,7 +158,7 @@
             <div class="intro">
                 <img src="imgs/2.png" alt="Cool"/>
 
-                <h1>Cool</h1>
+                <h1>patch</h1>
 
                 <p>It just looks cool. Impress everybody with a simple and modern web design!</p>
             </div>
@@ -154,7 +168,39 @@
             <div class="intro">
                 <img src="imgs/3.png" alt="Compatible"/>
 
-                <h1>Compatible</h1>
+                <h1>transform</h1>
+
+                <p>Working in modern and old browsers too! IE 8 users don't have the fault of using that horrible
+                    browser! Lets give them a chance to see your site in a proper way!</p>
+            </div>
+        </div>
+
+        <div class="slide">
+            <div class="intro">
+                <img src="imgs/3.png" alt="Compatible"/>
+
+                <h1>convert</h1>
+
+                <p>Working in modern and old browsers too! IE 8 users don't have the fault of using that horrible
+                    browser! Lets give them a chance to see your site in a proper way!</p>
+            </div>
+        </div>
+
+        <div class="slide">
+            <div class="intro">
+                <img src="imgs/3.png" alt="Compatible"/>
+
+                <h1>gtf2db</h1>
+
+                <p>Working in modern and old browsers too! IE 8 users don't have the fault of using that horrible
+                    browser! Lets give them a chance to see your site in a proper way!</p>
+            </div>
+        </div>
+        <div class="slide">
+            <div class="intro">
+                <img src="imgs/3.png" alt="Compatible"/>
+
+                <h1>extract</h1>
 
                 <p>Working in modern and old browsers too! IE 8 users don't have the fault of using that horrible
                     browser! Lets give them a chance to see your site in a proper way!</p>
@@ -162,21 +208,6 @@
         </div>
     </div>
 
-    <div class="section" id="section2">
-        <div class="intro">
-            <h1>Example of Python Code</h1>
-
-            <div id="code" style="text-align:center">
-                <pre><code class="python" style="text-align:left">
-                    from g2gtools import ChainFile
-                    c = ChainFile("kb.chain")
-                    mappings = c.findMappings('1', 1000000, 2000000)
-                    for m in mappings:
-                    print str(m)
-                </code></pre>
-            </div>
-        </div>
-    </div>
 
     <div class="section" id="section3">
         <div class="intro">
@@ -196,8 +227,8 @@
     $(document).ready(function () {
 
         $('#fullpage').fullpage({
-            sectionsColor: ['#1bbc9b', '#4BBFC3', '#7BAABE', 'whitesmoke', '#ccddff'],
-            anchors: ['overview', 'installation', 'quickstart', 'features', 'lastPage'],
+            sectionsColor: ['#1bbc9b', '#4BBFC3', '#7BAABE', 'whitesmoke'],
+            anchors: ['overview', 'installation', 'quickstart', 'features'],
             menu: '#menu',
             scrollingSpeed: 500
         });
