@@ -70,60 +70,76 @@
 
 <body>
 
-<select id="demosMenu">
-    <option selected>Choose Demo</option>
-    <option id="backgrounds">Background images</option>
-    <option id="backgroundVideo">Background video</option>
-    <option id="gradientBackgrounds">Gradient backgrounds</option>
-    <option id="backgroundsFixed">Fixed fullscreen backgrounds</option>
-    <option id="looping">Looping</option>
-    <option id="noAnchor">No anchor links</option>
-    <option id="scrollingSpeed">Scrolling speed</option>
-    <option id="easing">Easing</option>
-    <option id="callbacks">Callbacks</option>
-    <option id="css3">CSS3</option>
-    <option id="continuous">Continuous scrolling</option>
-    <option id="normalScroll">Normal scrolling</option>
-    <option id="scrollBar">Scroll bar enabled</option>
-    <option id="scrolling">Scroll inside sections and slides</option>
-    <option id="navigationV">Vertical navigation dots</option>
-    <option id="navigationH">Horizontal navigation dots</option>
-    <option id="fixedHeaders">Fixed headers</option>
-    <option id="apple">Apple iPhone demo (animations)</option>
-    <option id="oneSection">One single section</option>
-    <option id="responsiveHeight">Responsive Height</option>
-    <option id="responsiveWidth">Responsive Width</option>
-    <option id="methods">Methods</option>
-</select>
+<!--<select id="demosMenu">-->
+    <!--<option selected>Choose Demo</option>-->
+    <!--<option id="backgrounds">Background images</option>-->
+    <!--<option id="backgroundVideo">Background video</option>-->
+    <!--<option id="gradientBackgrounds">Gradient backgrounds</option>-->
+    <!--<option id="backgroundsFixed">Fixed fullscreen backgrounds</option>-->
+    <!--<option id="looping">Looping</option>-->
+    <!--<option id="noAnchor">No anchor links</option>-->
+    <!--<option id="scrollingSpeed">Scrolling speed</option>-->
+    <!--<option id="easing">Easing</option>-->
+    <!--<option id="callbacks">Callbacks</option>-->
+    <!--<option id="css3">CSS3</option>-->
+    <!--<option id="continuous">Continuous scrolling</option>-->
+    <!--<option id="normalScroll">Normal scrolling</option>-->
+    <!--<option id="scrollBar">Scroll bar enabled</option>-->
+    <!--<option id="scrolling">Scroll inside sections and slides</option>-->
+    <!--<option id="navigationV">Vertical navigation dots</option>-->
+    <!--<option id="navigationH">Horizontal navigation dots</option>-->
+    <!--<option id="fixedHeaders">Fixed headers</option>-->
+    <!--<option id="apple">Apple iPhone demo (animations)</option>-->
+    <!--<option id="oneSection">One single section</option>-->
+    <!--<option id="responsiveHeight">Responsive Height</option>-->
+    <!--<option id="responsiveWidth">Responsive Width</option>-->
+    <!--<option id="methods">Methods</option>-->
+<!--</select>-->
 
 <ul id="menu">
     <li data-menuanchor="overview"><a href="#overview">Overview</a></li>
     <li data-menuanchor="installation"><a href="#installation">Installation</a></li>
-    <li data-menuanchor="quickstart"><a href="#quickstart">Quick Start</a></li>
     <li data-menuanchor="features"><a href="#features">Features</a></li>
-    <li data-menuanchor="contributing"><a href="#contributing">Contributing</a></li>
-    <li data-menuanchor="history"><a href="#history">History</a></li>
-    <li data-menuanchor="credit"><a href="#credit">Credit</a></li>
+    <li data-menuanchor="workflow"><a href="#workflow">Workflow</a></li>
 </ul>
 
 <div id="fullpage">
 
     <div class="section" id="section0">
-        <h2>g2gtools</h2>
+        <h1>g2gtools</h1>
             <a href="https://github.com/churchill-lab/g2gtools" class="btn">View on GitHub</a>
             <a href="https://github.com/churchill-lab/g2gtools/zipball/master" class="btn">Download .zip</a>
             <a href="https://github.com/churchill-lab/g2gtools/tarball/master" class="btn">Download .tar.gz</a>
-
+        <br/><br/><br/>
         <p>g2gtools is a suite of tools that support creation of custom genomes/transcriptomes by incorporating genetic
             variants (snps and indels) into a reference genome. g2gtools and </p>
-        <img src="imgs/fullPage.png" alt="fullPage"/>
     </div>
 
+
     <div class="section" id="section1">
+        <div class="intro">
+            <h1>Installation</h1>
+            <p>
+                Designed to fit to different screen sizes as well as tablet and mobile devices.
+                <br/><br/><br/><br/><br/><br/>
+            </p>
+            <div id="code" style="text-align:center">
+                <pre><code class="python" style="text-align:left">
+                    from g2gtools import ChainFile
+                    c = ChainFile("kb.chain")
+                    mappings = c.findMappings('1', 1000000, 2000000)
+                    for m in mappings:
+                        print str(m)
+                </code></pre>
+            </div>
+        </div>
+        <img src="imgs/tablets.png" alt="tablets"/>
+    </div>
+
+    <div class="section" id="section2">
         <div class="slide">
             <div class="intro">
-                <h1>Create Sliders</h1>
-
+                <h1>Features</h1>
                 <p>Not only vertical scrolling but also horizontal scrolling. With fullPage.js you will be able to add
                     horizontal sliders in the most simple way ever.</p>
                 <img src="imgs/slider.png" alt="slider"/>
@@ -132,9 +148,9 @@
 
         <div class="slide">
             <div class="intro">
-                <img src="imgs/1.png" alt="simple"/>
+                <img src="imgs/circled_numbers.01.png" alt="simple"/>
 
-                <h1>Simple</h1>
+                <h1>vcf2vci</h1>
 
                 <p>Easy to use. Configurable and customizable.</p>
             </div>
@@ -142,9 +158,9 @@
 
         <div class="slide">
             <div class="intro">
-                <img src="imgs/2.png" alt="Cool"/>
+                <img src="imgs/circled_numbers.02.png" alt="Cool"/>
 
-                <h1>Cool</h1>
+                <h1>patch</h1>
 
                 <p>It just looks cool. Impress everybody with a simple and modern web design!</p>
             </div>
@@ -152,9 +168,41 @@
 
         <div class="slide">
             <div class="intro">
-                <img src="imgs/3.png" alt="Compatible"/>
+                <img src="imgs/circled_numbers.03.png" alt="Compatible"/>
 
-                <h1>Compatible</h1>
+                <h1>transform</h1>
+
+                <p>Working in modern and old browsers too! IE 8 users don't have the fault of using that horrible
+                    browser! Lets give them a chance to see your site in a proper way!</p>
+            </div>
+        </div>
+
+        <div class="slide">
+            <div class="intro">
+                <img src="imgs/circled_numbers.04.png" alt="Compatible"/>
+
+                <h1>convert</h1>
+
+                <p>Working in modern and old browsers too! IE 8 users don't have the fault of using that horrible
+                    browser! Lets give them a chance to see your site in a proper way!</p>
+            </div>
+        </div>
+
+        <div class="slide">
+            <div class="intro">
+                <img src="imgs/circled_numbers.05.png" alt="Compatible"/>
+
+                <h1>gtf2db</h1>
+
+                <p>Working in modern and old browsers too! IE 8 users don't have the fault of using that horrible
+                    browser! Lets give them a chance to see your site in a proper way!</p>
+            </div>
+        </div>
+        <div class="slide">
+            <div class="intro">
+                <img src="imgs/circled_numbers.06.png" alt="Compatible"/>
+
+                <h1>extract</h1>
 
                 <p>Working in modern and old browsers too! IE 8 users don't have the fault of using that horrible
                     browser! Lets give them a chance to see your site in a proper way!</p>
@@ -162,25 +210,10 @@
         </div>
     </div>
 
-    <div class="section" id="section2">
-        <div class="intro">
-            <h1>Example of Python Code</h1>
-
-            <div id="code" style="text-align:center">
-                <pre><code class="python" style="solarized-light">
-                    from g2gtools import ChainFile
-                    c = ChainFile("kb.chain")
-                    mappings = c.findMappings('1', 1000000, 2000000)
-                    for m in mappings:
-                    print str(m)
-                </code></pre>
-            </div>
-        </div>
-    </div>
 
     <div class="section" id="section3">
         <div class="intro">
-            <h1>Working On Tablets</h1>
+            <h1>Typical Workflow</h1>
 
             <p>
                 Designed to fit to different screen sizes as well as tablet and mobile devices.
@@ -189,6 +222,7 @@
         </div>
         <img src="imgs/tablets.png" alt="tablets"/>
     </div>
+
 </div>
 
 
@@ -196,8 +230,8 @@
     $(document).ready(function () {
 
         $('#fullpage').fullpage({
-            sectionsColor: ['#1bbc9b', '#4BBFC3', '#7BAABE', 'whitesmoke', '#ccddff'],
-            anchors: ['overview', 'installation', 'quickstart', 'features', 'lastPage'],
+            sectionsColor: ['#1bbc9b', '#4BBFC3', '#7BAABE', 'whitesmoke'],
+            anchors: ['overview', 'installation', 'features', 'workflow'],
             menu: '#menu',
             scrollingSpeed: 500
         });
