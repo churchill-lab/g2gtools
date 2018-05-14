@@ -1,22 +1,20 @@
 <!DOCTYPE html>
-
 <html xmlns="http://www.w3.org/1999/xhtml">
 
 <head>
 
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
     <title>g2gtools documentation</title>
-    <meta name="author" content="Alvaro Trigo Lopez"/>
-    <meta name="description"
-          content="fullPage plugin by Alvaro Trigo. Create fullscreen pages fast and simple. One page scroll like iPhone website."/>
-    <meta name="keywords" content="fullpage,jquery,alvaro,trigo,plugin,fullscren,screen,full,iphone5,apple"/>
+    <meta name="author" content='Kwangbom \"KB\" Choi'/>
+    <meta name="description" content="g2gtools: A better tool for alignment target creation and liftover."/>
+    <meta name="keywords" content="g2gtools,NGS,personal genome,alignment,target,liftover"/>
     <meta name="Resource-type" content="Document"/>
 
-    <link rel="stylesheet" type="text/css" href="stylesheets/jquery.fullPage.css"/>
+    <link rel="stylesheet" type="text/css" href="stylesheets/alvaro1.css"/>
+    <link rel="stylesheet" type="text/css" href="stylesheets/alvaro2.css"/>
+    <link rel="stylesheet" type="text/css" href="stylesheets/alvaro3.css"/>
     <link rel="stylesheet" type="text/css" href="stylesheets/examples.css"/>
-
-    <!-- Theme used for syntax highlighting of code -->
-    <link rel="stylesheet" href="stylesheets/zenburn.css">
+    <link rel="stylesheet" href="http://cdnjs.cloudflare.com/ajax/libs/highlight.js/8.7/styles/default.min.css">
 
     <style>
 
@@ -63,10 +61,8 @@
 
     <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.8.3/jquery.min.js"></script>
     <script src="http://ajax.googleapis.com/ajax/libs/jqueryui/1.9.1/jquery-ui.min.js"></script>
-    <link rel="stylesheet" href="http://cdnjs.cloudflare.com/ajax/libs/highlight.js/8.7/styles/default.min.css">
     <script src="http://cdnjs.cloudflare.com/ajax/libs/highlight.js/8.7/highlight.min.js"></script>
     <script type="text/javascript" src="js/jquery.fullPage.js"></script>
-    <script type="text/javascript" src="js/examples.js"></script>
 
 </head>
 
@@ -109,32 +105,67 @@
 <div id="fullpage">
 
     <div class="section" id="section0">
-        <h1>g2gtools</h1>
-            <a href="https://github.com/churchill-lab/g2gtools" class="btn">View on GitHub</a>
-            <a href="https://github.com/churchill-lab/g2gtools/zipball/master" class="btn">Download .zip</a>
-            <a href="https://github.com/churchill-lab/g2gtools/tarball/master" class="btn">Download .tar.gz</a>
-        <br/><br/><br/>
-        <p><strong>g2gtools</strong> is a suite of tools that support creation of personal genomes
-            by incorporating genetic variants (snps and indels) of a sample into a reference genome.
-            <strong>g2gtools</strong> supports liftover coordinates between the reference and a personal genome.
-            Unlike other liftover tools <strong>g2gtools</strong> does not throw away entries that contain indels</p>
+        <div class="intro">
+            <h1>g2gtools</h1>
+            <p><br>
+                <strong>g2gtools</strong> is a new suite of tools that creates personal diploid genomes; extracts regions from
+                personal genomes; and lifts over coordinates between the reference and personal genomes. Unlike other liftover
+                tools, <strong>g2gtools</strong> does not throw away entries that contain indels.
+            </p>
+            <br><br>
+                <a href="https://github.com/churchill-lab/g2gtools" class="btn">View on GitHub</a>
+                <a href="https://github.com/churchill-lab/g2gtools/zipball/master" class="btn">Download .zip</a>
+                <a href="https://github.com/churchill-lab/g2gtools/tarball/master" class="btn">Download .tar.gz</a>
+        </div>
     </div>
 
-
-    <div class="section" id="section0">
+    <div class="section" id="section1">
         <div class="intro">
             <h1>Installation</h1>
             <p>
-                Designed to fit to different screen sizes as well as tablet and mobile devices.
-                <br/><br/><br/><br/><br/><br/>
+                We highly recommend using <a href="https://www.continuum.io/downloads">Anaconda distribution</a> of
+                python to install all the dependencies without issues, although g2gtools is also available at PyPI for
+                ‘pip install’ or ‘easy_install’. The most recent version is also available on Anaconda
+                Cloud, so add the following channels if you have not already.
             </p>
+            <br>
             <div id="code" style="text-align:left">
-                <pre><code class="hljs" data-trim contenteditable style="font-size: 18px;">
-                    from g2gtools import ChainFile
-                    c = ChainFile("kb.chain")
-                    mappings = c.findMappings('1', 1000000, 2000000)
-                    for m in mappings:
-                        print str(m)
+                <pre><code class="bash" data-trim contenteditable style="font-size: 16px;">
+                    $ conda config --add channels r
+                    $ conda config --add channels bioconda
+                </code></pre>
+            <p>
+            <br><br>
+                To avoid conflicts among dependencies, we highly recommend using conda virtual environment:
+            </p>
+            <br>
+            </div>
+            <div id="code" style="text-align:left">
+                <pre><code class="bash" data-trim contenteditable style="font-size: 16px;">
+                    $ conda create -n g2gtools jupyter ipykernel
+                    $ source activate g2gtools
+                </code></pre>
+            </div>
+            <br><br>
+            <p>
+                Once g2gtools virtual environment is created and activated, your shell prompt will show ‘(g2gtools)’
+                at the beginning to specify what virtual environment you are currently in. Now type the following
+                and install g2gtools:
+            </p>
+            <br>
+            <div id="code" style="text-align:left">
+                <pre><code class="bash" data-trim contenteditable style="font-size: 16px;">
+                    (g2gtools) $ conda install -c kbchoi g2gtools
+                </code></pre>
+            </div>
+            <br><br>
+            <p>
+                That’s all! You can go out from g2gtools virtual environment anytime by deactivating it:
+            </p>
+            <br>
+            <div id="code" style="text-align:left">
+                <pre><code class="bash" data-trim contenteditable style="font-size: 16px;">
+                    (g2gtools) $ source deactivate
                 </code></pre>
             </div>
         </div>
@@ -152,63 +183,231 @@
 
         <div class="slide">
             <div class="intro">
-                <img src="imgs/circled_numbers.01.png" alt="Compatible"/>
-
+                <img src="imgs/circled_numbers.01.png" alt="Compatible" width="256"/>
                 <h1>vcf2vci</h1>
+                <p>
+                    We need to first compile variant information of a sample into a VCI file. The input VCF file should
+                    contains both snps and indels.
+                </p>
+                <br>
+                <div id="code" style="text-align:left">
+                    <pre><code class="text" data-trim contenteditable style="font-size: 12px;">
+    $ g2gtools vcf2vci -h
 
-                <p>Easy to use. Configurable and customizable.</p>
+    Creates VCI file from VCF file(s)
+
+    Usage: vcf2vci [-i <indel VCF file>]* -s <strain> -o <output file> [options]
+
+    Required Parameters:
+        -i, --vcf <vcf_file>             VCF file name
+        -s, --strain <Strain>            Name of strain (column in VCF file)
+        -o, --output <Output file>       VCI file name to create
+
+    Optional Parameters:
+        -p, --num-processes <number>     The number of processes to use, defaults to the number of cores
+        --diploid                        Create diploid VCI
+        --keep                           Keep track of VCF lines that could not be converted to VCI file
+        --pass                           Use only VCF lines that have a PASS for the filter value
+        --quality                        Filter on quality, FI=PASS
+        --no-bgzip                       DO NOT compress and index output
+
+    Help Parameters:
+        -h, --help                       Print the help and exit
+        -d, --debug                      Turn debugging mode on (list multiple times for more messages)
+                    </code></pre>
+                </div>
             </div>
         </div>
 
         <div class="slide">
             <div class="intro">
-                <img src="imgs/circled_numbers.02.png" alt="Compatible"/>
-
+                <img src="imgs/circled_numbers.02.png" alt="Compatible" width="256"/>
                 <h1>patch</h1>
+                <p>
+                    It just looks cool. Impress everybody with a simple and modern web design!
+                </p>
+                <br>
+                <div id="code" style="text-align:left">
+                    <pre><code class="text" data-trim contenteditable style="font-size: 12px;">
+    $ g2gtools patch
 
-                <p>It just looks cool. Impress everybody with a simple and modern web design!</p>
+    Patch SNPs onto the reference sequence
+
+    Usage: patch -i <Fasta file> -c <VCI file> [options]
+
+    Required Parameters:
+        -i, --input <Fasta file>         Reference fasta file to extract and patch on
+        -c, --vci <VCI file>             VCI file
+
+    Optional Parameters:
+        -p, --num-processes <number>     The number of processes to use, defaults to the number of cores
+        -o, --output <Output file>       Name of output fasta file that contains SNP-patched sequences
+        -r, --region <seqid:start-end>   Region to extract (cannot be used with -b)
+        -b, --bed <BED file>             BED file (cannot be used with -r)
+        --reverse                        Reverse the VCI file
+        --bgzip                          Compress and index output (can only be used with -o)
+
+    Help Parameters:
+        -h, --help                       Print the help and exit
+        -d, --debug                      Turn debugging mode on (list multiple times for more messages)
+
+    Note:
+        --bgzip can be potentially slow depending on the size of the file
+                    </code></pre>
+                </div>
             </div>
         </div>
 
         <div class="slide">
             <div class="intro">
-                <img src="imgs/circled_numbers.03.png" alt="Compatible"/>
-
+                <img src="imgs/circled_numbers.03.png" alt="Compatible" width="256"/>
                 <h1>transform</h1>
+                <p>
+                    transform incorporates indels specified in a VCI file into a genome sequence
+                </p>
+                <br>
+                <div id="code" style="text-align:left">
+                    <pre><code class="text" data-trim contenteditable style="font-size: 12px;">
+    $ g2gtools transform -h
 
-                <p>transform incorporates indels specified in a VCI file into a genome sequence</p>
+    Incorporate indels onto the input sequence
+
+    Usage: transform -i <Fasta file> -c <VCI file> [options]
+
+    Required Parameters:
+        -i, --input <Fasta file>         Reference fasta file to extract and transform
+        -c, --vci <VCI file>             VCI file
+
+    Optional Parameters:
+        -p, --num-processes <number>     The number of processes to use, defaults to the number of cores
+        -o, --output <Output file>       Name of output fasta file that contains indel-incorporated sequences
+        -r, --region <seqid:start-end>   Region to extract (cannot be used with -b)
+        -b, --bed <BED file>             BED file (cannot be used with -r)
+        --reverse                        Reverse the VCI file
+        --bgzip                          Compress and index output fasta file (can only be used with -o)
+
+    Help Parameters:
+        -h, --help                       Print the help and exit
+        -d, --debug                      Turn debugging mode on (list multiple times for more messages)
+
+    Note:
+        --bgzip can be potentially slow depending on the size of the file
+                    </code></pre>
+                </div>
             </div>
         </div>
 
         <div class="slide">
             <div class="intro">
-                <img src="imgs/circled_numbers.04.png" alt="Compatible"/>
-
+                <img src="imgs/circled_numbers.04.png" alt="Compatible" width="256"/>
                 <h1>convert</h1>
+                <p>
+                    Working in modern and old browsers too! IE 8 users don't have the fault of using that horrible
+                    browser! Lets give them a chance to see your site in a proper way!
+                </p>
+                <br>
+                 <div id="code" style="text-align:left">
+                    <pre><code class="text" data-trim contenteditable style="font-size: 12px;">
+    $ g2gtools convert -h
 
-                <p>Working in modern and old browsers too! IE 8 users don't have the fault of using that horrible
-                    browser! Lets give them a chance to see your site in a proper way!</p>
-            </div>
+    Liftover coordinates of bam|sam|gtf|bed files
+
+    Usage: convert -c <VCI file> -i <input file> [options]
+
+    Required Parameters:
+        -i, --input <input file>         Input file to liftover
+        -c, --vci <VCI file>             VCI file
+
+    Optional Parameters:
+        -f, --format <bam|sam|gtf|bed>   Input file format
+        -o, --output <output file>       Name of output file
+        --reverse                        Reverse the Chain file
+
+    Help Parameters:
+        -h, --help                       Print the help and exit
+        -d, --debug                      Turn debugging mode on (list multiple times for more messages)
+
+
+    Note:
+        If no output file is specified [-o], the converted information will be redirected
+        to standard out.
+                    </code></pre>
+                </div>
+           </div>
         </div>
 
         <div class="slide">
             <div class="intro">
-                <img src="imgs/circled_numbers.05.png" alt="Compatible"/>
-
+                <img src="imgs/circled_numbers.05.png" alt="Compatible" width="256"/>
                 <h1>gtf2db</h1>
+                <p>
+                    Working in modern and old browsers too! IE 8 users don't have the fault of using that horrible
+                    browser! Lets give them a chance to see your site in a proper way!
+                </p>
+                <br>
+                 <div id="code" style="text-align:left">
+                    <pre><code class="text" data-trim contenteditable style="font-size: 12px;">
+    $ g2gtools gtf2db -h
 
-                <p>Working in modern and old browsers too! IE 8 users don't have the fault of using that horrible
-                    browser! Lets give them a chance to see your site in a proper way!</p>
-            </div>
+    Convert a GTF file to a G2G DB file
+
+    Usage: gtf2db -i <GTF file> -o <G2G DB file> [options]
+
+    Required Parameters:
+        -i, --input <GTF file>           GTF file to parse
+        -o, --output <G2G DB file>       G2G DB file to create
+
+    Help Parameters:
+        -h, --help                       Print the help and exit
+        -d, --debug                      Turn debugging mode on (list multiple times for more messages)
+                    </code></pre>
+                </div>
+           </div>
         </div>
         <div class="slide">
             <div class="intro">
-                <img src="imgs/circled_numbers.06.png" alt="Compatible"/>
-
+                <img src="imgs/circled_numbers.06.png" alt="Compatible" width="256"/>
                 <h1>extract</h1>
+                <p>
+                    Working in modern and old browsers too! IE 8 users don't have the fault of using that horrible
+                    browser! Lets give them a chance to see your site in a proper way!
+                </p>
+                <br>
+                <div id="code" style="text-align:left">
+                    <pre><code class="text" data-trim contenteditable style="font-size: 12px;">
+    $ g2gtools extract -h
 
-                <p>Working in modern and old browsers too! IE 8 users don't have the fault of using that horrible
-                    browser! Lets give them a chance to see your site in a proper way!</p>
+    Extract subsequence from a fasta file given a region
+
+    Usage: extract -i <Fasta file> [-r <region> | -b <BED file> | -db <Database> | -id <seqid>] [options]
+
+    Required Parameters:
+        -i, --input <Fasta file>         Fasta file to extract subsequence from, BGZIP files supported
+        -b, --bed <BED file>             BED file -OR-
+        -id, --identifier <identifier>   Fasta identifier -OR-
+        -r, --region <seqid:start-end>   Region to extract -OR-
+        -db, --database <DB file>        Database file
+             --transcripts                 For use with -db, extracts transcripts (default)
+             --exons                       For use with -db, extracts exons
+             --genes                       For use with -db, extracts genes
+
+    Optional Parameters:
+        -c, --vci <VCI file>             Input VCI file, matching input Fasta file
+        -R, --vci-reverse                Reverse the direction of liftover
+        --complement                     Complement the extracted sequence
+        --reverse                        Reverse the extracted sequence
+        --reverse-complement             Reverse complement the extracted sequence
+        --raw                            Just shows the extracted sequence
+
+    Help Parameters:
+        -h, --help                       Print the help and exit
+        -d, --debug                      Turn debugging mode on (list multiple times for more messages)
+
+    Note:
+        Locations specified on command line are 1-based coordinates.
+        Locations specified via BED file are 0-based coordinates.
+                    </code></pre>
+                </div>
             </div>
         </div>
     </div>
@@ -228,12 +427,11 @@
 
 </div>
 
-
 <script type="text/javascript">
     $(document).ready(function () {
 
         $('#fullpage').fullpage({
-            sectionsColor: ['#1bbc9b', '#4BBFC3', '#7BAABE', 'whitesmoke'],
+            sectionsColor: ['whitesmoke', 'whitesmoke', 'whitesmoke', 'whitesmoke'],
             anchors: ['overview', 'installation', 'features', 'workflow'],
             menu: '#menu',
             scrollingSpeed: 500
@@ -244,11 +442,9 @@
             console.log(block);
         });
     });
-
 </script>
 
 </body>
-
 
 </html>
 

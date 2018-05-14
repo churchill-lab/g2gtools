@@ -1,6 +1,8 @@
 @CHARSET "ISO-8859-1";
+
 /* Reset CSS
  * --------------------------------------- */
+
 body,div,dl,dt,dd,ul,ol,li,h1,h2,h3,h4,h5,h6,pre,
 form,fieldset,input,textarea,p,blockquote,th,td {
     padding: 0;
@@ -43,10 +45,17 @@ q:before,q:after {
 }
 abbr,acronym { border: 0;
 }
-
+.btn { display: inline-block; margin-bottom: 1rem; color: rgba(0,0,0,0.5); background-color: #fff; border-color: rgba(255, 255, 255, 0.2); border-style: solid; border-width: 1px; border-radius: 0.3rem; transition: color 0.2s, background-color 0.2s, border-color 0.2s; }
+.btn:hover { color: rgba(0,0,0,0.5); text-decoration: none; background-color: #fff; border-color: rgba(255, 255, 255, 0.3); }
+.btn + .btn { margin-left: 1rem; }
+@media screen and (min-width: 64em) { .btn { padding: 0.75rem 1rem; } }
+@media screen and (min-width: 42em) and (max-width: 64em) { .btn { padding: 0.6rem 0.9rem; font-size: 0.9rem; } }
+@media screen and (max-width: 42em) { .btn { display: block; width: 100%; padding: 0.75rem; font-size: 0.9rem; }
+  .btn + .btn { margin-top: 1rem; margin-left: 0; } }
 
 /* Custom CSS
  * --------------------------------------- */
+
 body{
 	font-family: arial,helvetica;
 	color: #333;
@@ -231,10 +240,9 @@ p{
 	padding: 0 0 5px 0;
 }
 
-
-
 /* Demos Menu
  * --------------------------------------- */
+
  #demosMenu{
 	position:fixed;
 	bottom: 10px;

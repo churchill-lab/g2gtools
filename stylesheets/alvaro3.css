@@ -1,0 +1,157 @@
+@media screen and (max-width:1135px) {
+	.fp-tableCell {
+		font-size: .9em
+	}
+	.examples-wrapper {
+		top: 100px;
+		-webkit-transform: none;
+		transform: none
+	}
+}
+@media screen and (max-width:1050px) {
+	.fp-tableCell {
+		font-size: .85em
+	}
+}
+@media screen and (max-width:1030px) {
+	#section-3 .intro {
+		width: 40%
+	}
+	.shell {
+		width: calc(60% - 54px)
+	}
+}
+@media screen and (max-width:900px) {
+	#section-3 .intro {
+		display: block;
+		text-align: center;
+		width: 100%
+	}
+	#section-3 .intro p {
+		display: none
+	}
+	.shell {
+		width: 80%;
+		margin: 0
+	}
+	#menu {
+		text-align: center;
+		left: 0;
+		right: 0
+	}
+	#menu-theme-desktop {
+		display: none!important
+	}
+	#menu-theme-mobile {
+		display: inline-block
+	}
+	.language {
+		left: 50%;
+		margin-left: -71px;
+		bottom: 70px;
+		top: auto;
+		transition: all 1s ease-in;
+		-webkit-transition: all .3s ease-in;
+		opacity: 0;
+		visibility: hidden
+	}
+	.fp-viewing-page1 .language {
+		display: block;
+		opacity: 1;
+		visibility: visible
+	}
+}
+@media screen and (max-height:500px) {
+	.section-1-usedBy {
+		display: none
+	}
+	.fp-slidesNav.bottom {
+		bottom: 0
+	}
+	.trusted-by-big {
+		background-position: 50% 0;
+		height: 54px
+	}
+}
+@media screen and (max-height:330px) {
+	.fp-section {
+		height: 350px!important
+	}
+}
+@media screen and (max-width:700px), screen and (max-height:500px) {
+	.fp-tableCell {
+		font-size: .8em
+	}
+	#menu a {
+		padding: 0 .7em .7em
+	}
+	.my-arrow.left, .my-arrow.right {
+		display: none
+	}
+	.fp-slidesNav.bottom {
+		display: block
+	}
+}
+@media screen and (max-width:630px) {
+	h1 {
+		font-size: 6.5em
+	}
+	#menu {
+		letter-spacing: 0;
+		font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol'
+	}
+	[data-lang=ru] h1 {
+		font-size: 4em
+	}
+}
+@media screen and (max-width:550px) {
+	#section-1 h1 {
+		font-size: 6em
+	}
+	h1 {
+		font-size: 5em
+	}
+	[data-lang=ru] h1 {
+		font-size: 3.6em
+	}
+	.intro p {
+		max-width: 75%
+	}
+	#menu li a {
+		padding: 0 .7em .7em
+	}
+	[data-lang=es] #menu li a, [data-lang=ru] #menu li a {
+		padding: 0 .4em .4em
+	}
+	[data-lang=es] #menu, [data-lang=ru] #menu {
+		font-size: .98em
+	}
+	#download, #menu-contact, .mobile-hide {
+		display: none!important
+	}
+	.shell-body {
+		margin: 1.6em
+	}
+	#fp-nav.right {
+		right: 7px
+	}
+}
+@media screen and (max-width:380px) {
+	h1 {
+		font-size: 3.5em
+	}
+	.intro p {
+		max-width: 85%
+	}
+	#section-3 .shell {
+		font-size: .8em
+	}
+	.shell-body {
+		margin: 1em
+	}
+}
+@media only screen and (min-width:551px) {
+	.mobile-show {
+		display: none
+	}
+}

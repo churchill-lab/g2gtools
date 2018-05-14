@@ -1,0 +1,357 @@
+blockquote, body, dd, div, dl, dt, fieldset, form, h2, h3, h4, h5, h6, input, li, ol, p, pre, td, textarea, th, ul {
+	padding: 0;
+	margin: 0
+}
+a {
+	text-decoration: none
+}
+table {
+	border-spacing: 0
+}
+abbr, acronym, fieldset, img {
+	border: 0
+}
+address, caption, cite, code, dfn, em, th, var {
+	font-weight: 400;
+	font-style: normal
+}
+h1, strong {
+	font-weight: 700
+}
+strong {
+	font-style: normal
+}
+ol, ul {
+	list-style: none
+}
+caption, th {
+	text-align: left
+}
+h1 {
+	padding: 0;
+	font-size: 8em;
+	margin: 0 0 .25em
+}
+h2, h3, h4, h5, h6 {
+	font-weight: 400;
+	font-size: 100%
+}
+q:after, q:before {
+	content: ''
+}
+* {
+	-webkit-box-sizing: border-box;
+	-moz-box-sizing: border-box;
+	box-sizing: border-box
+}
+#fullpage, .section, body, html {
+	height: 100%
+}
+.section.fp-table {
+	display: table;
+	table-layout: fixed;
+	width: 100%
+}
+.fp-tableCell {
+	display: table-cell;
+	vertical-align: middle;
+	width: 100%;
+	height: 100%
+}
+.examples, .fp-slidesNav.bottom {
+	display: none
+}
+body {
+	font-family: arial, helvetica;
+	color: #fff
+}
+[data-lang=ru] h1 {
+	font-size: 6em
+}
+#section-1 h2, .intro p {
+	-webkit-font-smoothing: antialiased;
+	-moz-font-smoothing: antialiased
+}
+.intro p {
+	max-width: -webkit-calc(30em - (1.3em*2));
+	max-width: calc(30em - (1.3em*2));
+	margin-right: auto;
+	margin-left: auto;
+	padding-right: 1.3em;
+	padding-left: 1.3em;
+	font-size: 1.5em
+}
+#fp-nav ul li a span, #menu-line, .fp-slidesNav ul li a span {
+	background: #fff
+}
+.section, .twitter-share i, .wrap {
+	position: relative
+}
+.section {
+	text-align: center
+}
+.wrap {
+	margin-left: auto;
+	margin-right: auto;
+	width: 960px
+}
+#menu-line {
+	position: absolute;
+	bottom: -4px;
+	left: 0;
+	width: 159px;
+	height: 2px
+}
+#menu {
+	position: fixed;
+	top: 20px;
+	right: 20px;
+	z-index: 70;
+	-webkit-font-smoothing: antialiased;
+	-moz-font-smoothing: antialiased;
+	letter-spacing: 1px;
+	font-size: 1.1em
+}
+#menu li {
+	display: inline-block;
+	margin: 10px 0
+}
+#menu a {
+	color: #fff;
+	padding: 0 1.1em 1.1em
+}
+.menu-active {
+	font-weight: 700
+}
+#menu-theme-mobile {
+	display: none
+}
+#section-1 {
+	background: #ff5f45
+}
+#section-1 h1 {
+	font-size: 10em;
+	font-weight: 900;
+	color: #fff
+}
+#section-1 h2 {
+	color: rgba(255, 255, 255, .7);
+	font-size: 1.73em;
+	font-weight: 100;
+	margin: -10px 30px 10px
+}
+#section-1 li, .github-data {
+	display: inline-block;
+	margin: 1.25em .3em
+}
+.section-1-button {
+	padding: .93em 1.87em;
+	background: #fff;
+	border-radius: 5px;
+	display: block;
+	color: #444
+}
+#download a {
+	background: #004f69;
+	color: #fff
+}
+.section-1-usedBy {
+	background-image: url(https://alvarotrigo.com/fullPage/imgs/trusted-by.png);
+	width: 80%;
+	max-width: 536px;
+	height: 36px;
+	display: block;
+	margin: 0 auto;
+	position: absolute;
+	bottom: 20px;
+	left: 0;
+	right: 0
+}
+.language {
+	position: absolute;
+	left: 20px;
+	top: 14px;
+	z-index: 99;
+	opacity: 1
+}
+.languages {
+	display: none
+}
+.language-current {
+	margin: 15px 0 6px 15px;
+	z-index: 99;
+	cursor: pointer
+}
+.flag {
+	width: 35px;
+	height: 24px;
+	display: inline-block;
+	margin: 0 17px 0 0;
+	vertical-align: middle;
+	background-image: url(https://alvarotrigo.com/fullPage/imgs/flags.png)
+}
+.flag-chinese {
+	background-position: 0 0
+}
+.flag-english {
+	background-position: -35px 0
+}
+.flag-russian {
+	background-position: -70px 0
+}
+.flag-korean {
+	background-position: -105px 0
+}
+.flag-spanish {
+	background-position: -140px 0
+}
+.language-triangle {
+	position: absolute;
+	top: 22px;
+	left: 3px;
+	fill: #fff;
+	height: 6px;
+	width: 8px
+}
+.twitter-share i {
+	vertical-align: middle;
+	display: inline-block;
+	width: 38px;
+	height: 14px;
+	color: #fff;
+	top: -4px;
+	left: -2px;
+	fill: #fff
+}
+.twitter-share svg {
+	height: 40px;
+	margin-top: -10px
+}
+@media screen and (max-width:1135px) {
+	.fp-tableCell {
+		font-size: .9em
+	}
+	.examples-wrapper {
+		top: 100px;
+		-webkit-transform: none;
+		transform: none
+	}
+}
+@media screen and (max-width:1050px) {
+	.fp-tableCell {
+		font-size: .85em
+	}
+}
+@media screen and (max-width:1030px) {
+	#section-3 .intro {
+		width: 40%
+	}
+	.shell {
+		width: calc(60% - 54px)
+	}
+}
+@media screen and (max-width:900px) {
+	#section-3 .intro {
+		display: block;
+		text-align: center;
+		width: 100%
+	}
+	#section-3 .intro p {
+		display: none
+	}
+	.shell {
+		width: 80%;
+		margin: 0
+	}
+	#menu {
+		text-align: center;
+		left: 0;
+		right: 0
+	}
+	#menu-theme-desktop {
+		display: none!important
+	}
+	#menu-theme-mobile {
+		display: inline-block
+	}
+	.language {
+		left: 50%;
+		margin-left: -71px;
+		bottom: 70px;
+		top: auto;
+		transition: all 1s ease-in;
+		-webkit-transition: all .3s ease-in;
+		opacity: 0;
+		visibility: hidden
+	}
+	.fp-viewing-page1 .language {
+		display: block;
+		opacity: 1;
+		visibility: visible
+	}
+}
+@media screen and (max-width:700px) {
+	.fp-tableCell {
+		font-size: .8em
+	}
+	#menu a {
+		padding: 0 .7em .7em
+	}
+	.my-arrow.left, .my-arrow.right {
+		display: none
+	}
+	.fp-slidesNav.bottom {
+		display: block
+	}
+}
+@media screen and (max-width:630px) {
+	h1 {
+		font-size: 6.5em
+	}
+	#menu {
+		letter-spacing: 0;
+		font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol'
+	}
+}
+@media screen and (max-width:550px) {
+	#section-1 h1 {
+		font-size: 6em
+	}
+	h1 {
+		font-size: 5em
+	}
+	.intro p {
+		max-width: 75%
+	}
+	#menu li a {
+		padding: 0 .7em .7em
+	}
+	#download, #menu-contact, .mobile-hide {
+		display: none!important
+	}
+	.shell-body {
+		margin: 1.6em
+	}
+	#fp-nav.right {
+		right: 7px
+	}
+}
+@media screen and (max-width:380px) {
+	h1 {
+		font-size: 3.5em
+	}
+	.intro p {
+		max-width: 85%
+	}
+	#section-3 .shell {
+		font-size: .8em
+	}
+	.shell-body {
+		margin: 1em
+	}
+}
+@media only screen and (min-width:551px) {
+	.mobile-show {
+		display: none
+	}
+}
