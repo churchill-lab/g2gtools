@@ -185,6 +185,37 @@ $ source activate g2gtools
                 <h1>Features</h1>
                 <p>In this section, we will show core features of g2gtools.</p>
                 <!--<img src="imgs/slider.png" alt="slider"/>-->
+                <br><br><br><br>
+                <div style="text-align:center">
+                    <div id="code" style="display:inline-block; text-align:left">
+                        <pre><code class="console" style="font-size: 16px;">
+$ g2gtools -h
+
+
+        ___       _              _
+       |__ \     | |            | |
+   __ _   ) |__ _| |_ ___   ___ | |___
+  / _` | / // _` | __/ _ \ / _ \| / __|
+ | (_| |/ /| (_| | || (_) | (_) | \__ \
+  \__, |____\__, |\__\___/ \___/|_|___/   v0.2.0
+   __/ |     __/ |
+  |___/     |___/
+
+
+
+
+    The most commonly used commands are:
+       vcf2vci       Creates VCI file from VCF file(s)
+       patch         Replaces bases in a fasta file from SNPs specified in a VCI file
+       transform     Incorporates indels specified in a VCI file
+       convert       Lifts over coordinates
+       extract       Gets subsequences from fasta file
+
+    Other commands:
+       gtf2db        Creates db file from GTF annotations
+                        </code></pre>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -315,9 +346,9 @@ Note:
                 <img src="imgs/circled_numbers.04.png" alt="Compatible" width="256"/>
                 <h1>convert</h1>
                 <p>
-                    lifts over coordinates back and forth between reference and custom sample-specific genomes. It
-                    supports BAM/SAM, GTF, and BED formats. We implemented g2gtools since all available liftover tools
-                    discard alignments that land on indel locations in BAM/SAM files with no justifiable reason. We
+                    lifts over coordinates back and forth between reference and custom personal genomes. It
+                    supports BAM/SAM, GTF, and BED formats. We implemented g2gtools since every available liftover tools
+                    discards alignments that land on indel locations in BAM/SAM files with no justifiable reason. We
                     wanted to avoid removing such alignments since they are possibly enriched with allele-specific
                     information.
                 </p>
@@ -338,7 +369,7 @@ Required Parameters:
 Optional Parameters:
     -f, --format &lt;bam|sam|gtf|bed&gt;   Input file format
     -o, --output &lt;output file&gt;       Name of output file
-    --reverse                        Reverse the Chain file
+    --reverse                        Reverse the direction of the conversion (Custom -> Ref)
 
 Help Parameters:
     -h, --help                       Print the help and exit
@@ -390,8 +421,8 @@ Help Parameters:
                 <h1>extract</h1>
                 <p>
                     excerpts genomic regions from the input genome. Useful for creating FASTA file of exons,
-                    transcripts, and genes when used with G2G DB (gene annotation) file. We can specify putative peak
-                    regions for ChIP-Seq or ATAC-Seq in a BED format file to create "peakome".
+                    transcripts, and genes when used with G2G DB (gene annotation) file. Or we can specify putative peak
+                    regions for ChIP-Seq or ATAC-Seq in a BED file to create a "peakome".
                 </p>
                 <br><br><br><br>
                 <div style="text-align:center">
@@ -539,8 +570,8 @@ $ g2gtools extract -i NA19670.fa -db NA19670.db --genes > NA19670.genes.fa
             sectionsColor: ['whitesmoke', 'whitesmoke', 'whitesmoke', 'whitesmoke'],
             anchors: ['overview', 'installation', 'features', 'workflow'],
             menu: '#menu',
-            scrollingSpeed: 500,
-            scrollOverflow: true
+            scrollOverflow: true,
+            scrollingSpeed: 500
         });
 
         $('pre code').each(function (i, block) {
