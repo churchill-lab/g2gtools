@@ -16,39 +16,39 @@
     <link rel="stylesheet" type="text/css" href="stylesheets/examples.css"/>
     <link rel="stylesheet" href="http://cdnjs.cloudflare.com/ajax/libs/highlight.js/8.7/styles/default.min.css">
 
-    <!--<style>-->
+    <style>
 
-        <!--/* Sections-->
-         <!--* -&#45;&#45;&#45;&#45;&#45;&#45;&#45;&#45;&#45;&#45;&#45;&#45;&#45;&#45;&#45;&#45;&#45;&#45;&#45;&#45;&#45;&#45;&#45;&#45;&#45;&#45;&#45;&#45;&#45;&#45;&#45;&#45;&#45;&#45;&#45;&#45;&#45;&#45; */-->
-        <!--#section0 img,-->
-        <!--#section1 img {-->
-            <!--margin: 20px 0 0 0;-->
-        <!--}-->
+        /* Sections
+         * --------------------------------------- */
+        /*#section0 img,*/
+        /*#section1 img {*/
+            /*margin: 20px 0 0 0;*/
+        /*}*/
 
-        <!--#section2 img {-->
-            <!--margin: 20px 0 0 52px;-->
-        <!--}-->
+        /*#section2 img {*/
+            /*margin: 20px 0 0 52px;*/
+        /*}*/
 
-        <!--#section3 img {-->
-            <!--bottom: 0px;-->
-            <!--position: absolute;-->
-            <!--margin-left: -420px;-->
-        <!--}-->
+        /*#section3 img {*/
+            /*bottom: 0px;*/
+            /*position: absolute;*/
+            /*margin-left: -420px;*/
+        /*}*/
 
-        <!--.intro p {-->
-            <!--width: 50%;-->
-            <!--margin: 0 auto;-->
-            <!--font-size: 1.5em;-->
-        <!--}-->
+        .intro p {
+            width: 50%;
+            margin: 0 auto;
+            font-size: 1.5em;
+        }
 
-        <!--.twitter-share-button {-->
-            <!--position: absolute;-->
-            <!--z-index: 99;-->
-            <!--right: 149px;-->
-            <!--top: 9px;-->
-        <!--}-->
+        /*.twitter-share-button {*/
+            /*position: absolute;*/
+            /*z-index: 99;*/
+            /*right: 149px;*/
+            /*top: 9px;*/
+        /*}*/
 
-    <!--</style>-->
+    </style>
 
     <!--[if IE]>
     <script type="text/javascript">
@@ -188,7 +188,7 @@ $ source activate g2gtools
                 <br><br><br><br>
                 <div style="text-align:center">
                     <div id="code" style="display:inline-block; text-align:left">
-                        <pre><code class="console" style="font-size: 16px;">
+                        <pre><code class="console" style="font-size: 14px;">
 $ g2gtools -h
 
 
@@ -230,7 +230,7 @@ $ g2gtools -h
                 <br><br><br><br>
                 <div style="text-align:center">
                     <div id="code" style="display:inline-block; text-align:left">
-                        <pre><code class="console" style="font-size: 16px;">
+                        <pre><code class="console" style="font-size: 14px;">
 $ g2gtools vcf2vci -h
 
 Creates VCI file from VCF file(s)
@@ -270,7 +270,7 @@ Help Parameters:
                 <br><br><br><br>
                 <div style="text-align:center">
                     <div id="code" style="display:inline-block; text-align:left">
-                        <pre><code class="console" style="font-size: 16px;">
+                        <pre><code class="console" style="font-size: 14px;">
 $ g2gtools patch
 
 Patch SNPs onto the reference sequence
@@ -311,7 +311,7 @@ Note:
                 <br><br><br><br>
                 <div style="text-align:center">
                     <div id="code" style="display:inline-block; text-align:left">
-                        <pre><code class="console" style="font-size: 16px;">
+                        <pre><code class="console" style="font-size: 14px;">
 $ g2gtools transform -h
 
 Incorporate indels onto the input sequence
@@ -355,7 +355,7 @@ Note:
                 <br><br><br><br>
                 <div style="text-align:center">
                     <div id="code" style="display:inline-block; text-align:left">
-                        <pre><code class="console" style="font-size: 16px;">
+                        <pre><code class="console" style="font-size: 14px;">
 $ g2gtools convert -h
 
 Liftover coordinates of bam|sam|gtf|bed files
@@ -396,7 +396,7 @@ Note:
                 <br><br><br><br>
                 <div style="text-align:center">
                     <div id="code" style="display:inline-block; text-align:left">
-                        <pre><code class="console" style="font-size: 16px;">
+                        <pre><code class="console" style="font-size: 14px;">
 $ g2gtools gtf2db -h
 
 Convert a GTF file to a G2G DB file
@@ -427,7 +427,7 @@ Help Parameters:
                 <br><br><br><br>
                 <div style="text-align:center">
                     <div id="code" style="display:inline-block; text-align:left">
-                        <pre><code class="console" style="font-size: 16px;">
+                        <pre><code class="console" style="font-size: 14px;">
 $ g2gtools extract -h
 
 Extract subsequence from a fasta file given a region
@@ -479,7 +479,7 @@ Note:
             <li>1. Create VCI file of the sample</li>
             <div style="text-align:center">
                 <div id="code" style="display:inline-block; text-align:left">
-                    <pre><code class="console" style="font-size: 16px;">
+                    <pre><code class="console" style="font-size: 14px;">
 $ g2gtools vcf2vci -o NA19670.vci -s NA19670 --diploid -p 8 \
 -i ALL.chr1.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz \
 -i ALL.chr2.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz \
@@ -513,7 +513,7 @@ $ g2gtools vcf2vci -o NA19670.vci -s NA19670 --diploid -p 8 \
             <li>2. Incorporate SNPs into the reference genome.</li>
             <div style="text-align:center">
                 <div id="code" style="display:inline-block; text-align:left">
-                    <pre><code class="console" style="font-size: 16px;">
+                    <pre><code class="console" style="font-size: 14px;">
 $ g2gtools patch -i hs37d5.fa -c NA19670.vci.gz -o NA19670.fa -p 8
                     </code></pre>
                 </div>
@@ -522,7 +522,7 @@ $ g2gtools patch -i hs37d5.fa -c NA19670.vci.gz -o NA19670.fa -p 8
             <li>3. Incorporate indels into the reference genome and get custom diploid genome for the sample.</li>
             <div style="text-align:center">
                 <div id="code" style="display:inline-block; text-align:left">
-                    <pre><code class="console" style="font-size: 16px;">
+                    <pre><code class="console" style="font-size: 14px;">
 $ g2gtools transform -i NA19670.patched.fa -c NA19670.vci.gz -o NA19670.fa -p 8
                     </code></pre>
                 </div>
@@ -531,7 +531,7 @@ $ g2gtools transform -i NA19670.patched.fa -c NA19670.vci.gz -o NA19670.fa -p 8
             <li>4. Liftover gene annotation onto sample coordinates.</li>
             <div style="text-align:center">
                 <div id="code" style="display:inline-block; text-align:left">
-                    <pre><code class="console" style="font-size: 16px;">
+                    <pre><code class="console" style="font-size: 14px;">
 $ g2gtools convert -i Homo_sapiens.GRCh37.75.gtf -c NA19670.vci.gz -o NA19670.gtf
                     </code></pre>
                 </div>
@@ -540,7 +540,7 @@ $ g2gtools convert -i Homo_sapiens.GRCh37.75.gtf -c NA19670.vci.gz -o NA19670.gt
             <li>5. Parse custom gene annotation into a G2G database file.</li>
             <div style="text-align:center">
                 <div id="code" style="display:inline-block; text-align:left">
-                    <pre><code class="console" style="font-size: 16px;">
+                    <pre><code class="console" style="font-size: 14px;">
 $ g2gtools gtf2db -i NA19670.gtf -o NA19670.db
                     </code></pre>
                 </div>
@@ -549,7 +549,7 @@ $ g2gtools gtf2db -i NA19670.gtf -o NA19670.db
             <li>6. Extract exons, transcripts, and gene regions from the custom sample genome.</li>
             <div style="text-align:center">
                 <div id="code" style="display:inline-block; text-align:left">
-                    <pre><code class="console" style="font-size: 16px;">
+                    <pre><code class="console" style="font-size: 14px;">
 $ g2gtools extract -i NA19670.fa -db NA19670.db --exons > NA19670.exons.fa
 $ g2gtools extract -i NA19670.fa -db NA19670.db --transcripts > NA19670.transcripts.fa
 $ g2gtools extract -i NA19670.fa -db NA19670.db --genes > NA19670.genes.fa
