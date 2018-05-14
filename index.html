@@ -129,22 +129,26 @@
                 Cloud, so add the following channels if you have not already.
             </p>
             <br>
-            <div id="code" style="text-align:left">
-                <pre><code class="bash" style="font-size: 16px;">
-                    $ conda config --add channels r
-                    $ conda config --add channels bioconda
-                </code></pre>
+            <div style="text-align:center">
+                <div id="code" style="display:inline-block; text-align:left">
+                    <pre><code class="console" style="font-size: 16px;">
+$ conda config --add channels r
+$ conda config --add channels bioconda
+                    </code></pre>
+                </div>
             </div>
             <br><br>
             <p>
                 To avoid conflicts among dependencies, we highly recommend using conda virtual environment:
             </p>
             <br>
-            <div id="code" style="text-align:left">
-                <pre><code class="bash" style="font-size: 16px;">
-                    $ conda create -n g2gtools jupyter ipykernel
-                    $ source activate g2gtools
-                </code></pre>
+            <div style="text-align:center">
+                <div id="code" style="display:inline-block; text-align:left">
+                    <pre><code class="console" style="font-size: 16px;">
+$ conda create -n g2gtools jupyter ipykernel
+$ source activate g2gtools
+                    </code></pre>
+                </div>
             </div>
             <br><br>
             <p>
@@ -153,20 +157,24 @@
                 and install g2gtools:
             </p>
             <br>
-            <div id="code" style="text-align:left">
-                <pre><code class="bash" style="font-size: 16px;">
-                    (g2gtools) $ conda install -c kbchoi g2gtools
-                </code></pre>
+            <div style="text-align:center">
+                <div id="code" style="display:inline-block; text-align:left">
+                    <pre><code class="console" style="font-size: 16px;">
+(g2gtools) $ conda install -c kbchoi g2gtools
+                    </code></pre>
+                </div>
             </div>
             <br><br>
             <p>
                 That’s all! You can go out from g2gtools virtual environment anytime by deactivating it:
             </p>
             <br>
-            <div id="code" style="text-align:left">
-                <pre><code class="bash" style="font-size: 16px;">
-                    (g2gtools) $ source deactivate
-                </code></pre>
+            <div style="text-align:center">
+                <div id="code" style="display:inline-block; text-align:left">
+                    <pre><code class="console" style="font-size: 16px;">
+(g2gtools) $ source deactivate
+                    </code></pre>
+                </div>
             </div>
         </div>
     </div>
@@ -185,35 +193,37 @@
                 <img src="imgs/circled_numbers.01.png" alt="Compatible" width="256"/>
                 <h1>vcf2vci</h1>
                 <p>
-                    We need to first compile variant information of our sample into a VCI file. The input VCF file
-                    should contains both snps and indels.
+                    compiles variant call information from a VCF file into a G2G VCI format file for later
+                    (sample-specific) lookup. The input VCF file should contain both snps and indels.
                 </p>
                 <br><br><br><br>
-                <div id="code" style="text-align:left">
-                    <pre><code class="text" style="font-size: 12px;">
-        $ g2gtools vcf2vci -h
+                <div style="text-align:center">
+                    <div id="code" style="display:inline-block; text-align:left">
+                        <pre><code class="console" style="font-size: 16px;">
+$ g2gtools vcf2vci -h
 
-        Creates VCI file from VCF file(s)
+Creates VCI file from VCF file(s)
 
-        Usage: g2gtools vcf2vci [-i &lt;indel VCF file&gt;]* -s &lt;strain&gt; -o &lt;output file&gt; [options]
+Usage: g2gtools vcf2vci [-i &lt;indel VCF file&gt;]* -s &lt;strain&gt; -o &lt;output file&gt; [options]
 
-        Required Parameters:
-            -i, --vcf &lt;vcf_file&gt;             VCF file name
-            -s, --strain &lt;Strain&gt;            Name of strain (column in VCF file)
-            -o, --output &lt;Output file&gt;       VCI file name to create
+Required Parameters:
+    -i, --vcf &lt;vcf_file&gt;             VCF file name
+    -s, --strain &lt;Strain&gt;            Name of strain (column in VCF file)
+    -o, --output &lt;Output file&gt;       VCI file name to create
 
-        Optional Parameters:
-            -p, --num-processes &lt;number&gt;     The number of processes to use, defaults to the number of cores
-            --diploid                        Create diploid VCI
-            --keep                           Keep track of VCF lines that could not be converted to VCI file
-            --pass                           Use only VCF lines that have a PASS for the filter value
-            --quality                        Filter on quality, FI=PASS
-            --no-bgzip                       DO NOT compress and index output
+Optional Parameters:
+    -p, --num-processes &lt;number&gt;     The number of processes to use, defaults to the number of cores
+    --diploid                        Create diploid VCI
+    --keep                           Keep track of VCF lines that could not be converted to VCI file
+    --pass                           Use only VCF lines that have a PASS for the filter value
+    --quality                        Filter on quality, FI=PASS
+    --no-bgzip                       DO NOT compress and index output
 
-        Help Parameters:
-            -h, --help                       Print the help and exit
-            -d, --debug                      Turn debugging mode on (list multiple times for more messages)
-                    </code></pre>
+Help Parameters:
+    -h, --help                       Print the help and exit
+    -d, --debug                      Turn debugging mode on (list multiple times for more messages)
+                        </code></pre>
+                    </div>
                 </div>
             </div>
         </div>
@@ -223,36 +233,38 @@
                 <img src="imgs/circled_numbers.02.png" alt="Compatible" width="256"/>
                 <h1>patch</h1>
                 <p>
-                    It just looks cool. Impress everybody with a simple and modern web design!
+                    replaces bases in the input (reference) sequence using SNPs in the sample-specific VCI file. This
+                    command supports patching of local subsequence on the fly.
                 </p>
                 <br><br><br><br>
-                <div id="code" style="text-align:left">
-                    <pre><code class="text" style="font-size: 12px;">
-        $ g2gtools patch
+                <div style="text-align:center">
+                    <div id="code" style="display:inline-block; text-align:left">
+                        <pre><code class="console" style="font-size: 16px;">
+$ g2gtools patch
 
-        Patch SNPs onto the reference sequence
+Patch SNPs onto the reference sequence
 
-        Usage: g2gtools patch -i &lt;Fasta file&gt; -c &lt;VCI file&gt; [options]
+Usage: g2gtools patch -i &lt;Fasta file&gt; -c &lt;VCI file&gt; [options]
 
-        Required Parameters:
-            -i, --input &lt;Fasta file&gt;         Reference fasta file to extract and patch on
-            -c, --vci &lt;VCI file&gt;             VCI file
+Required Parameters:
+    -i, --input &lt;Fasta file&gt;         Reference fasta file to extract and patch on
+    -c, --vci &lt;VCI file&gt;             VCI file
 
-        Optional Parameters:
-            -p, --num-processes &lt;number&gt;     The number of processes to use, defaults to the number of cores
-            -o, --output &lt;Output file&gt;       Name of output fasta file that contains SNP-patched sequences
-            -r, --region &lt;seqid:start-end&gt;   Region to extract (cannot be used with -b)
-            -b, --bed &lt;BED file&gt;             BED file (cannot be used with -r)
-            --reverse                        Reverse the VCI file
-            --bgzip                          Compress and index output (can only be used with -o)
+Optional Parameters:
+    -p, --num-processes &lt;number&gt;     The number of processes to use, defaults to the number of cores
+    -o, --output &lt;Output file&gt;       Name of output fasta file that contains SNP-patched sequences
+    -r, --region &lt;seqid:start-end&gt;   Region to extract (cannot be used with -b)
+    -b, --bed &lt;BED file&gt;             BED file (cannot be used with -r)
+    --bgzip                          Compress and index output (can only be used with -o)
 
-        Help Parameters:
-            -h, --help                       Print the help and exit
-            -d, --debug                      Turn debugging mode on (list multiple times for more messages)
+Help Parameters:
+    -h, --help                       Print the help and exit
+    -d, --debug                      Turn debugging mode on (list multiple times for more messages)
 
-        Note:
-            --bgzip can be potentially slow depending on the size of the file
-                    </code></pre>
+Note:
+    --bgzip can be potentially slow depending on the size of the file
+                        </code></pre>
+                    </div>
                 </div>
             </div>
         </div>
@@ -262,36 +274,38 @@
                 <img src="imgs/circled_numbers.03.png" alt="Compatible" width="256"/>
                 <h1>transform</h1>
                 <p>
-                    transform incorporates indels specified in a VCI file into a genome sequence
+                    incorporates indels specified in a sample's VCI file into the input (reference) sequence. This
+                    command also supports the transformation of local subsequence on the fly.
                 </p>
                 <br><br><br><br>
-                <div id="code" style="text-align:left">
-                    <pre><code class="text" style="font-size: 12px;">
-        $ g2gtools transform -h
+                <div style="text-align:center">
+                    <div id="code" style="display:inline-block; text-align:left">
+                        <pre><code class="console" style="font-size: 16px;">
+$ g2gtools transform -h
 
-        Incorporate indels onto the input sequence
+Incorporate indels onto the input sequence
 
-        Usage: g2gtools transform -i &lt;Fasta file&gt; -c &lt;VCI file&gt; [options]
+Usage: g2gtools transform -i &lt;Fasta file&gt; -c &lt;VCI file&gt; [options]
 
-        Required Parameters:
-            -i, --input &lt;Fasta file&gt;         Reference fasta file to extract and transform
-            -c, --vci &lt;VCI file&gt;             VCI file
+Required Parameters:
+    -i, --input &lt;Fasta file&gt;         Reference fasta file to extract and transform
+    -c, --vci &lt;VCI file&gt;             VCI file
 
-        Optional Parameters:
-            -p, --num-processes &lt;number&gt;     The number of processes to use, defaults to the number of cores
-            -o, --output &lt;Output file&gt;       Name of output fasta file that contains indel-incorporated sequences
-            -r, --region &lt;seqid:start-end&gt;   Region to extract (cannot be used with -b)
-            -b, --bed &lt;BED file&gt;             BED file (cannot be used with -r)
-            --reverse                        Reverse the VCI file
-            --bgzip                          Compress and index output fasta file (can only be used with -o)
+Optional Parameters:
+    -p, --num-processes &lt;number&gt;     The number of processes to use, defaults to the number of cores
+    -o, --output &lt;Output file&gt;       Name of output fasta file that contains indel-incorporated sequences
+    -r, --region &lt;seqid:start-end&gt;   Region to extract (cannot be used with -b)
+    -b, --bed &lt;BED file&gt;             BED file (cannot be used with -r)
+    --bgzip                          Compress and index output fasta file (can only be used with -o)
 
-        Help Parameters:
-            -h, --help                       Print the help and exit
-            -d, --debug                      Turn debugging mode on (list multiple times for more messages)
+Help Parameters:
+    -h, --help                       Print the help and exit
+    -d, --debug                      Turn debugging mode on (list multiple times for more messages)
 
-        Note:
-            --bgzip can be potentially slow depending on the size of the file
-                    </code></pre>
+Note:
+    --bgzip can be potentially slow depending on the size of the file
+                        </code></pre>
+                    </div>
                 </div>
             </div>
         </div>
@@ -301,36 +315,41 @@
                 <img src="imgs/circled_numbers.04.png" alt="Compatible" width="256"/>
                 <h1>convert</h1>
                 <p>
-                    Working in modern and old browsers too! IE 8 users don't have the fault of using that horrible
-                    browser! Lets give them a chance to see your site in a proper way!
+                    lifts over coordinates back and forth between reference and custom sample-specific genomes. It
+                    supports BAM/SAM, GTF, and BED formats. We implemented g2gtools since all available liftover tools
+                    discard alignments that land on indel locations in BAM/SAM files with no justifiable reason. We
+                    wanted to avoid removing such alignments since they are possibly enriched with allele-specific
+                    information.
                 </p>
                 <br><br><br><br>
-                 <div id="code" style="text-align:left">
-                    <pre><code class="text" style="font-size: 12px;">
-        $ g2gtools convert -h
+                <div style="text-align:center">
+                    <div id="code" style="display:inline-block; text-align:left">
+                        <pre><code class="console" style="font-size: 16px;">
+$ g2gtools convert -h
 
-        Liftover coordinates of bam|sam|gtf|bed files
+Liftover coordinates of bam|sam|gtf|bed files
 
-        Usage: g2gtools convert -c &lt;VCI file&gt; -i &lt;input file&gt; [options]
+Usage: g2gtools convert -c &lt;VCI file&gt; -i &lt;input file&gt; [options]
 
-        Required Parameters:
-            -i, --input &lt;input file&gt;         Input file to liftover
-            -c, --vci &lt;VCI file&gt;             VCI file
+Required Parameters:
+    -i, --input &lt;input file&gt;         Input file to liftover
+    -c, --vci &lt;VCI file&gt;             VCI file
 
-        Optional Parameters:
-            -f, --format &lt;bam|sam|gtf|bed&gt;   Input file format
-            -o, --output &lt;output file&gt;       Name of output file
-            --reverse                        Reverse the Chain file
+Optional Parameters:
+    -f, --format &lt;bam|sam|gtf|bed&gt;   Input file format
+    -o, --output &lt;output file&gt;       Name of output file
+    --reverse                        Reverse the Chain file
 
-        Help Parameters:
-            -h, --help                       Print the help and exit
-            -d, --debug                      Turn debugging mode on (list multiple times for more messages)
+Help Parameters:
+    -h, --help                       Print the help and exit
+    -d, --debug                      Turn debugging mode on (list multiple times for more messages)
 
 
-        Note:
-            If no output file is specified [-o], the converted information will be redirected
-            to standard out.
-                    </code></pre>
+Note:
+    If no output file is specified [-o], the converted information will be redirected
+    to standard out.
+                        </code></pre>
+                    </div>
                 </div>
            </div>
         </div>
@@ -340,26 +359,28 @@
                 <img src="imgs/circled_numbers.05.png" alt="Compatible" width="256"/>
                 <h1>gtf2db</h1>
                 <p>
-                    Working in modern and old browsers too! IE 8 users don't have the fault of using that horrible
-                    browser! Lets give them a chance to see your site in a proper way!
+                    creates G2G DataBase (DB) file using gene annotation (GTF format). G2G DB file is used for 'extract'ing
+                    annotated elements -- generally exons, transcripts, and gene regions -- from the input genomes.
                 </p>
                 <br><br><br><br>
-                 <div id="code" style="text-align:left">
-                    <pre><code class="text" style="font-size: 12px;">
-        $ g2gtools gtf2db -h
+                <div style="text-align:center">
+                    <div id="code" style="display:inline-block; text-align:left">
+                        <pre><code class="console" style="font-size: 16px;">
+$ g2gtools gtf2db -h
 
-        Convert a GTF file to a G2G DB file
+Convert a GTF file to a G2G DB file
 
-        Usage: g2gtools gtf2db -i &lt;GTF file&gt; -o &lt;G2G DB file&gt; [options]
+Usage: g2gtools gtf2db -i &lt;GTF file&gt; -o &lt;G2G DB file&gt; [options]
 
-        Required Parameters:
-            -i, --input &lt;GTF file&gt;           GTF file to parse
-            -o, --output &lt;G2G DB file&gt;       G2G DB file to create
+Required Parameters:
+    -i, --input &lt;GTF file&gt;           GTF file to parse
+    -o, --output &lt;G2G DB file&gt;       G2G DB file to create
 
-        Help Parameters:
-            -h, --help                       Print the help and exit
-            -d, --debug                      Turn debugging mode on (list multiple times for more messages)
-                    </code></pre>
+Help Parameters:
+    -h, --help                       Print the help and exit
+    -d, --debug                      Turn debugging mode on (list multiple times for more messages)
+                        </code></pre>
+                    </div>
                 </div>
            </div>
         </div>
@@ -368,44 +389,47 @@
                 <img src="imgs/circled_numbers.06.png" alt="Compatible" width="256"/>
                 <h1>extract</h1>
                 <p>
-                    Working in modern and old browsers too! IE 8 users don't have the fault of using that horrible
-                    browser! Lets give them a chance to see your site in a proper way!
+                    excerpts genomic regions from the input genome. Useful for creating FASTA file of exons,
+                    transcripts, and genes when used with G2G DB (gene annotation) file. We can specify putative peak
+                    regions for ChIP-Seq or ATAC-Seq in a BED format file to create "peakome".
                 </p>
                 <br><br><br><br>
-                <div id="code" style="text-align:left">
-                    <pre><code class="text" style="font-size: 12px;">
-    $ g2gtools extract -h
+                <div style="text-align:center">
+                    <div id="code" style="display:inline-block; text-align:left">
+                        <pre><code class="console" style="font-size: 16px;">
+$ g2gtools extract -h
 
-    Extract subsequence from a fasta file given a region
+Extract subsequence from a fasta file given a region
 
-    Usage: g2gtools extract -i &lt;Fasta file&gt; [-r &lt;region&gt; | -b &lt;BED file&gt; | -db &lt;Database&gt; | -id &lt;seqid&gt;] [options]
+Usage: g2gtools extract -i &lt;Fasta file&gt; [-r &lt;region&gt; | -b &lt;BED file&gt; | -db &lt;Database&gt; | -id &lt;seqid&gt;] [options]
 
-    Required Parameters:
-        -i, --input &lt;Fasta file&gt;         Fasta file to extract subsequence from, BGZIP files supported
-        -b, --bed &lt;BED file&gt;             BED file -OR-
-        -id, --identifier &lt;identifier&gt;   Fasta identifier -OR-
-        -r, --region &lt;seqid:start-end&gt;   Region to extract -OR-
-        -db, --database &lt;DB file&gt;        Database file
-             --transcripts                 For use with -db, extracts transcripts (default)
-             --exons                       For use with -db, extracts exons
-             --genes                       For use with -db, extracts genes
+Required Parameters:
+    -i, --input &lt;Fasta file&gt;         Fasta file to extract subsequence from, BGZIP files supported
+    -b, --bed &lt;BED file&gt;             BED file -OR-
+    -id, --identifier &lt;identifier&gt;   Fasta identifier -OR-
+    -r, --region &lt;seqid:start-end&gt;   Region to extract -OR-
+    -db, --database &lt;DB file&gt;        Database file
+         --transcripts                 For use with -db, extracts transcripts (default)
+         --exons                       For use with -db, extracts exons
+         --genes                       For use with -db, extracts genes
 
-    Optional Parameters:
-        -c, --vci &lt;VCI file&gt;             Input VCI file, matching input Fasta file
-        -R, --vci-reverse                Reverse the direction of liftover
-        --complement                     Complement the extracted sequence
-        --reverse                        Reverse the extracted sequence
-        --reverse-complement             Reverse complement the extracted sequence
-        --raw                            Just shows the extracted sequence
+Optional Parameters:
+    -c, --vci &lt;VCI file&gt;             Input VCI file, matching input Fasta file
+    -R, --vci-reverse                Reverse the direction of liftover
+    --complement                     Complement the extracted sequence
+    --reverse                        Reverse the extracted sequence
+    --reverse-complement             Reverse complement the extracted sequence
+    --raw                            Just shows the extracted sequence
 
-    Help Parameters:
-        -h, --help                       Print the help and exit
-        -d, --debug                      Turn debugging mode on (list multiple times for more messages)
+Help Parameters:
+    -h, --help                       Print the help and exit
+    -d, --debug                      Turn debugging mode on (list multiple times for more messages)
 
-    Note:
-        Locations specified on command line are 1-based coordinates.
-        Locations specified via BED file are 0-based coordinates.
-                    </code></pre>
+Note:
+    Locations specified on command line are 1-based coordinates.
+    Locations specified via BED file are 0-based coordinates.
+                        </code></pre>
+                    </div>
                 </div>
             </div>
         </div>
@@ -416,77 +440,90 @@
         <div class="intro">
             <h1>Workflow</h1>
             <p>
-                We show a typical workflow using a human example: NA19670 from 1000 Genomes (phase 3).
+                We show a typical workflow for creating diploid genome, exome, and transcriptome using a human example:
+                NA19670 from 1000 Genomes (phase 3).
             </p>
             <br><br><br><br>
             <ol>
             <li>1. Create VCI file of the sample</li>
-            <div id="code" style="text-align:left">
-                <pre><code class="text" style="font-size: 14px;">
-        $ g2gtools vcf2vci -o NA19670.vci -s NA19670 --diploid -p 8 \
-        -i ALL.chr1.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz \
-        -i ALL.chr2.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz \
-        -i ALL.chr3.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz \
-        -i ALL.chr4.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz \
-        -i ALL.chr5.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz \
-        -i ALL.chr6.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz \
-        -i ALL.chr7.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz \
-        -i ALL.chr8.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz \
-        -i ALL.chr9.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz \
-        -i ALL.chr10.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz \
-        -i ALL.chr11.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz \
-        -i ALL.chr12.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz \
-        -i ALL.chr13.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz \
-        -i ALL.chr14.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz \
-        -i ALL.chr15.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz \
-        -i ALL.chr16.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz \
-        -i ALL.chr17.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz \
-        -i ALL.chr18.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz \
-        -i ALL.chr19.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz \
-        -i ALL.chr20.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz \
-        -i ALL.chr21.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz \
-        -i ALL.chr22.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz \
-        -i ALL.chrX.phase3_shapeit2_mvncall_integrated_v1b.20130502.genotypes.vcf.gz \
-        -i ALL.chrY.phase3_integrated_v1b.20130502.genotypes.vcf.gz \
-        -i ALL.chrMT.phase3_callmom.20130502.genotypes.vcf.gz
-                </code></pre>
+            <div style="text-align:center">
+                <div id="code" style="display:inline-block; text-align:left">
+                    <pre><code class="console" style="font-size: 16px;">
+$ g2gtools vcf2vci -o NA19670.vci -s NA19670 --diploid -p 8 \
+-i ALL.chr1.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz \
+-i ALL.chr2.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz \
+-i ALL.chr3.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz \
+-i ALL.chr4.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz \
+-i ALL.chr5.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz \
+-i ALL.chr6.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz \
+-i ALL.chr7.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz \
+-i ALL.chr8.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz \
+-i ALL.chr9.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz \
+-i ALL.chr10.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz \
+-i ALL.chr11.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz \
+-i ALL.chr12.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz \
+-i ALL.chr13.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz \
+-i ALL.chr14.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz \
+-i ALL.chr15.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz \
+-i ALL.chr16.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz \
+-i ALL.chr17.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz \
+-i ALL.chr18.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz \
+-i ALL.chr19.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz \
+-i ALL.chr20.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz \
+-i ALL.chr21.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz \
+-i ALL.chr22.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz \
+-i ALL.chrX.phase3_shapeit2_mvncall_integrated_v1b.20130502.genotypes.vcf.gz \
+-i ALL.chrY.phase3_integrated_v1b.20130502.genotypes.vcf.gz \
+-i ALL.chrMT.phase3_callmom.20130502.genotypes.vcf.gz
+                    </code></pre>
+                </div>
             </div>
             <br>
             <li>2. Incorporate SNPs into the reference genome.</li>
-            <div id="code" style="text-align:left">
-                <pre><code class="text" style="font-size: 14px;">
-        $ g2gtools patch -i hs37d5.fa -c NA19670.vci.gz -o NA19670.fa -p 8
-                </code></pre>
+            <div style="text-align:center">
+                <div id="code" style="display:inline-block; text-align:left">
+                    <pre><code class="console" style="font-size: 16px;">
+$ g2gtools patch -i hs37d5.fa -c NA19670.vci.gz -o NA19670.fa -p 8
+                    </code></pre>
+                </div>
             </div>
             <br>
-            <li>3. Incorporate indels into the reference genome.</li>
-            <div id="code" style="text-align:left">
-                <pre><code class="text" style="font-size: 14px;">
-        $ g2gtools transform -i NA19670.patched.fa -c NA19670.vci.gz -o NA19670.fa -p 8
-                </code></pre>
+            <li>3. Incorporate indels into the reference genome and get custom diploid genome for the sample.</li>
+            <div style="text-align:center">
+                <div id="code" style="display:inline-block; text-align:left">
+                    <pre><code class="console" style="font-size: 16px;">
+$ g2gtools transform -i NA19670.patched.fa -c NA19670.vci.gz -o NA19670.fa -p 8
+                    </code></pre>
+                </div>
             </div>
             <br>
             <li>4. Liftover gene annotation onto sample coordinates.</li>
-            <div id="code" style="text-align:left">
-                <pre><code class="text" style="font-size: 14px;">
-        $ g2gtools convert -i Homo_sapiens.GRCh37.75.gtf -c NA19670.vci.gz -o NA19670.gtf
-                </code></pre>
+            <div style="text-align:center">
+                <div id="code" style="display:inline-block; text-align:left">
+                    <pre><code class="console" style="font-size: 16px;">
+$ g2gtools convert -i Homo_sapiens.GRCh37.75.gtf -c NA19670.vci.gz -o NA19670.gtf
+                    </code></pre>
+                </div>
             </div>
             <br>
             <li>5. Parse custom gene annotation into a G2G database file.</li>
-            <div id="code" style="text-align:left">
-                <pre><code class="text" style="font-size: 14px;">`
-        $ g2gtools gtf2db -i NA19670.gtf -o NA19670.db
-                </code></pre>
+            <div style="text-align:center">
+                <div id="code" style="display:inline-block; text-align:left">
+                    <pre><code class="console" style="font-size: 16px;">
+$ g2gtools gtf2db -i NA19670.gtf -o NA19670.db
+                    </code></pre>
+                </div>
             </div>
             <br>
             <li>6. Extract exons, transcripts, and gene regions from the custom sample genome.</li>
-            <div id="code" style="text-align:left">
-                <pre><code class="text" style="font-size: 14px;">
-        $ g2gtools extract -i NA19670.fa -db NA19670.db --exons > NA19670.exons.fa
-        $ g2gtools extract -i NA19670.fa -db NA19670.db --transcripts > NA19670.transcripts.fa
-        $ g2gtools extract -i NA19670.fa -db NA19670.db --genes > NA19670.genes.fa
-                </code></pre>
+            <div style="text-align:center">
+                <div id="code" style="display:inline-block; text-align:left">
+                    <pre><code class="console" style="font-size: 16px;">
+$ g2gtools extract -i NA19670.fa -db NA19670.db --exons > NA19670.exons.fa
+$ g2gtools extract -i NA19670.fa -db NA19670.db --transcripts > NA19670.transcripts.fa
+$ g2gtools extract -i NA19670.fa -db NA19670.db --genes > NA19670.genes.fa
+                    </code></pre>
+                </div>
             </div>
             </ol>
         </div>
