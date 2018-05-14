@@ -502,14 +502,14 @@ def get_gene(db, ensembl_id):
 
             exons[_key] = exon
 
-    genes = {gene.ensembl_id: gene for i, gene in genes.iteritems()}
-    transcripts = {transcript.ensembl_id: transcript for i, transcript in transcripts.iteritems()}
+    genes = {gene.ensembl_id: gene for i, gene in genes.items()}
+    transcripts = {transcript.ensembl_id: transcript for i, transcript in transcripts.items()}
 
-    for _id, exon in exons.iteritems():
+    for _id, exon in exons.items():
         for _tid in exon.transcript_ids:
             transcripts[_tid].exons[exon.ensembl_id] = exon
 
-    for _id, transcript in transcripts.iteritems():
+    for _id, transcript in transcripts.items():
         for _gid in transcript.gene_ids:
             genes[_gid].transcripts[_id] = transcript
 
@@ -558,7 +558,7 @@ def get_genes(db, location=None, use_strand=False, overlap=True):
     for i, gene_id in enumerate(gene_ids):
         genes_temp = get_gene(db, gene_id)
         if genes_temp:
-            for ensembl_id, gene in genes_temp.iteritems():
+            for ensembl_id, gene in genes_temp.items():
                 genes[ensembl_id] = gene
 
     return genes
@@ -634,11 +634,11 @@ def get_transcripts_simple(db):
             pass
 
     LOG.debug("Simplifying transcripts")
-    transcripts = {transcript.ensembl_id: transcript for i, transcript in transcripts.iteritems()}
+    transcripts = {transcript.ensembl_id: transcript for i, transcript in transcripts.items()}
 
     #LOG.debug(transcripts)
 
-    for _id, exon in exons.iteritems():
+    for _id, exon in exons.items():
         #LOG.debug('_id={}\texon={}'.format(_id, str(exon)))
         for _tid in exon.transcript_ids:
             #LOG.debug('_tid={}'.format(_id))

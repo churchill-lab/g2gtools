@@ -418,7 +418,7 @@ def command_fasta_extract(raw_args, prog=None):
                     exon_ids = {}
                     transcripts = gtf_db.get_transcripts_simple(args.database)
                     for i, transcript in enumerate(transcripts):
-                        for ensembl_id, exon in transcript.exons.iteritems():
+                        for ensembl_id, exon in transcript.exons.items():
                             if ensembl_id not in exon_ids:
                                 r = g2g.Region(exon.seqid, exon.start-1, exon.end, exon.strand, name=exon.ensembl_id, original_base=1)
                                 all_regions.append(r)
