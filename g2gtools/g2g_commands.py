@@ -2,7 +2,6 @@
 
 import argparse
 import sys
-import time
 
 from . import bsam
 from . import bed
@@ -28,7 +27,7 @@ def command_convert(raw_args, prog=None):
     """
     Liftover coordinates of bam|sam|gtf|bed files
 
-    Usage: convert -c <VCI file> -i <input file> [options]
+    Usage: g2gtools convert -c <VCI file> -i <input file> [options]
 
     Required Parameters:
         -i, --input <input file>         Input file to liftover
@@ -37,7 +36,7 @@ def command_convert(raw_args, prog=None):
     Optional Parameters:
         -f, --format <bam|sam|gtf|bed>   Input file format
         -o, --output <output file>       Name of output file
-        --reverse                        Reverse the Chain file
+        --reverse                        Reverse the direction of the conversion (Custom -> Ref)
 
     Help Parameters:
         -h, --help                       Print the help and exit
@@ -134,7 +133,7 @@ def command_vcf2vci(raw_args, prog=None):
     """
     Create VCI file from VCF file(s)
 
-    Usage: vcf2vci [-i <indel VCF file>]* -s <strain> -o <output file> [options]
+    Usage: g2gtools vcf2vci [-i <indel VCF file>]* -s <strain> -o <output file> [options]
 
     Required Parameters:
         -i, --vcf <vcf_file>             VCF file name
@@ -217,7 +216,7 @@ def command_fasta_extract(raw_args, prog=None):
     """
     Extract subsequence from a fasta file given a region
 
-    Usage: extract -i <Fasta file> [-r <region> | -b <BED file> | -db <Database> | -id <seqid>] [options]
+    Usage: g2gtools extract -i <Fasta file> [-r <region> | -b <BED file> | -db <Database> | -id <seqid>] [options]
 
     Required Parameters:
         -i, --input <Fasta file>         Fasta file to extract subsequence from, BGZIP files supported
@@ -442,7 +441,7 @@ def command_fasta_patch(raw_args, prog=None):
     """
     Patch SNPs onto the reference sequence
 
-    Usage: patch -i <Fasta file> -c <VCI file> [options]
+    Usage: g2gtools patch -i <Fasta file> -c <VCI file> [options]
 
     Required Parameters:
         -i, --input <Fasta file>         Reference fasta file to extract and patch on
@@ -542,7 +541,7 @@ def command_fasta_transform(raw_args, prog=None):
     """
     Incorporate indels onto the input sequence
 
-    Usage: transform -i <Fasta file> -c <VCI file> [options]
+    Usage: g2gtools transform -i <Fasta file> -c <VCI file> [options]
 
     Required Parameters:
         -i, --input <Fasta file>         Reference fasta file to extract and transform
@@ -550,7 +549,7 @@ def command_fasta_transform(raw_args, prog=None):
 
     Optional Parameters:
         -p, --num-processes <number>     The number of processes to use, defaults to the number of cores
-        -o, --output <Output file>       Name of output fasta file that contains indel-incorporated sequences
+        -o, --output <Output file>       Name of output fasta file
         -r, --region <seqid:start-end>   Region to extract (cannot be used with -b)
         -b, --bed <BED file>             BED file (cannot be used with -r)
         --reverse                        Reverse the VCI file
@@ -646,7 +645,7 @@ def command_parse_region(raw_args, prog=None):
     """
     Parse a region from the command line.  Useful for verifying regions.
 
-    Usage: parse -r <seqid:start-end> [options]
+    Usage: g2gtools parse -r <seqid:start-end> [options]
 
     Required Parameters:
         -r, --region <seqid:start-end>   Region to parse
@@ -733,7 +732,7 @@ def command_fastaformat(raw_args, prog=None):
     """
     Reformat fasta file
 
-    Usage: fastaformat -f <Fasta file> [options]
+    Usage: g2gtools fastaformat -f <Fasta file> [options]
 
     Required Parameters:
         -f, --fasta <fasta_file>         Fasta file to format
@@ -800,7 +799,7 @@ def command_gtf2db(raw_args, prog=None):
     """
     Convert a GTF file to a G2G DB file
 
-    Usage: gtf2db -i <GTF file> -o <G2G DB file> [options]
+    Usage: g2gtools gtf2db -i <GTF file> -o <G2G DB file> [options]
 
     Required Parameters:
         -i, --input <GTF file>           GTF file to parse
@@ -862,7 +861,7 @@ def command_vciquery(raw_args, prog=None):
     """
     Query a VCI file
 
-    Usage: vciquery -i <VCI file> [options]
+    Usage: g2gtools vciquery -i <VCI file> [options]
 
     Required Parameters:
         -i, --input <VCI file>           VCI file to query
