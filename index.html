@@ -417,14 +417,13 @@
         <div class="intro">
             <h1>Workflow</h1>
             <p>
-                We show a typical workflow using a real example of human sample: NA19670 from 1000
-                Genomes (phase 3).
+                We show a typical workflow using a human example: NA19670 from 1000 Genomes (phase 3).
             </p>
             <br><br><br><br>
             <ol>
-            <li>Create VCI file of the sample</li>
+            <li>1. Create VCI file of the sample</li>
             <div id="code" style="text-align:left">
-                <pre><code class="bash" style="font-size: 14px;">
+                <pre><code class="text" style="font-size: 14px;">
         $ g2gtools vcf2vci -o NA19670.vci -s NA19670 --diploid -p 8 \
         -i ALL.chr1.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz \
         -i ALL.chr2.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz \
@@ -454,47 +453,37 @@
                 </code></pre>
             </div>
             <br>
-            <li>
-                Incorporate SNPs into the reference genome.
-            </li>
+            <li>2. Incorporate SNPs into the reference genome.</li>
             <div id="code" style="text-align:left">
-                <pre><code class="bash" style="font-size: 14px;">
+                <pre><code class="text" style="font-size: 14px;">
         $ g2gtools patch -i hs37d5.fa -c NA19670.vci.gz -o NA19670.fa -p 8
                 </code></pre>
             </div>
             <br>
-            <li>
-                Incorporate indels into the reference genome.
-            </li>
+            <li>3. Incorporate indels into the reference genome.</li>
             <div id="code" style="text-align:left">
-                <pre><code class="bash" style="font-size: 14px;">
+                <pre><code class="text" style="font-size: 14px;">
         $ g2gtools transform -i NA19670.patched.fa -c NA19670.vci.gz -o NA19670.fa -p 8
                 </code></pre>
             </div>
             <br>
-            <li>
-                Liftover gene annotation onto sample coordinates.
-            </li>
+            <li>4. Liftover gene annotation onto sample coordinates.</li>
             <div id="code" style="text-align:left">
-                <pre><code class="bash" style="font-size: 14px;">
+                <pre><code class="text" style="font-size: 14px;">
         $ g2gtools convert -i Homo_sapiens.GRCh37.75.gtf -c NA19670.vci.gz -o NA19670.gtf
                 </code></pre>
             </div>
             <br>
-            <li>
-                Parse custom gene annotation into a G2G database file.
-            </li>
+            <li>5. Parse custom gene annotation into a G2G database file.</li>
             <div id="code" style="text-align:left">
-                <pre><code class="bash" style="font-size: 14px;">
+                <pre><code class="text" style="font-size: 14px;">`
         $ g2gtools gtf2db -i NA19670.gtf -o NA19670.db
                 </code></pre>
             </div>
             <br>
-            <li>
-                Extract exons, transcripts, and gene regions from the custom sample genome.
-            </li>
+            <li>6. Extract exons, transcripts, and gene regions from the custom sample genome.</li>
             <div id="code" style="text-align:left">
-                <pre><code class="bash" style="font-size: 14px;">
+                <pre><code class="text" style="font-size: 14px;">
         $ g2gtools extract -i NA19670.fa -db NA19670.db --exons > NA19670.exons.fa
         $ g2gtools extract -i NA19670.fa -db NA19670.db --transcripts > NA19670.transcripts.fa
         $ g2gtools extract -i NA19670.fa -db NA19670.db --genes > NA19670.genes.fa
