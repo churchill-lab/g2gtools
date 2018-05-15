@@ -63,6 +63,8 @@
     <script src="http://ajax.googleapis.com/ajax/libs/jqueryui/1.9.1/jquery-ui.min.js"></script>
     <script src="http://cdnjs.cloudflare.com/ajax/libs/highlight.js/8.7/highlight.min.js"></script>
     <script type="text/javascript" src="js/jquery.fullPage.js"></script>
+    <script type="text/javascript" src="js/jquery.slimscroll.js"></script>
+    <!--<script type="text/javascript" src="js/jquery.slimscroll.min.js"></script>-->
 
 </head>
 
@@ -571,6 +573,7 @@ $ g2gtools extract -i NA19670.fa -db NA19670.db --genes > NA19670.genes.fa
             anchors: ['overview', 'installation', 'features', 'workflow'],
             menu: '#menu',
             scrollOverflow: true,
+//            scrollOverflowEndPrevent: { delay: 1000, reversal: false },
             scrollingSpeed: 500
         });
 
