@@ -8,9 +8,8 @@ from __future__ import print_function
 from __future__ import with_statement
 from past.builtins import cmp, xrange
 from future.utils import bytes_to_native_str as n
+from future.moves.itertools import zip_longest
 
-
-import itertools
 import re
 import random
 import string
@@ -170,7 +169,7 @@ def parse_chromosome(chrom_file):
 
 def wrap_sequence(sequence, n=60, fillvalue=''):
     args = [iter(sequence)] * n
-    for line in itertools.izip_longest(fillvalue=fillvalue, *args):
+    for line in zip_longest(fillvalue=fillvalue, *args):
         yield ''.join(line + ('\n',))
 
 
