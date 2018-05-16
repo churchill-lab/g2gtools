@@ -86,7 +86,7 @@ def odict_to_attributes(attributes):
     """
     if attributes:
         atts = []
-        for k, v in attributes.iteritems():
+        for k, v in attributes.items():
             atts.append('{} "{}"'.format(k, v))
         temp_atts = "; ".join(atts)
         return temp_atts.rstrip() + ";"
@@ -230,7 +230,7 @@ def convert_gtf_file(vci_file, input_file, output_file=None, reverse=False):
 
             if lr:
                 attributes = attributes_to_odict(elems[8])
-                for k,v in ATTRIBUTES_TO_ALTER.iteritems():
+                for k,v in ATTRIBUTES_TO_ALTER.items():
                     if k in attributes:
                         attributes[k] = '{}{}'.format(attributes[k], lr)
                 elems[8] = odict_to_attributes(attributes)

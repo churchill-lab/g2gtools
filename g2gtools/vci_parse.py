@@ -187,7 +187,7 @@ def parse_file(filename_vci, contigs=None, reverse=False):
     LOG.debug('mapping treeeeee')
     #print global_mapping_tree
 
-    #for k, v in global_mapping_tree.iteritems():
+    #for k, v in global_mapping_tree.items():
     #    print str(k)
     #    v.traverse(d)
     return global_mapping_tree

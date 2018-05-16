@@ -550,7 +550,7 @@ def fasta_extract_transcripts(fasta_file, database_file, output, raw=False):
 
             new_sequence = StringIO()
             locations = []
-            for ensembl_id, exon in transcript.exons.iteritems():
+            for ensembl_id, exon in transcript.exons.items():
                 LOG.debug("Exon ID={0};{1}".format(ensembl_id, exon))
 
                 partial_seq = fasta.fetch(exon.seqid, exon.start-1, exon.end)
@@ -613,7 +613,7 @@ def fasta_extract_exons(fasta_file, database_file, output, raw=False):
             if transcript.seqid not in fasta.references:
                 continue
 
-            for ensembl_id, exon in transcript.exons.iteritems():
+            for ensembl_id, exon in transcript.exons.items():
                 LOG.debug("Exon={0}".format(exon))
 
                 partial_seq = fasta.fetch(exon.seqid, exon.start-1, exon.end)
