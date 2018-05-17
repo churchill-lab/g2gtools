@@ -11,7 +11,7 @@ We highly recommend using Anaconda distribution of python (https://www.continuum
 
 To avoid conflicts among dependencies, we highly recommend using conda virtual environment::
 
-    $ conda create -n g2gtools jupyter
+    $ conda create -n g2gtools python=2 jupyter ipykernel
     $ source activate g2gtools
 
 Once g2gtools virtual environment is created and activated, your shell prompt will show '(g2gtools)' at the beginning to specify what virtual environment you are currently in. Now please type the following and install g2gtools::

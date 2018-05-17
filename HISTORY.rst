@@ -10,7 +10,7 @@ History
 * Reimplemented to support G2G VCI (Variant Call Information)
 * Support python3
 
-0.1.31 (02/16/2017)
+0.1.31 (02/17/2017)
 ~~~~~~~~~~~~~~~~~~~
 
 * Final release for custom haploid reconstruction
