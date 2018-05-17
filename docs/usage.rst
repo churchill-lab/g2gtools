@@ -5,6 +5,7 @@ Usage
 To use g2gtools in command line
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+**Note:** This is the official tutorial for Release Version 0.1.XX
 **Note:** We will assume you installed g2gtools in its own conda virtual environment. First of all, you have to "activate" the virtual environment by doing the following::
 
     source activate g2gtools

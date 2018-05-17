@@ -31,11 +31,11 @@ if not on_rtd:
 setup(
     name='g2gtools',
     version='0.2.0',
-    description="A set of tools that facilitate the reconstruction of custom diploid genomes and coordinate conversion",
+    description="A suite of tools for the reconstruction of personal diploid genomes and better coordinate conversion",
     long_description=readme + '\n\n' + history,
-    author='Kwangbom "KB" Choi & Matthew Vincent, The Jackson Laboratory',
+    author='Matthew J. Vincent and Kwangbom "KB" Choi, The Jackson Laboratory',
     author_email='kb.choi@jax.org',
-    url='https://github.com/churchill-lab/g2gtools',
+    url='http://churchill-lab.github.io/g2gtools/',
     packages=[
         'g2gtools',
     ],
@@ -44,14 +44,14 @@ setup(
     scripts=glob("bin/*"),
     include_package_data=True,
     install_requires=requirements,
-    license="GPLv3",
+    license="MIT",
     zip_safe=False,
-    keywords='g2gtools',
+    keywords='g2gtools, personal genomes, liftover',
     classifiers=[
         'Development Status :: 4 - Beta',
         'Intended Audience :: Developers',
         'Intended Audience :: Science/Research',
-        'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
+        'License :: OSI Approved :: MIT License',
         'Natural Language :: English',
         "Programming Language :: Python :: 2",
         'Programming Language :: Python :: 2.7'
