@@ -452,7 +452,6 @@ def command_fasta_patch(raw_args, prog=None):
         -o, --output <Output file>       Name of output fasta file that contains SNP-patched sequences
         -r, --region <seqid:start-end>   Region to extract (cannot be used with -b)
         -b, --bed <BED file>             BED file (cannot be used with -r)
-        --reverse                        Reverse the VCI file
         --bgzip                          Compress and index output (can only be used with -o)
 
     Help Parameters:
@@ -552,7 +551,6 @@ def command_fasta_transform(raw_args, prog=None):
         -o, --output <Output file>       Name of output fasta file
         -r, --region <seqid:start-end>   Region to extract (cannot be used with -b)
         -b, --bed <BED file>             BED file (cannot be used with -r)
-        --reverse                        Reverse the VCI file
         --bgzip                          Compress and index output fasta file (can only be used with -o)
 
     Help Parameters:

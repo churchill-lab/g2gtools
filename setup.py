@@ -21,12 +21,12 @@ requirements = []
 test_requirements = []
 
 if not on_rtd:
+    requirements.append('future>=0.15')
     requirements.append('Cython')
     requirements.append('numpy>=1.14')
-    requirements.append('bx-python>=0.8')
-    requirements.append('pysam>=0.14')
     requirements.append('natsort>=5.0.1')
-    requirements.append('future>=0.15')
+    requirements.append('pysam>=0.14')
+    requirements.append('bx-python>=0.8')
 
 setup(
     name='g2gtools',
@@ -46,7 +46,7 @@ setup(
     install_requires=requirements,
     license="MIT",
     zip_safe=False,
-    keywords='g2gtools, personal genomes, liftover',
+    keywords=['g2gtools', 'personal genomes', 'liftover'],
     classifiers=[
         'Development Status :: 4 - Beta',
         'Intended Audience :: Developers',
