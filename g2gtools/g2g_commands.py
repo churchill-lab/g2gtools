@@ -2,7 +2,6 @@
 
 import argparse
 import sys
-import time
 
 from . import bsam
 from . import bed
@@ -26,29 +25,27 @@ LOG = g2g.get_logger()
 
 def command_convert(raw_args, prog=None):
     """
-    Convert a file
+    Liftover coordinates of bam|sam|gtf|bed files
 
-    Usage: convert [-options] -v <VCI file> -i <input file>
+    Usage: g2gtools convert -c <VCI file> -i <input file> [options]
 
     Required Parameters:
-    -i, --input <input file>         input file to convert
-    -v, --vci <VCI file>             input VCI file used in conversion
+        -i, --input <input file>         Input file to liftover
+        -c, --vci <VCI file>             VCI file
 
     Optional Parameters:
-    -f, --format <bam|sam|gtf|bed>   file format
-    -r, --reverse                    reverse the Chain file
-    -o, --output <output file>       file to create
+        -f, --format <bam|sam|gtf|bed>   Input file format
+        -o, --output <output file>       Name of output file
+        --reverse                        Reverse the direction of the conversion (Custom -> Ref)
 
     Help Parameters:
-    -h, --help                       print the help and exit
-    -d, --debug                      turn debugging on, list multiple times for more messages
+        -h, --help                       Print the help and exit
+        -d, --debug                      Turn debugging mode on (list multiple times for more messages)
 
-    If no output file is specified [-o], the converted information will be redirected
-    to standard out.
 
-    To specify the type of file, use the [-t] option.
-
-    Only the conversion from the same type of file is supported.
+    Note:
+        If no output file is specified [-o], the converted information will be redirected
+        to standard out.
 
     """
 
@@ -69,12 +66,13 @@ def command_convert(raw_args, prog=None):
 
     # required
     parser.add_argument("-i", "--input", dest="input", metavar="Input_File")
-    parser.add_argument("-v", "--vci", dest="vci", metavar="VCI_File")
+    parser.add_argument("-c", "--vci", dest="vci", metavar="VCI_File")
 
     # optional
-    parser.add_argument("-f", "--format", dest="format", metavar='bam|sam|gtf|bed', choices=['bam', 'sam', 'gtf', 'bed'])
+    parser.add_argument("-f", "--format", dest="format", metavar='bam|sam|gtf|bed',
+                        choices=['bam', 'sam', 'gtf', 'bed', 'gff'])  # ** added 'gff'
     parser.add_argument("-o", "--output", dest="output", metavar="Output_File")
-    parser.add_argument("-r", "--reverse", dest="reverse", action='store_true')
+    parser.add_argument("--reverse", dest="reverse", action='store_true')
 
     # debugging and help
     parser.add_argument("-h", "--help", dest="help", action='store_true')
@@ -94,11 +92,13 @@ def command_convert(raw_args, prog=None):
         g2g.exit("No VCI file was specified.", parser)
 
     try:
-        file_format = None
+        file_format = None  # prolly unnecessary 
 
         if args.format:
-            file_format = file_format.upper()
-            if file_format not in ['BED', 'BAM', 'SAM', 'GTF']:
+            #file_format = file_format.upper()
+            file_format = args.format.upper()  # ** this prolly was a bug
+
+            if file_format not in ['BED', 'BAM', 'SAM', 'GTF', 'GFF']:  # ** added 'GFF'
                 raise exceptions.G2GValueError("Only BAM/SAM to BAM/SAM, GTF to GTF, or BED to BED are supported")
         else:
             # try to determine the type from the input
@@ -109,6 +109,11 @@ def command_convert(raw_args, prog=None):
                 file_format = 'BED'
             elif file_all_caps.endswith('GTF'):
                 file_format = 'GTF'
+
+            # addded **
+            elif file_all_caps.endswith('GFF'):
+                file_format = 'GFF'
+
             else:
                 raise exceptions.G2GValueError("File format cannot be determined, please specify.")
 
@@ -118,6 +123,14 @@ def command_convert(raw_args, prog=None):
             gtf.convert_gtf_file(vci_file=args.vci, input_file=args.input, output_file=args.output, reverse=args.reverse)
         elif file_format in ['BED']:
             bed.convert_bed_file(vci_file=args.vci, input_file=args.input, output_file=args.output, reverse=args.reverse)
+
+
+        # added ** to include GFF parsing
+        # it will still use the same module "gtf" but different function convert_gff_file
+        elif file_format in ['GFF']:
+            gtf.convert_gff_file(vci_file=args.vci, input_file=args.input, output_file=args.output, reverse=args.reverse)
+
+
         else:
             raise exceptions.G2GValueError("Only BAM/SAM to BAM/SAM, GTF to GTF, or BED to BED are supported")
     except KeyboardInterrupt as ki:
@@ -134,26 +147,26 @@ def command_convert(raw_args, prog=None):
 
 def command_vcf2vci(raw_args, prog=None):
     """
-    Convert snp and indel VCF file(s) to a VCI file
+    Create VCI file from VCF file(s)
 
-    Usage: vcf2vci [-options] [-v <indel VCF file> *] -s <strain> -o <output VCI file>
+    Usage: g2gtools vcf2vci [-i <indel VCF file>]* -s <strain> -o <output file> [options]
 
     Required Parameters:
-        -o, --output <output file>       VCI file to create
-        -s, --strain <strain>            name of strain column in VCF file
-        -v, --vcf <vcf_file>             snp/indel VCF file
+        -i, --vcf <vcf_file>             VCF file name
+        -s, --strain <Strain>            Name of strain (column in VCF file)
+        -o, --output <Output file>       VCI file name to create
 
     Optional Parameters:
-        --nobgzip                        DO NOT compress and index output
-        --diploid                        ignore hetorzygotes
-        --keep                           keep track of VCF lines that cannot be converted to Chain file
-        --pass                           use only VCF lines that have a PASS for the filter value
-        --quality                        filter on quality, FI=PASS
-        -n, --num_processes <number>     the number of processes to use, defaults to the number of cores
+        -p, --num-processes <number>     The number of processes to use, defaults to the number of cores
+        --diploid                        Create diploid VCI
+        --keep                           Keep track of VCF lines that could not be converted to VCI file
+        --pass                           Use only VCF lines that have a PASS for the filter value
+        --quality                        Filter on quality, FI=PASS
+        --no-bgzip                       DO NOT compress and index output
 
     Help Parameters:
-        -h, --help                       print the help and exit
-        -d, --debug                      turn debugging on, list multiple times for more messages
+        -h, --help                       Print the help and exit
+        -d, --debug                      Turn debugging mode on (list multiple times for more messages)
 
     """
 
@@ -173,17 +186,17 @@ def command_vcf2vci(raw_args, prog=None):
     parser.error = print_message
 
     # required
-    parser.add_argument("-o", "--output", dest="output", metavar="VCI_File")
+    parser.add_argument("-i", "--vcf", dest="vcf_files", metavar="vcf_file", action='append')
     parser.add_argument("-s", "--strain", dest="strain", metavar="strain")
-    parser.add_argument("-v", "--vcf", dest="vcf_files", metavar="vcf_file", action='append')
+    parser.add_argument("-o", "--output", dest="output", metavar="VCI_File")
 
     # optional
-    parser.add_argument("--nobgzip", dest="nobgzip", action='store_false', default=True)
+    parser.add_argument("-p", "--num-processes", type=int, dest="numprocesses", metavar="number_of_processes")
     parser.add_argument("--diploid", dest="diploid", action='store_true')
     parser.add_argument("--keep", dest="keep", action='store_true')
     parser.add_argument("--pass", dest="passed", action='store_true')
     parser.add_argument("--quality", dest="quality", action='store_true')
-    parser.add_argument("-n", "--numprocesses", type=int, dest="numprocesses", metavar="number_of_processes")
+    parser.add_argument("--no-bgzip", dest="nobgzip", action='store_false', default=True)
 
     # debugging and help
     parser.add_argument("-h", "--help", dest="help", action='store_true')
@@ -217,39 +230,35 @@ def command_vcf2vci(raw_args, prog=None):
 
 def command_fasta_extract(raw_args, prog=None):
     """
-    Extract a sequence from a Fasta file give a location.
+    Extract subsequence from a fasta file given a region
 
-    Usage: extract [-options] -i <Fasta file> [-l <location> | -b <BED file> | -db <Database> | -id <id>]
+    Usage: g2gtools extract -i <Fasta file> [-r <region> | -b <BED file> | -db <Database> | -id <seqid>] [options]
 
     Required Parameters:
-        -i, --input <Fasta file>         Fasta file to extract sequence from, BGZIP files supported
+        -i, --input <Fasta file>         Fasta file to extract subsequence from, BGZIP files supported
+        -b, --bed <BED file>             BED file -OR-
+        -id, --identifier <identifier>   Fasta identifier -OR-
+        -r, --region <seqid:start-end>   Region to extract -OR-
+        -db, --database <DB file>        Database file
+             --transcripts                 For use with -db, extracts transcripts (default)
+             --exons                       For use with -db, extracts exons
+             --genes                       For use with -db, extracts genes
 
     Optional Parameters:
-        -b, --bed <BED file>             BED file
-            - OR -
-        -id, --identifier <identifier>   Fasta identifier
-            - OR -
-        -r, --region <region>            seqid:start:end
-
-        -db, --database <DB file>        Database file
-            --exons                      For use with -db, defaults to transcript extraction
-            --genes                      For use with -db, defaults to transcript extraction
-            --transcripts                For use with -db, defaults to transcript extraction
-
-        -v, --vci <VCI file>             input VCI file, matching input Fasta file
-
-        --complement                     return complement of sequence
-        --reverse                        return reverse of sequence
-        --reversecomplement              return reverse complement of sequence
-
-        --raw                            show just sequence
+        -c, --vci <VCI file>             Input VCI file, matching input Fasta file
+        -R, --vci-reverse                Reverse the direction of liftover
+        --complement                     Complement the extracted sequence
+        --reverse                        Reverse the extracted sequence
+        --reverse-complement             Reverse complement the extracted sequence
+        --raw                            Just shows the extracted sequence
 
     Help Parameters:
-        -h, --help                       print the help and exit
-        -d, --debug                      turn debugging on, list multiple times for more messages
+        -h, --help                       Print the help and exit
+        -d, --debug                      Turn debugging mode on (list multiple times for more messages)
 
-    Note: Locations specified on command line are 1 based coordinates.
-          Locations specified via BED file are 0 based coordinates.
+    Note:
+        Locations specified on command line are 1-based coordinates.
+        Locations specified via BED file are 0-based coordinates.
 
     """
     if prog:
@@ -269,23 +278,21 @@ def command_fasta_extract(raw_args, prog=None):
 
     # required
     parser.add_argument("-i", "--input", dest="fasta", metavar="FASTA_File")
-
-    # optional
     parser.add_argument("-b", "--bed", dest="bed_file", metavar="BED_File")
     parser.add_argument("-id", "--identifier", dest="id", metavar="identifier")
     parser.add_argument("-r", "--region", dest="region", metavar="chr1:100000-200000")
-
     parser.add_argument("-db", "--database", dest="database", metavar="Database")
+
+    # optional
+    parser.add_argument("--transcripts", dest="transcripts", action="store_true", default=False)
     parser.add_argument("--exons", dest="exons", action="store_true", default=False)
     parser.add_argument("--genes", dest="genes", action="store_true", default=False)
-    parser.add_argument("--transcripts", dest="transcripts", action="store_true", default=False)
 
+    parser.add_argument("-c", "--vci", dest="vci", metavar="VCI_File")
+    parser.add_argument("-R", "--vci-reverse", dest="vci_reverse", action="store_true", default=False)
     parser.add_argument("--complement", dest="complement", action="store_true", default=False)
     parser.add_argument("--reverse", dest="reverse", action="store_true", default=False)
-    parser.add_argument("--reversecomplement", dest="reversecomplement", action="store_true", default=False)
-
-    parser.add_argument("-v", "--vci", dest="vci", metavar="VCI_File")
-    parser.add_argument("-vr", "--vci-reverse", dest="vci_reverse", action="store_true", default=False)
+    parser.add_argument("--reverse-complement", dest="reversecomplement", action="store_true", default=False)
 
     parser.add_argument("--raw", dest="raw", action="store_true", default=False)
 
@@ -309,7 +316,7 @@ def command_fasta_extract(raw_args, prog=None):
     flag_count += (1 if args.reversecomplement else 0)
 
     if flag_count > 1:
-        g2g.exit("Please specify only one of: --complement, --reverse, --reversecomplement", parser)
+        g2g.exit("Please specify only one of: --complement, --reverse, --reverse-complement", parser)
 
     reverse = (args.reverse or args.reversecomplement)
     complement = (args.complement or args.reversecomplement)
@@ -322,7 +329,7 @@ def command_fasta_extract(raw_args, prog=None):
         output_count += (1 if args.exons else 0)
 
         if output_count != 1:
-            g2g.exit("Please specify one of: --exons, --genses, or --transcripts", parser)
+            g2g.exit("Please specify one of: --exons, --genes, or --transcripts", parser)
 
     location_count = 0
     location_count += (1 if args.region else 0)
@@ -426,7 +433,7 @@ def command_fasta_extract(raw_args, prog=None):
                     exon_ids = {}
                     transcripts = gtf_db.get_transcripts_simple(args.database)
                     for i, transcript in enumerate(transcripts):
-                        for ensembl_id, exon in transcript.exons.iteritems():
+                        for ensembl_id, exon in transcript.exons.items():
                             if ensembl_id not in exon_ids:
                                 r = g2g.Region(exon.seqid, exon.start-1, exon.end, exon.strand, name=exon.ensembl_id, original_base=1)
                                 all_regions.append(r)
@@ -448,27 +455,27 @@ def command_fasta_extract(raw_args, prog=None):
 
 def command_fasta_patch(raw_args, prog=None):
     """
-    Convert a Fasta file into a patched (SNP'd) Fasta file.
+    Patch SNPs onto the reference sequence
 
-    Usage: patch [-options] -i <Fasta file> -v <VCI file>
+    Usage: g2gtools patch -i <Fasta file> -c <VCI file> [options]
 
     Required Parameters:
-        -i, --input <Fasta file>         Fasta file to patch
-        -v, --vci <VCI file>             input VCI file
+        -i, --input <Fasta file>         Reference fasta file to extract and patch on
+        -c, --vci <VCI file>             VCI file
 
     Optional Parameters:
-        -b, --bed <BED file>             BED file (cannot be used with -l)
-        --bgzip                          compress and index output (can only be used with -o)
-        -o, --output <Output file>       Fasta file to output to
-        -n, --num_processes <number>     the number of processes to use, defaults to the number of cores
-        -r, --region <region>            seqid:start-end (cannot be used with -b)
-        --reverse                        reverse the VCI file
+        -p, --num-processes <number>     The number of processes to use, defaults to the number of cores
+        -o, --output <Output file>       Name of output fasta file that contains SNP-patched sequences
+        -r, --region <seqid:start-end>   Region to extract (cannot be used with -b)
+        -b, --bed <BED file>             BED file (cannot be used with -r)
+        --bgzip                          Compress and index output (can only be used with -o)
 
     Help Parameters:
-        -h, --help                       print the help and exit
-        -d, --debug                      turn debugging on, list multiple times for more messages
+        -h, --help                       Print the help and exit
+        -d, --debug                      Turn debugging mode on (list multiple times for more messages)
 
-    Note: --bgzip can be potentially slow depending on the size of the file
+    Note:
+        --bgzip can be potentially slow depending on the size of the file
 
     """
 
@@ -489,15 +496,15 @@ def command_fasta_patch(raw_args, prog=None):
 
     # required
     parser.add_argument("-i", "--input", dest="fasta", metavar="FASTA_File")
-    parser.add_argument("-v", "--vci", dest="vci", metavar="VCI_File")
+    parser.add_argument("-c", "--vci", dest="vci", metavar="VCI_File")
 
     # optional
-    parser.add_argument("--bgzip", dest="bgzip", action='store_true')
-    parser.add_argument("-b", "--bed", dest="bed_file", metavar="BED_File")
-    parser.add_argument("-n", "--numprocesses", type=int, dest="numprocesses", metavar="number_of_processes")
+    parser.add_argument("-p", "--num-processes", type=int, dest="numprocesses", metavar="number_of_processes")
     parser.add_argument("-o", "--output", dest="output", metavar="Output_File")
-    parser.add_argument("-r", "--region", dest="region", metavar="chr1:100000-200000")
+    parser.add_argument("-r", "--region", dest="region", metavar="chr1:3000000-4000000")
+    parser.add_argument("-b", "--bed", dest="bed_file", metavar="BED_File")
     parser.add_argument("--reverse", dest="reverse", action="store_true", default=False)
+    parser.add_argument("--bgzip", dest="bgzip", action='store_true')
 
     # debugging and help
     parser.add_argument("-h", "--help", dest="help", action='store_true')
@@ -547,28 +554,27 @@ def command_fasta_patch(raw_args, prog=None):
 
 def command_fasta_transform(raw_args, prog=None):
     """
-    Extract a sequence from a Fasta file give a location, and replace the from
-    newly formatted G2G file.
+    Incorporate indels onto the input sequence
 
-    Usage: transform [-options] [-options] -i <Fasta file> -v <VCI file>
+    Usage: g2gtools transform -i <Fasta file> -c <VCI file> [options]
 
     Required Parameters:
-        -i, --input <Fasta file>         Fasta file to extract sequence from
-        -v, --vci <VCI file>             input VCI file
+        -i, --input <Fasta file>         Reference fasta file to extract and transform
+        -c, --vci <VCI file>             VCI file
 
     Optional Parameters:
-        -b, --bed <BED file>             BED file (cannot be used with -l)
-        --bgzip                          compress and index output (can only be used with -o)
-        -l, --location <location>        seqid:start-end (cannot be used with -b)
-        -o, --output <Output file>       Fasta file to output to
-        -n, --num_processes <number>     the number of processes to use, defaults to the number of cores
-        -r, --reverse                    reverse the chain file
+        -p, --num-processes <number>     The number of processes to use, defaults to the number of cores
+        -o, --output <Output file>       Name of output fasta file
+        -r, --region <seqid:start-end>   Region to extract (cannot be used with -b)
+        -b, --bed <BED file>             BED file (cannot be used with -r)
+        --bgzip                          Compress and index output fasta file (can only be used with -o)
 
     Help Parameters:
-        -h, --help                       print the help and exit
-        -d, --debug                      turn debugging on, list multiple times for more messages
+        -h, --help                       Print the help and exit
+        -d, --debug                      Turn debugging mode on (list multiple times for more messages)
 
-    Note: --bgzip can be potentially slow depending on the size of the file
+    Note:
+        --bgzip can be potentially slow depending on the size of the file
 
     """
 
@@ -589,14 +595,15 @@ def command_fasta_transform(raw_args, prog=None):
 
     # required
     parser.add_argument("-i", "--input", dest="fasta", metavar="FASTA_File")
-    parser.add_argument("-v", "--vci", dest="vci", metavar="VCI_File")
+    parser.add_argument("-c", "--vci", dest="vci", metavar="VCI_File")
 
     # optional
-    parser.add_argument("--bgzip", dest="bgzip", action='store_true')
-    parser.add_argument("-b", "--bed", dest="bed_file", metavar="BED_File")
-    parser.add_argument("-n", "--numprocesses", type=int, dest="numprocesses", metavar="number_of_processes")
+    parser.add_argument("-p", "--num-processes", type=int, dest="numprocesses", metavar="number_of_processes")
     parser.add_argument("-o", "--output", dest="output", metavar="Output_File")
-    parser.add_argument("-r", "--region", dest="region", metavar="chr1:100000-200000")
+    parser.add_argument("-r", "--region", dest="region", metavar="chr1:3000000-4000000")
+    parser.add_argument("-b", "--bed", dest="bed_file", metavar="BED_File")
+    parser.add_argument("--reverse", dest="reverse", action="store_true", default=False)
+    parser.add_argument("--bgzip", dest="bgzip", action='store_true')
 
     # debugging and help
     parser.add_argument("-h", "--help", dest="help", action='store_true')
@@ -652,18 +659,18 @@ def command_parse_region(raw_args, prog=None):
     """
     Parse a region from the command line.  Useful for verifying regions.
 
-    Usage: parse [-options] -l <location>
+    Usage: g2gtools parse -r <seqid:start-end> [options]
 
     Required Parameters:
-        -r, --region <region>            seqid:start-end
+        -r, --region <seqid:start-end>   Region to parse
 
     Optional Parameters:
-        -b, --base <0|1>                 base (0 or 1)
-        -n, --name <name>                name of region
+        -b, --base <0|1>                 Base coordinate (0 or 1)
+        -n, --name <name>                Name of region
 
     Help Parameters:
-        -h, --help                       print the help and exit
-        -d, --debug                      turn debugging on, list multiple times for more messages
+        -h, --help                       Print the help and exit
+        -d, --debug                      Turn debugging mode on (list multiple times for more messages)
 
     """
 
@@ -737,21 +744,21 @@ def command_parse_region(raw_args, prog=None):
 
 def command_fastaformat(raw_args, prog=None):
     """
-    Format Fasta file
+    Reformat fasta file
 
-    Usage: fastaformat [-options] -f <Fasta file>
+    Usage: g2gtools fastaformat -f <Fasta file> [options]
 
     Required Parameters:
         -f, --fasta <fasta_file>         Fasta file to format
 
     Optional Parameters:
-        -l, --length <line_length>       the length of the line, defaults to 60
-        -o, --output <output_file>       Fasta file to create
-        -s, --seqids <seqids>            comma seperated list of seqids
+        -l, --length <line_length>       The length of the line, defaults to 60
+        -o, --output <output_file>       Output fasta file
+        -s, --seqids <seqids>            Comma separated list of seqids
 
     Help Parameters:
-        -h, --help                       print the help and exit
-        -d, --debug                      turn debugging on, list multiple times for more messages
+        -h, --help                       Print the help and exit
+        -d, --debug                      Turn debugging mode on (list multiple times for more messages)
 
     """
 
@@ -780,6 +787,7 @@ def command_fastaformat(raw_args, prog=None):
     # debugging and help
     parser.add_argument("-h", "--help", dest="help", action='store_true')
     parser.add_argument("-d", "--debug", dest="debug", action="count", default=0)
+    # Matt, where's "-s" option? Not supported anymore?
 
     args = parser.parse_args(raw_args)
 
@@ -805,15 +813,15 @@ def command_gtf2db(raw_args, prog=None):
     """
     Convert a GTF file to a G2G DB file
 
-    Usage: gtf2db [-options] -i <GTF file> -o <G2G DB file>
+    Usage: g2gtools gtf2db -i <GTF file> -o <G2G DB file> [options]
 
     Required Parameters:
-    -i, --input <GTF file>           GTF file to parse
-    -o, --output <G2G DB file>       G2G DB file to create
+        -i, --input <GTF file>           GTF file to parse
+        -o, --output <G2G DB file>       G2G DB file to create
 
     Help Parameters:
-    -h, --help                       print the help and exit
-    -d, --debug                      turn debugging on, list multiple times for more messages
+        -h, --help                       Print the help and exit
+        -d, --debug                      Turn debugging mode on (list multiple times for more messages)
 
     """
 
@@ -867,18 +875,18 @@ def command_vciquery(raw_args, prog=None):
     """
     Query a VCI file
 
-    Usage: vciquery [-options] -i <VCI file>
+    Usage: g2gtools vciquery -i <VCI file> [options]
 
     Required Parameters:
         -i, --input <VCI file>           VCI file to query
-        -r, --region                     Region to query
+        -r, --region <seqid:start-end>   Region to query
 
     Optional Parameters:
         -f, --fasta <Fasta file>         Fasta file
 
     Help Parameters:
-        -h, --help                       print the help and exit
-        -d, --debug                      turn debugging on, list multiple times for more messages
+        -h, --help                       Print the help and exit
+        -d, --debug                      Turn debugging mode on (list multiple times for more messages)
 
     """
 

@@ -2,6 +2,13 @@ language: python
 
 python:
   - "2.7"
+  - "3.5"
+  - "3.6"
+
+addons:
+    apt:
+        packages:
+            - liblzo2-dev
 
 install:
   - sudo apt-get update
@@ -16,11 +23,11 @@ install:
   - conda config --set always_yes yes --set changeps1 no
   - conda update -q conda
   - conda info -a
-  - conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION biopython>=1.63 cython
+  - conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION cython
   - source activate test-environment
-  - conda install -c https://conda.binstar.org/bcbio pysam
+  - conda install numpy natsort future six
+  - conda install -c bioconda pysam
   - pip install bx-python
-  - pip install pysqlite
   - python setup.py install
 
 script:

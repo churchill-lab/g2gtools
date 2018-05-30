@@ -6,7 +6,14 @@ History
 0.2.0 (05/09/2018)
 ~~~~~~~~~~~~~~~~~~
 
-* Complete rewrite
+* Support for diploid VCF
+* Reimplemented to support G2G VCI (Variant Call Information)
+* Support python3
+
+0.1.31 (02/17/2017)
+~~~~~~~~~~~~~~~~~~~
+
+* Final release for custom haploid reconstruction
 
 0.1.29 (05/17/2016)
 ~~~~~~~~~~~~~~~~~~~

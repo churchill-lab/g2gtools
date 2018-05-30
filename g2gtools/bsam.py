@@ -213,7 +213,7 @@ def convert_bam_file(vci_file, file_in, file_out, reverse=False):
                 status_success = 0
                 status_failed = 0
 
-                for k, v in map_statistics_pair.iteritems():
+                for k, v in map_statistics_pair.items():
                     if k.startswith('success'):
                         status_success += v
                     elif k.startswith('fail'):
@@ -530,7 +530,7 @@ def convert_bam_file(vci_file, file_in, file_out, reverse=False):
 
     if map_statistics_pair['total'] > 0:
         total_success = 0
-        for k, v in map_statistics_pair.iteritems():
+        for k, v in map_statistics_pair.items():
             if k.startswith('success'):
                 total_success += v
 

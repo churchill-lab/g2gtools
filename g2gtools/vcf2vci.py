@@ -384,7 +384,7 @@ def wrapper(args):
 
 def log_stats(stats):
     LOG.info("STATISTICS")
-    for s, stat in stats.iteritems():
+    for s, stat in stats.items():
         LOG.info("{0:,}\t\t{1}".format(stat, s))
 
 
