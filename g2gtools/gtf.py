@@ -56,7 +56,7 @@ class GTF(object):
         else:
             self.current_line = g2g_utils.s(self.reader.__next__())
             while self.current_line.startswith('#') or self.current_line.startswith('!'):
-                self.current_line = self.reader.__next__()
+                self.current_line = g2g_utils.s(self.reader.__next__())
 
         self.current_record = parse_gtf_line(self.current_line)
 
