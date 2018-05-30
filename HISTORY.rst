@@ -3,6 +3,11 @@
 History
 -------
 
+0.2.1 (05/30/2018)
+~~~~~~~~~~~~~~~~~~
+
+* Hotfix to solve gtf parsing problem in python 3
+
 0.2.0 (05/09/2018)
 ~~~~~~~~~~~~~~~~~~
 
