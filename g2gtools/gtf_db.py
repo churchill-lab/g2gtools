@@ -5,6 +5,7 @@ from future.utils import viewitems
 import sys
 import time
 
+
 try:
     import sqlite3
 except:
@@ -608,6 +609,7 @@ def get_transcripts_simple(db):
     transcripts = OrderedDict()
     exons = OrderedDict()
 
+
     counter = 0
     for r in cursor:
         counter += 1
@@ -618,9 +620,24 @@ def get_transcripts_simple(db):
             # transcript
             if r['transcript_id'] not in transcripts:
                 #LOG.debug('adding transcript {}'.format(r['transcript_id']))
-                transcripts[r['ensembl_id']] = Transcript(r['ensembl_id'], r['seqid'], r['start'], r['end'], r['strand'])
+
+                # ** deactivated
+                #transcripts[r['ensembl_id']] = Transcript(r['ensembl_id'], r['seqid'], r['start'], r['end'], r['strand'])
+
+                ## ** New method added : Since the condition i.e r['transcript_id'] == r['ensembl_id'] is true ..
+                # .. and also that we are building transcript-ids, using 'transcript_id' as key is more comprehensive.
+                # Also, it would be comprehensive to have : Transcript(r['transcript_id'], ......
+                transcripts[r['transcript_id']] = Transcript(r['ensembl_id'], r['seqid'], r['start'], r['end'],
+                                                          r['strand'])
+
                 #LOG.debug(transcripts[r['ensembl_id']])
-        elif r['transcript_id'] is not None and (r['gene_id'] != r['ensembl_id']):
+
+        # ** deactivated
+        #elif r['transcript_id'] is not None and (r['gene_id'] != r['ensembl_id']):
+
+        # ** added to prevent inserttion of 'None' key in exon.ensembl_id ??
+        elif r['transcript_id'] is not None and r['ensembl_id'] is not None \
+                    and (r['gene_id'] != r['ensembl_id']):
             # exon
             #LOG.debug("ADDING exon")
             exon = exons.get(r['ensembl_id'], Exon(r['ensembl_id'], r['seqid'], r['start'], r['end'], r['strand']))
@@ -629,13 +646,41 @@ def get_transcripts_simple(db):
             exon.exon_number = r['exon_number']
 
             exons[r['ensembl_id']] = exon
+
+
+            ## ** Addition
+            # When there are sinlge Exon genes we are missing transcript_id based on previous two condition
+
+            ## A small snippet from gtftodb (sqlite file) for the gene that has only one exon
+            # gene_id       transcript_id       ensembl_id
+            # "AL1G10030_L"   null    "AL1G10030_L"
+            # "AL1G10030_R"   null    "AL1G10030_R"
+            # "AL1G10030_L"    "AL1G10030.t1_L"    "AL1G10030.t1.exon1_L"
+            # "AL1G10030_R"    "AL1G10030.t1_R"    "AL1G10030.t1.exon1_R"
+            # "AL1G10030_L"    "AL1G10030.t1_L"   null
+            # "AL1G10030_R"    "AL1G10030.t1_R"   null
+            # "AL1G10030_L"    "AL1G10030.t1_L"   null
+            # "AL1G10030_R"    "AL1G10030.t1_R"   null
+            # "AL1G10030_L"    "AL1G10030.t1_L"   null
+            # "AL1G10030_R"    "AL1G10030.t1_R"   null
+
+            # to include missing transcript_ids database from single exon genes adding another condition
+            # transcript
+            if r['transcript_id'] not in transcripts:
+                # LOG.debug('adding transcript {}'.format(r['transcript_id']))
+
+                ## ** New method: Since the condition i.e r['transcript_id'] != r['ensembl_id'] ..
+                # .. and also that we are building transcript-ids, using 'transcript_id' as key is more comprehensive
+                transcripts[r['transcript_id']] = Transcript(r['transcript_id'], r['seqid'], r['start'], r['end'],
+                                                             r['strand'])
+
         else:
             #LOG.debug('gene')
             pass
 
+
     LOG.debug("Simplifying transcripts")
     transcripts = {transcript.ensembl_id: transcript for i, transcript in transcripts.items()}
-
     #LOG.debug(transcripts)
 
     for _id, exon in exons.items():
