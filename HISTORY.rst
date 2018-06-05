@@ -3,6 +3,11 @@
 History
 -------
 
+0.2.4 (06/05/2018)
+~~~~~~~~~~~~~~~~~~
+
+* Automtically generates file index if not found
+
 0.2.3 (06/05/2018)
 ~~~~~~~~~~~~~~~~~~
 

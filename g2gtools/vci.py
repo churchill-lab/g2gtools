@@ -165,6 +165,8 @@ class VCIFile:
 
         self._tabix_file = pysam.TabixFile(self.filename, mode=mode, parser=parser, index=index, encoding=encoding)
 
+        g2g_utils.index_file(original_file=filename, file_format="vci", overwrite=False)
+
         self.parse_header()
 
     def __getattr__(self, name):

@@ -519,7 +519,7 @@ def process(filename_fasta, filename_vci, regions, filename_output=None, bgzip=F
     :type num_processes: int
     :return: Nothing
     """
-    LOG.error("in process of fixing")
+    #LOG.error("in process of fixing")
 
 
     start = time.time()
@@ -656,8 +656,6 @@ def process(filename_fasta, filename_vci, regions, filename_output=None, bgzip=F
 
         args = zip(all_params)
         LOG.debug(args)
-
-
 
         pool = multiprocessing.Pool(num_processes)
         results = pool.map(wrapper, args)

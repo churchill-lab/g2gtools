@@ -436,6 +436,8 @@ def process(vcf_files, fasta_file, output_file, strain, vcf_keep=False, passed=F
         for file_name in vcf_files:
             vcf_file = g2g_utils.check_file(file_name)
             LOG.info("VCF file: {0}".format(vcf_file))
+            LOG.info("Checking for index file, creating if needed...")
+            g2g_utils.index_file(original_file=vcf_file, file_format="vcf", overwrite=False)
 
             vcf_discard_file = None
             if vcf_keep:

@@ -293,7 +293,7 @@ def bgzip_file(original_file, new_file, delete_original=False, force=True):
         delete_file(original_file)
 
 
-def index_file(original_file, file_format="vcf"):
+def has_index_file(original_file, file_format=None):
     """
 
     :param original_file:
@@ -302,14 +302,48 @@ def index_file(original_file, file_format="vcf"):
     :return:
     """
 
+    if not file_format:
+        # try to guess the file format
+        if original_file.lower().endswith(".fa") or original_file.lower().endswith(".fasta"):
+            file_format = 'fa'
+        elif original_file.lower().endswith(".vcf"):
+            file_format = 'vcf'
+        elif original_file.lower().endswith(".vci"):
+            file_format = 'vci'
+        else:
+            raise G2GValueError("Cannot determine file format")
+
     if file_format.lower() == 'fa':
-        pysam.faidx(original_file)
+        ext = 'fai'
     elif file_format.lower() == 'vcf':
-        pysam.tabix_index(original_file, preset="vcf", force=True)
+        ext = 'tbi'
     elif file_format.lower() == 'vci':
-        pysam.tabix_index(original_file, seq_col=0, start_col=1, end_col=1, force=True)
+        ext = 'tbi'
     else:
         raise G2GValueError("Unknown file format: {0}".format(file_format))
+
+    idx_file = '{}.{}'.format(original_file, ext)
+
+    return os.path.exists(idx_file)
+
+
+def index_file(original_file, file_format="vcf", overwrite=False):
+    """
+
+    :param original_file:
+    :param new_file:
+    :param file_format:
+    :return:
+    """
+    if not overwrite or not has_index_file(original_file, file_format=file_format):
+        if file_format.lower() == 'fa':
+            pysam.faidx(original_file)
+        elif file_format.lower() == 'vcf':
+            pysam.tabix_index(original_file, preset="vcf", force=True)
+        elif file_format.lower() == 'vci':
+            pysam.tabix_index(original_file, seq_col=0, start_col=1, end_col=1, force=True)
+        else:
+            raise G2GValueError("Unknown file format: {0}".format(file_format))
 
 
 def bgzip_and_index_file(original_file, new_file, delete_original=False, force=True, file_format="vcf"):

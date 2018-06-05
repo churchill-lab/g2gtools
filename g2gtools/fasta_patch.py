@@ -270,8 +270,6 @@ def process(filename_fasta, filename_vci, regions, filename_output=None, bgzip=F
             dump_fasta = True
             LOG.debug("Temporary fasta file: {}".format(filename_output))
 
-        print('hello')
-
         fasta_file = fasta.FastaFile(filename_fasta)
         vci_file = vci.VCIFile(filename_vci)
 
