@@ -14,6 +14,7 @@ import time
 import pysam
 
 from . import exceptions
+from . import fasta
 from . import g2g
 from . import g2g_utils
 from . import vcf
@@ -38,6 +39,7 @@ class VCF2VCIInfo(object):
 
         # list of VCFFileInformation
         self.vcf_files = []
+        self.fasta_file = None
 
         # indel specific
 
@@ -142,8 +144,9 @@ def process_piece(merge_info):
                 vcf_discard = open(file_info.discard_file, "w")
 
                 def discard_record(rec):
-                    vcf_discard.write(rec)
+                    vcf_discard.write(str(rec))
                     vcf_discard.write("\n")
+
                 discard_functions.append(discard_record)
             else:
                 discard_functions.append(lambda rec: None)
@@ -191,11 +194,12 @@ def process_piece(merge_info):
                                 output_file_left.write("{}\t{}\t{}\t{}\t{}\t{}\n".format(merge_info.chromosome, vcf_record.pos+1, '.', vcf_record.ref, gt.left, '.'))
                 else:
                     # indel
-                    #LOG.debug("Processing INDEL {}".format(vcf_record))
+                    LOG.debug("Processing INDEL {}".format(vcf_record))
 
                     if merge_info.passed and 'PASS' not in vcf_record.filter:
 
-                        #LOG.debug("TOSSED: FILTERED ON PASS")
+                        LOG.debug("TOSSED: FILTERED ON PASS")
+                        LOG.debug(vcf_record)
                         stats = update_stats(stats, 'FILTERED ON PASS')
 
                         discard_functions[i](vcf_record)
@@ -205,15 +209,19 @@ def process_piece(merge_info):
 
                         # FI : Whether a sample was a Pass(1) or fail (0) based on FILTER values
 
-                        #LOG.debug("TOSSED: FILTERED ON QUALITY")
+                        LOG.debug("TOSSED: FILTERED ON QUALITY")
+                        LOG.debug(vcf_record)
                         stats = update_stats(stats, 'FILTERED ON QUALITY')
                         discard_functions[i](vcf_record)
                         continue
 
                     elif gt.left is None and gt.right is None:
 
-                        #LOG.debug("TOSSED: NO STRAIN DATA")
+                        LOG.debug("TOSSED: NO STRAIN DATA")
+                        LOG.debug(vcf_record)
                         stats = update_stats(stats, 'NO STRAIN DATA')
+                        LOG.debug(i)
+                        LOG.debug(type(vcf_record))
                         discard_functions[i](vcf_record)
                         continue
 
@@ -221,7 +229,8 @@ def process_piece(merge_info):
                         # haploid or hexaploid
                         # gt must be equal
 
-                        #LOG.debug("TOSSED: HETEROZYGOUS")
+                        LOG.debug("TOSSED: HETEROZYGOUS")
+                        LOG.debug(vcf_record)
                         stats = update_stats(stats, 'HETEROZYGOUS')
                         discard_functions[i](vcf_record)
                         continue
@@ -247,19 +256,20 @@ def process_piece(merge_info):
                             output_file = output_file_right
                             prev_next_ref_pos = merge_info.prev_next_ref_pos_right
 
-                        #LOG.debug("prev_next_ref_pos={}".format(prev_next_ref_pos))
+                        LOG.debug("prev_next_ref_pos={}".format(prev_next_ref_pos))
 
                         if gt.ref == alt_seq:
 
-                            #LOG.debug("TOSSED, REF AND ALT ARE EQUAL")
+                            LOG.debug("TOSSED, REF AND ALT ARE EQUAL")
+                            LOG.debug(vcf_record)
                             stats = update_stats(stats, 'REF AND ALT ARE EQUAL')
                             discard_functions[i](vcf_record)
                             continue
 
                         orig_alt_seq = alt_seq
 
-                        #LOG.debug("SAMPLE: {0}".format(vcf_record[merge_info.vcf_files[i].sample_index]))
-                        #LOG.debug("REF='{0}', ALT_L='{1}', ALT_R='{2}'. POS={3}".format(gt.ref, gt.left, gt.right, vcf_record.pos))
+                        LOG.debug("SAMPLE: {0}".format(vcf_record[merge_info.vcf_files[i].sample_index]))
+                        LOG.debug("REF='{0}', ALT_L='{1}', ALT_R='{2}'. POS={3}".format(gt.ref, gt.left, gt.right, vcf_record.pos))
 
                         position = vcf_record.pos + 1
 
@@ -271,7 +281,8 @@ def process_piece(merge_info):
                         base_pos_diff = 0
 
                         if position < prev_next_ref_pos:
-                            #LOG.debug("TOSSED: VCF ROLLBACK: {0}".format(vcf_record))
+                            LOG.debug("TOSSED: VCF ROLLBACK: {0}".format(vcf_record))
+                            LOG.debug(vcf_record)
 
                             stats = update_stats(stats, 'VCF ROLLBACK')
                             discard_functions[i](vcf_record)
@@ -388,7 +399,7 @@ def log_stats(stats):
         LOG.info("{0:,}\t\t{1}".format(stat, s))
 
 
-def create_vci_header(temp_directory, vcf_input_files, output_file, strain, vcf_keep, passed, quality, diploid, num_processes, bgzip):
+def create_vci_header(temp_directory, fasta_file, vcf_input_files, output_file, strain, vcf_keep, passed, quality, diploid, num_processes, bgzip):
     file = g2g_utils.gen_file_name("header", output_dir=temp_directory, extension='', append_time=False)
     with open(file, "w") as fd:
         fd.write("##CREATION_TIME={}\n".format(time.strftime("%m/%d/%Y %H:%M:%S")))
@@ -396,17 +407,24 @@ def create_vci_header(temp_directory, vcf_input_files, output_file, strain, vcf_
         for vcf_file in vcf_input_files:
             fd.write("##INPUT_VCF={}\n".format(vcf_file.file_name))
 
+        fd.write("##FASTA_FILE={}\n".format(fasta_file))
         fd.write("##STRAIN={}\n".format(strain))
         fd.write("##VCF_KEEP={}\n".format(vcf_keep))
         fd.write("##FILTER_PASSED={}\n".format(passed))
         fd.write("##FILTER_QUALITY={}\n".format(quality))
         fd.write("##DIPLOID={}\n".format(diploid))
         fd.write("##PROCESSES={}\n".format(num_processes))
+
+        fasta_file = fasta.FastaFile(fasta_file)
+
+        for c in fasta_file.references:
+            fd.write("##CONTIG={}:{}\n".format(c, fasta_file.get_reference_length(c)))
+
         fd.write("#CHROM\tPOS\tANCHOR\tINS\tDEL\tFRAG\n")
     return file
 
 
-def process(vcf_files, output_file, strain, vcf_keep=False, passed=False, quality=False, diploid=False, num_processes=None, bgzip=False):
+def process(vcf_files, fasta_file, output_file, strain, vcf_keep=False, passed=False, quality=False, diploid=False, num_processes=None, bgzip=False):
     start = time.time()
 
     output_file = g2g_utils.check_file(output_file, 'w')
@@ -430,6 +448,9 @@ def process(vcf_files, output_file, strain, vcf_keep=False, passed=False, qualit
     if len(vcf_file_inputs) == 0:
         raise exceptions.G2GValueError("No VCF files.")
 
+    if not fasta_file:
+        raise exceptions.G2GValueError("No fasta file was specified.")
+
     if not strain:
         raise exceptions.G2GValueError("No strain was specified.")
 
@@ -439,6 +460,7 @@ def process(vcf_files, output_file, strain, vcf_keep=False, passed=False, qualit
         if num_processes <= 0:
             num_processes = 1
 
+    LOG.info("Fasta File: {0}".format(output_file))
     LOG.info("Strain: {0}".format(strain))
     LOG.info("Pass filter on: {0}".format(str(passed)))
     LOG.info("Quality filter on: {0}".format(str(quality)))
@@ -452,7 +474,7 @@ def process(vcf_files, output_file, strain, vcf_keep=False, passed=False, qualit
     temp_directory = g2g_utils.create_temp_dir('vcf2vci', dir='.')
     LOG.debug("Temp directory: {}".format(temp_directory))
 
-    header_file = create_vci_header(temp_directory, vcf_file_inputs, output_file, strain, vcf_keep, passed, quality, diploid, num_processes, bgzip)
+    header_file = create_vci_header(temp_directory, fasta_file, vcf_file_inputs, output_file, strain, vcf_keep, passed, quality, diploid, num_processes, bgzip)
 
     for i, vcf_file in enumerate(vcf_file_inputs):
         tb_file = pysam.TabixFile(vcf_file.file_name)
@@ -483,6 +505,7 @@ def process(vcf_files, output_file, strain, vcf_keep=False, passed=False, qualit
             merge_info.chromosome = c
 
             merge_info.vcf_files = vcf_file_inputs
+            merge_info.fasta_file = fasta_file
 
             merge_info.diploid = diploid
             merge_info.passed = passed

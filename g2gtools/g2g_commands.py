@@ -153,6 +153,7 @@ def command_vcf2vci(raw_args, prog=None):
 
     Required Parameters:
         -i, --vcf <vcf_file>             VCF file name
+        -f, --fasta <Fasta File>         Fasta file matching VCF information
         -s, --strain <Strain>            Name of strain (column in VCF file)
         -o, --output <Output file>       VCI file name to create
 
@@ -187,6 +188,7 @@ def command_vcf2vci(raw_args, prog=None):
 
     # required
     parser.add_argument("-i", "--vcf", dest="vcf_files", metavar="vcf_file", action='append')
+    parser.add_argument("-f", "--fasta", dest="fasta_file", metavar="fasta_file")
     parser.add_argument("-s", "--strain", dest="strain", metavar="strain")
     parser.add_argument("-o", "--output", dest="output", metavar="VCI_File")
 
@@ -219,7 +221,7 @@ def command_vcf2vci(raw_args, prog=None):
         g2g.exit("No strain was specified.", parser)
 
     try:
-        vcf2vci.process(args.vcf_files, args.output, args.strain, args.keep, args.passed, args.quality, args.diploid, args.numprocesses, args.nobgzip)
+        vcf2vci.process(args.vcf_files, args.fasta_file, args.output, args.strain, args.keep, args.passed, args.quality, args.diploid, args.numprocesses, args.nobgzip)
     except KeyboardInterrupt as ki:
         LOG.debug(ki)
     except exceptions.G2GValueError as e:

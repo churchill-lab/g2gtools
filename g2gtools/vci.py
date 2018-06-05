@@ -161,6 +161,7 @@ class VCIFile:
         self.headers = {}
         self.seq_ids = seq_ids
         self.is_reversed = reverse
+        self.contigs = {}
 
         self._tabix_file = pysam.TabixFile(self.filename, mode=mode, parser=parser, index=index, encoding=encoding)
 
@@ -191,7 +192,13 @@ class VCIFile:
             header_line = g2g_utils.s(header_line)
             if header_line.startswith("##"):
                 elems = header_line[2:].split('=')
-                self.headers[elems[0]] = elems[1]
+                #print(elems)
+
+                if elems[0] == 'CONTIG':
+                    info = elems[1].split(':')
+                    self.contigs[info[0]] = int(info[1])
+                else:
+                    self.headers[elems[0]] = elems[1]
 
     def get_seq_ids(self):
         if self.mapping_tree:
@@ -283,6 +290,12 @@ class VCIFile:
                     pos_to += (fragment + inserted_bases)
                     num_lines_processed += 1
                     total_num_lines_processed += 1
+
+
+                interval = Interval(pos_from, self.contigs[contig],
+                                    IntervalInfo(contig, pos_to, pos_to + (self.contigs[contig] - pos_from), None, None, None, None))
+
+                mapping_tree[contig].insert_interval(interval)
 
                 LOG.debug("Parsed {0:,} lines for contig {1} in {2}".format(num_lines_processed, contig, g2g_utils.format_time(comtig_start_time, time.time())))
 
