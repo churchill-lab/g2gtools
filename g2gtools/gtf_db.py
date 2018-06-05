@@ -159,7 +159,10 @@ SELECT  *,
           WHERE l.gtf_key = g._key 
             AND l.attribute_key = a._key
             AND a.gtf_attribute = 'exon_number') AS exon_number
-  FROM gtf g
+  FROM gtf g,
+       gtf_types t
+   AND g.type_key = t._key
+   AND t.gtf_type in ('exon', 'transcript', 'gene')
 """
 
 SQL_TRANSCRIPTS_SIMPLE_ORDER_BY = " ORDER BY g._key "
@@ -607,8 +610,6 @@ def get_transcripts_simple(db):
     cursor.execute(sql)
 
     transcripts = OrderedDict()
-    exons = OrderedDict()
-
 
     counter = 0
     for r in cursor:
@@ -639,13 +640,15 @@ def get_transcripts_simple(db):
         elif r['transcript_id'] is not None and r['ensembl_id'] is not None \
                     and (r['gene_id'] != r['ensembl_id']):
             # exon
-            #LOG.debug("ADDING exon")
-            exon = exons.get(r['ensembl_id'], Exon(r['ensembl_id'], r['seqid'], r['start'], r['end'], r['strand']))
+            LOG.debug("ADDING exon")
+            LOG.debug('{}:{}'.format(r['ensembl_id'], r['exon_number']))
+            exon = Exon(r['ensembl_id'], r['seqid'], r['start'], r['end'], r['strand'])
             exon.gene_id = r['gene_id']
             exon.transcript_ids[r['transcript_id']] = r['transcript_id']
             exon.exon_number = r['exon_number']
 
-            exons[r['ensembl_id']] = exon
+
+            transcripts[r['transcript_id']].exons[r['ensembl_id']] =  exon
 
 
             ## ** Addition
@@ -680,15 +683,20 @@ def get_transcripts_simple(db):
 
 
     LOG.debug("Simplifying transcripts")
-    transcripts = {transcript.ensembl_id: transcript for i, transcript in transcripts.items()}
+    #transcripts = {transcript.ensembl_id: transcript for i, transcript in transcripts.items()}
     #LOG.debug(transcripts)
+    for i, transcript in transcripts.items():
+        LOG.debug("Transcript={0}".format(transcript))
 
-    for _id, exon in exons.items():
-        #LOG.debug('_id={}\texon={}'.format(_id, str(exon)))
-        for _tid in exon.transcript_ids:
-            #LOG.debug('_tid={}'.format(_id))
-            #LOG.debug(transcripts[_tid])
-            transcripts[_tid].exons[exon.ensembl_id] = exon
+        for ensembl_id, exon in transcript.exons.items():
+            LOG.debug("Exon ID={0};{1}".format(ensembl_id, exon))
+
+    #for _id, exon in exons.items():
+    #    LOG.debug('_id={}\texon={}'.format(_id, str(exon)))
+    #    for _tid in exon.transcript_ids:
+    #        #LOG.debug('_tid={}'.format(_id))
+    #        LOG.debug(transcripts[_tid])
+    #        transcripts[_tid].exons[exon.ensembl_id] = exon
 
     cursor.close()
     conn.close()
