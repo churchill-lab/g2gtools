@@ -161,7 +161,7 @@ SELECT  *,
             AND a.gtf_attribute = 'exon_number') AS exon_number
   FROM gtf g,
        gtf_types t
-   AND g.type_key = t._key
+ WHERE g.type_key = t._key
    AND t.gtf_type in ('exon', 'transcript', 'gene')
 """
 
