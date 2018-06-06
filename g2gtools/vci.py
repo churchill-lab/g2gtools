@@ -294,8 +294,12 @@ class VCIFile:
                     total_num_lines_processed += 1
 
 
-                interval = Interval(pos_from, self.contigs[contig],
-                                    IntervalInfo(contig, pos_to, pos_to + (self.contigs[contig] - pos_from), None, None, None, None))
+                if self.is_diploid():
+                    interval = Interval(pos_from, self.contigs[contig[:-2]],
+                                        IntervalInfo(contig, pos_to, pos_to + (self.contigs[contig[:-2]] - pos_from), None, None, None, None))
+                else:
+                    interval = Interval(pos_from, self.contigs[contig],
+                                        IntervalInfo(contig, pos_to, pos_to + (self.contigs[contig] - pos_from), None, None, None, None))
 
                 mapping_tree[contig].insert_interval(interval)
 
