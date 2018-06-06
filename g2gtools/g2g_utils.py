@@ -335,7 +335,7 @@ def index_file(original_file, file_format="vcf", overwrite=False):
     :param file_format:
     :return:
     """
-    if not overwrite or not has_index_file(original_file, file_format=file_format):
+    if overwrite or not has_index_file(original_file, file_format=file_format):
         if file_format.lower() == 'fa':
             pysam.faidx(original_file)
         elif file_format.lower() == 'vcf':

@@ -3,6 +3,11 @@
 History
 -------
 
+0.2.5 (06/06/2018)
+~~~~~~~~~~~~~~~~~~
+
+* Fixed error of always generating index file
+
 0.2.4 (06/05/2018)
 ~~~~~~~~~~~~~~~~~~
 

@@ -30,7 +30,7 @@ if not on_rtd:
 
 setup(
     name='g2gtools',
-    version='0.2.4',
+    version='0.2.5',
     description="A suite of tools for the reconstruction of personal diploid genomes and better coordinate conversion",
     long_description=readme + '\n\n' + history,
     author='Matthew J. Vincent and Kwangbom "KB" Choi, The Jackson Laboratory',
