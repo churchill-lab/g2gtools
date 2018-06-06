@@ -78,6 +78,7 @@ class FastaTransformResult(object):
 
 
 
+#@profile
 def process_piece(fasta_transform_params):
     """
     """
@@ -220,12 +221,12 @@ def process_piece(fasta_transform_params):
             found = True
             LOG.debug('')
             LOG.debug("LINE: {}".format(line))
-            new_sequence_value = new_sequence.getvalue()
+            #new_sequence_value = new_sequence.getvalue()
 
-            if len(new_sequence_value) > 50:
-                LOG.debug('current={}...{}'.format(new_sequence_value[:25], new_sequence_value[-25:]))
-            else:
-                LOG.debug('current={}'.format(new_sequence_value))
+            #if len(new_sequence_value) > 50:
+            #    LOG.debug('current={}...{}'.format(new_sequence_value[:25], new_sequence_value[-25:]))
+            #else:
+            #    LOG.debug('current={}'.format(new_sequence_value))
 
             # chromosome, position, shared_bases, deleted_bases, inserted_bases, fragment_size
 
@@ -699,5 +700,4 @@ def process(filename_fasta, filename_vci, regions, filename_output=None, bgzip=F
         # clean up the temporary files
         #g2g_utils.delete_dir(temp_directory)
         LOG.info("Patch complete: {0}".format(g2g_utils.format_time(start, time.time())))
-
 
