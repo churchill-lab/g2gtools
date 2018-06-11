@@ -376,99 +376,6 @@ def process_piece(fasta_transform_params):
     #LOG.info("Execution complete: {0}".format(g2g_utils.format_time(start_time, time.time())))
 
 
-
-"""
-def process_piece_patch(fasta_patch_params):
-    LOG.debug('fasta_patch_params.input_region = {}'.format(fasta_patch_params.input_region))
-    LOG.debug('fasta_patch_params.input_file = {}'.format(fasta_patch_params.input_file))
-    LOG.debug('fasta_patch_params.temp_dir = {}'.format(fasta_patch_params.temp_dir))
-    LOG.debug('fasta_patch_params.output_file = {}'.format(fasta_patch_params.output_file))
-    LOG.debug('fasta_patch_params.output_region = {}'.format(fasta_patch_params.output_region))
-    LOG.debug('fasta_patch_params.output_header = {}'.format(fasta_patch_params.output_header))
-    LOG.debug('fasta_patch_params.vci_file = {}'.format(fasta_patch_params.vci_file))
-    LOG.debug('fasta_patch_params.vci_query = {}'.format(fasta_patch_params.vci_query))
-    LOG.debug('fasta_patch_params.reverse = {}'.format(fasta_patch_params.reverse))
-    LOG.debug('fasta_patch_params.gen_temp = {}'.format(fasta_patch_params.gen_temp))
-    LOG.debug('fasta_patch_params.offset = {}'.format(fasta_patch_params.offset))
-
-    try:
-        fasta_patch_result = fasta_patch.FastaPatchResult()
-        fasta_patch_result.output_file = fasta_patch_params.output_file
-
-        fasta_file = fasta.FastaFile(fasta_patch_params.input_file)
-        #vci_file = vci.VCIFile(fasta_patch_params.vci_file)
-
-        if fasta_patch_params.gen_temp:
-            tmp_fasta = g2g_utils.gen_file_name(prefix=g2g_utils.location_to_filestring(fasta_patch_params.input_region)+'_', extension="fa", append_time=False, output_dir=fasta_patch_params.temp_dir)
-            LOG.debug('tmp_fasta={}'.format(tmp_fasta))
-
-            working = open(tmp_fasta, "w")
-            if fasta_patch_params.output_header.description:
-                fasta_header_string = ">{} {}".format(fasta_patch_params.output_header.id, fasta_patch_params.output_header.description)
-            else:
-                fasta_header_string = ">{}".format(fasta_patch_params.output_header.id)
-            working.write("{}\n".format(fasta_header_string))
-
-            LOG.debug("Fasta Fetch {}".format(fasta_patch_params.input_region))
-            sequence = fasta_file.fetch(fasta_patch_params.input_region.seq_id, fasta_patch_params.input_region.start - 1, fasta_patch_params.input_region.end)
-            if len(sequence) < 50:
-                LOG.debug("Fasta Fetch = {}".format(sequence))
-            else:
-                LOG.debug("Fasta Fetch = {} ... {}".format(sequence[:25], sequence[-25:]))
-            g2g_utils.write_sequence(sequence, working)
-            working.close()
-
-            fasta.FastaFile(tmp_fasta)
-            fasta_patch_result.output_file = tmp_fasta
-            fasta_index = fasta.FAI(tmp_fasta)
-        else:
-            fasta_index = fasta.FAI(fasta_patch_params.input_file)
-            tmp_fasta = fasta_patch_params.input_file
-
-        offset = fasta_patch_params.offset
-        reverse = fasta_patch_params.reverse
-
-        byte_start, byte_end, byte_len_seq = 0,0,0
-        LOG.info("Processing {0}...".format(fasta_patch_params.output_header.id))
-
-        fd_l = open(tmp_fasta, "r+b")
-        mm = mmap.mmap(fd_l.fileno(), 0)
-
-        LOG.debug("VCI Fetch {}".format(fasta_patch_params.vci_query))
-        global VCI_FILE
-        for line in VCI_FILE.fetch(fasta_patch_params.vci_query, parser=pysam.asTuple()):
-
-            if line[5] != '.':
-                continue
-
-            fasta_patch_result.count += 1
-
-            position = int(line[1]) - offset
-            deleted_bases = line[3 if not reverse else 4]
-            inserted_bases = line[4 if not reverse else 3]
-
-            #LOG.debug("LINE: {}".format(line))
-            #LOG.debug("Patching {0}:{1} from {2} to {3}".format(fasta_patch_params.region.seq_id, position-1, deleted_bases, inserted_bases))
-
-            byte_start, byte_end, byte_len_seq = fasta_index.get_pos(fasta_patch_params.output_region.seq_id, position-1, position)
-            mm[byte_start] = inserted_bases
-
-    except KeyboardInterrupt:
-        raise exceptions.KeyboardInterruptError()
-    except ValueError, te:
-        LOG.debug("No SNPS found in region {0}".format(fasta_patch_params.vci_query))
-    except Exception, e:
-        g2g_utils._show_error()
-        LOG.debug("{0}, {1}, {2}".format(byte_start, byte_end, byte_len_seq))
-        LOG.debug(line)
-
-    mm.flush()
-    mm.close()
-    return fasta_patch_result
-
-    #LOG.info("Execution complete: {0}".format(g2g_utils.format_time(start_time, time.time())))
-"""
-
 def wrapper(args):
     """
     Simple wrapper, useful for debugging.
@@ -520,9 +427,6 @@ def process(filename_fasta, filename_vci, regions, filename_output=None, bgzip=F
     :type num_processes: int
     :return: Nothing
     """
-    #LOG.error("in process of fixing")
-
-
     start = time.time()
 
     filename_fasta = g2g_utils.check_file(filename_fasta)
@@ -540,7 +444,7 @@ def process(filename_fasta, filename_vci, regions, filename_output=None, bgzip=F
 
     dump_fasta = False
 
-    temp_directory = g2g_utils.create_temp_dir('patch_', dir='.')
+    temp_directory = g2g_utils.create_temp_dir('transform_', dir='.')
     LOG.debug("Temp directory: {}".format(temp_directory))
 
     try:
@@ -602,8 +506,8 @@ def process(filename_fasta, filename_vci, regions, filename_output=None, bgzip=F
             params.full_file = full_file
 
             if fasta_file.is_haploid() and vci_file.is_diploid():
-                LOG.error("*** Experimental ***")
-                LOG.error("*** HAPLOID FASTA and DIPLOID VCI ***")
+                #LOG.error("*** Experimental ***")
+                #LOG.error("*** HAPLOID FASTA and DIPLOID VCI ***")
 
                 LOG.debug("Fasta file is haploid and VCI file is diploid")
                 params.output_file = g2g_utils.gen_file_name(prefix=g2g_utils.location_to_filestring(region)+"_L", extension="fa", output_dir=temp_directory, append_time=False)
@@ -698,6 +602,6 @@ def process(filename_fasta, filename_vci, regions, filename_output=None, bgzip=F
         raise exceptions.G2GError(str(e))
     finally:
         # clean up the temporary files
-        #g2g_utils.delete_dir(temp_directory)
-        LOG.info("Patch complete: {0}".format(g2g_utils.format_time(start, time.time())))
+        g2g_utils.delete_dir(temp_directory)
+        LOG.info("Transform complete: {0}".format(g2g_utils.format_time(start, time.time())))
 
