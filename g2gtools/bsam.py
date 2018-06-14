@@ -145,7 +145,7 @@ def convert_bam_file(vci_file, file_in, file_out, reverse=False):
 
     LOG.info("Converting BAM file")
 
-    new_header = sam_file.header
+    new_header = sam_file.header.to_dict()
 
     # replace 'HD'
     new_header['HD'] = {'VN': 1.0, 'SO': 'coordinate'}
