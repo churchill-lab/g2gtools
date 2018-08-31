@@ -148,12 +148,12 @@ def process_piece(fasta_patch_params):
             LOG.debug('position={}'.format(position))
             LOG.debug('offset={}'.format(offset))
 
-            byte_start, byte_end, byte_len_seq = fasta_index.get_pos(fasta_patch_params.output_region.seq_id, position-1, position)
+            byte_start, byte_end, byte_len_seq = fasta_index.get_pos(fasta_patch_params.output_region.seq_id, position - 1, position)
 
             if compat.is_py2:
                 LOG.debug("LINE: {}".format(line))
                 LOG.debug('WAS {}'.format(mm[byte_start]))
-                LOG.debug("Patching {0}:{1} from {2} to {3}".format(fasta_patch_params.output_region.seq_id, position-1, deleted_bases, inserted_bases))
+                LOG.debug("Patching {0}:{1} from {2} to {3}".format(fasta_patch_params.output_region.seq_id, position - 1, deleted_bases, inserted_bases))
                 mm[byte_start] = inserted_bases
             else:
                 LOG.debug("LINE: {}".format(line))

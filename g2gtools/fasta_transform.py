@@ -71,7 +71,9 @@ class FastaTransformParams(object):
 class FastaTransformResult(object):
     def __init__(self):
         self.output_file = None
-        self.count = 0
+        self.snp_count = 0
+        self.ins_count = 0
+        self.del_count = 0
 
     def __str__(self):
         return "File: {}".format(self.output_file)
@@ -148,7 +150,7 @@ def process_piece(fasta_transform_params):
             p1 = fasta_patch.process_piece(p)
             LOG.debug('\n\n\npatch output = {}\n\n\n'.format(p1.output_file))
             fasta_file = fasta.FastaFile(p1.output_file)
-
+            fasta_transform_result.snp_count = p1.count
         else:
             fasta_file = fasta.FastaFile(tmp_fasta)
 
@@ -187,13 +189,13 @@ def process_piece(fasta_transform_params):
             return fasta_transform_result
 
         first = True
-        insertion_bases = 0
-        deletion_bases = 0
+        fasta_transform_result.ins_count = 0
+        fasta_transform_result.del_count = 0
+
         new_start_pos = mappings[0].to_start
         new_end_pos = mappings[-1].to_end
 
         LOG.debug("new_start_pos={}".format(new_start_pos))
-
 
         last_pos = 0
         new_sequence = StringIO()
@@ -242,10 +244,8 @@ def process_piece(fasta_transform_params):
                 #                 (previous_pos + previous_shared_length + previous_inserted_length)
                 LOG.debug('First result in query...')
 
-
                 LOG.debug("Adjusting last_pos from {} to {}".format(last_pos, start))
                 last_pos = start
-
 
                 LOG.debug("Adjusting fragment_size from {} to {}".format(fragment_size, (int(line[1]) + len(shared_bases)) - (last_pos + 1 + 0)))
                 fragment_size = (int(line[1]) + len(shared_bases)) - (last_pos + 1 + 0)
@@ -286,7 +286,7 @@ def process_piece(fasta_transform_params):
                 LOG.debug("Adding {0}".format(inserted_bases))
                 #LOG.debug("SAME={0}, {1}".format(shared_bases, partial_seq[-(len(shared_bases)):]))
 
-                insertion_bases += inserted_bases_length
+                fasta_transform_result.ins_count += inserted_bases_length
                 new_sequence_len += inserted_bases_length
 
             if deleted_bases_length > 0:
@@ -294,13 +294,12 @@ def process_piece(fasta_transform_params):
                 LOG.debug("DELETION")
                 last_pos += deleted_bases_length
                 #LOG.debug("skipping ahead {0} bases".format(deleted_bases_length))
-
-                deletion_bases += deleted_bases_length
+                fasta_transform_result.del_count += deleted_bases_length
 
             #LOG.debug("last_pos incremented by fragment_size, {} to {}".format(last_pos, last_pos + fragment_size))
             last_pos += fragment_size
 
-            #LOG.debug("LAST_POS={0}, INSERTIONS={1}, DELETIONS={2}, DIFF={3}".format(last_pos, insertion_bases, deletion_bases, (insertion_bases - deletion_bases)))
+            #LOG.debug("LAST_POS={0}, INSERTIONS={1}, DELETIONS={2}, DIFF={3}".format(last_pos, fasta_transform_result.ins_count, fasta_transform_result.del_count, (fasta_transform_result.ins_count - fasta_transform_result.del_count)))
 
         if found:
             LOG.debug("Fetching last bit of sequence")
@@ -566,16 +565,22 @@ def process(filename_fasta, filename_vci, regions, filename_output=None, bgzip=F
         results = pool.map(wrapper, args)
 
         # parse results
-        total = 0
+        total_snp = 0
+        total_ins = 0
+        total_del = 0
 
         files = []
 
         for c in results:
             if c is not None:
                 files.append(c.output_file)
-                total += c.count
+                total_snp += c.snp_count
+                total_ins += c.ins_count
+                total_del += c.del_count
 
-        LOG.info("Patched {0:,} SNPs total".format(total))
+        LOG.info("Processed {0:,} SNPs total".format(total_snp))
+        LOG.info("Processed {0:,} insertions total".format(total_ins))
+        LOG.info("Processed {0:,} deletions total".format(total_del))
 
         LOG.debug('all temp files created, copy to master temp file and delete');
         g2g_utils.concatenate_files(files, filename_output, False)
