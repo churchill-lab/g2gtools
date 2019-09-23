@@ -131,6 +131,7 @@ def convert_bam_file(vci_file, file_in, file_out, reverse=False):
     if not isinstance(vci_file, vci.VCIFile):
         LOG.info("Parsing vci file...")
         vci_file = vci.VCIFile(vci_file, reverse=reverse)
+        vci_file.parse(reverse=reverse)
         LOG.info("VCI file parsed")
 
     if not isinstance(file_in, pysam.Samfile):
