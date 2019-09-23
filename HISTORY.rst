@@ -3,6 +3,11 @@
 History
 -------
 
+0.2.8 (09/23/2019)
+~~~~~~~~~~~~~~~~~~
+
+* Fixed error of not parsing VCI file on bam/sam conversion.
+
 0.2.5 (06/06/2018)
 ~~~~~~~~~~~~~~~~~~
 
