@@ -3,6 +3,11 @@
 History
 -------
 
+0.2.9 (10/01/2019)
+~~~~~~~~~~~~~~~~~~
+
+* Fixed error of not setting correct header information in B/SAM.
+
 0.2.8 (09/23/2019)
 ~~~~~~~~~~~~~~~~~~
 

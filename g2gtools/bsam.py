@@ -156,13 +156,12 @@ def convert_bam_file(vci_file, file_in, file_out, reverse=False):
     name_to_id = {}
     id = 0
 
-    # TODO: Fix
-    #for ref_name in sorted(chain_file.chrom_size_to):
-    #    tmp.append({'LN': chain_file.chrom_size_from[ref_name], 'SN': ref_name})
-    #    name_to_id[ref_name] = id
-    #    id += 1
+    for ref_name in vci_file.contigs:
+        tmp.append({'LN': vci_file.contigs[ref_name], 'SN': ref_name})
+        name_to_id[ref_name] = sam_file.get_tid(ref_name)
+        id += 1
 
-    #new_header['SQ'] = tmp
+    new_header['SQ'] = tmp
 
     if 'PG' not in new_header:
         new_header['PG'] = []
@@ -308,6 +307,7 @@ def convert_bam_file(vci_file, file_in, file_out, reverse=False):
                 read_strand = '-' if alignment.is_reverse else '+'
 
                 mappings = vci_file.find_mappings(read_chr, read_start, read_end)
+
 
                 # unmapped
                 if mappings is None:
