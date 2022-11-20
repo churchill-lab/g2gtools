@@ -23,10 +23,10 @@ test_requirements = []
 if not on_rtd:
     requirements.append('future>=0.15')
     requirements.append('Cython')
-    requirements.append('numpy>=1.14')
-    requirements.append('natsort>=5.0.1')
-    requirements.append('pysam>=0.14')
-    requirements.append('bx-python>=0.8')
+    requirements.append('numpy==1.16.4')
+    requirements.append('natsort==6.2.0')
+    requirements.append('pysam==0.14')
+    requirements.append('bx-python==0.8.2')
 
 setup(
     name='g2gtools',
