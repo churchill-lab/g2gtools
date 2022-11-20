@@ -1,8 +1,8 @@
+from __future__ import print_function
+
 from . import exceptions
 from . import g2g
 from . import g2g_utils
-
-from __future__ import print_function
 
 import pysam
 import collections
