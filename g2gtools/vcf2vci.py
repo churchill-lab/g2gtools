@@ -462,7 +462,7 @@ def process(vcf_files, fasta_file, output_file, strain, vcf_keep=False, passed=F
         if num_processes <= 0:
             num_processes = 1
 
-    LOG.info("Fasta File: {0}".format(output_file))
+    LOG.info("Fasta File: {0}".format(fasta_file))
     LOG.info("Strain: {0}".format(strain))
     LOG.info("Pass filter on: {0}".format(str(passed)))
     LOG.info("Quality filter on: {0}".format(str(quality)))
