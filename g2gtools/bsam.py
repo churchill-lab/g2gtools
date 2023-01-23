@@ -273,6 +273,8 @@ def convert_bam_file(vci_file, file_in, file_out, reverse=False):
             # qual                  read sequence base qualities, including soft clipped bases
             # tags                  the tags in the AUX field
             # tlen                  insert size
+                # (read2_start + cigar bases) - read1_start = tlen (positive for R1 and negative for R2)
+                # NOTE: Some tool require TLEN to be set. `samtools fixmate` will correct TLEN if needed.
 
             total += 1
 
@@ -363,6 +365,9 @@ def convert_bam_file(vci_file, file_in, file_out, reverse=False):
                     alignment_new.flag |= FLAG_REVERSE
                 if alignment.mate_is_reverse:
                     alignment_new.flag |= FLAG_MREVERSE
+
+                if alignment.is_proper_pair:
+                    alignment_new.flag |= FLAG_PROPER_PAIR
 
                 read1_chr = sam_file.getrname(alignment.tid)
                 read1_start = alignment.pos
@@ -1097,10 +1102,14 @@ def convert_cigar(cigar, chromosome, vci_file, sequence, strand='+', position=0)
         if c.code in [CIGAR_M, CIGAR_I, CIGAR_S, CIGAR_E, CIGAR_X]:
             cigar_seq_length += c.length
 
-    if cigar_seq_length != len(sequence):
-        LOG.debug("CIGAR SEQ LENGTH={0} != SEQ_LEN={1}".format(cigar_seq_length, len(sequence)))
-        # not equal according to chain file format, add the clipping length
-        simple_cigar.append((CIGAR_s, len(sequence) - cigar_seq_length))
+    try: 
+        if cigar_seq_length != len(sequence):
+            LOG.debug("CIGAR SEQ LENGTH={0} != SEQ_LEN={1}".format(cigar_seq_length, len(sequence)))
+            # not equal according to chain file format, add the clipping length
+            simple_cigar.append((CIGAR_s, len(sequence) - cigar_seq_length))
+    except TypeError:
+        pass
+        # avoids: TypeError: object of type 'NoneType' has no len()
 
     if old_cigar != cigar_to_string(simple_cigar):
         LOG.debug("old cigar != new cigar")
