@@ -1,29 +1,35 @@
-# -*- coding: utf-8 -*-
-
 #
 # Collection of functions related to VCF files
 #
 # 1 based
+#
 
-from future.utils import lmap
-from past.builtins import xrange
-
+# standard library imports
 from collections import namedtuple
-
 import re
 
+# 3rd party library imports
+# none
+
+# local library imports
+from .exceptions import G2GVCFError
 from . import g2g
 from . import g2g_utils
-from . import exceptions
 
-VCF_FIELDS = ['chrom', 'pos', 'id', 'ref', 'alt', 'qual', 'filter', 'info', 'format', 'samples']
-VCFRecord = namedtuple('VCFRecord', VCF_FIELDS)
+VCF_FIELDS = [
+    "chrom", "pos", "id", "ref", "alt",
+    "qual", "filter", "info", "format", "samples"
+]
+VCFRecord = namedtuple("VCFRecord", VCF_FIELDS)
 
-GT_DATA_FIELDS = ['ref', 'left', 'right', 'gt', 'fi', 'phase', 'gt_left', 'gt_right', 'is_snp']
-GTData = namedtuple('GTData', GT_DATA_FIELDS)
+GT_DATA_FIELDS = [
+    "ref", "left", "right", "gt", "fi",
+    "phase", "gt_left", "gt_right", "is_snp"
+]
+GTData = namedtuple("GTData", GT_DATA_FIELDS)
 
-GENOTYPE_UNPHASED = '/'
-GENOTYPE_PHASED = '|'
+GENOTYPE_UNPHASED = "/"
+GENOTYPE_PHASED = "|"
 
 REGEX_ALT = re.compile("(^[A|C|G|T]+)")
 
@@ -36,7 +42,7 @@ class VCFFile(object):
     """
     def __init__(self, file_name):
         if not file_name:
-            raise exceptions.G2GVCFError("A filename must be supplied")
+            raise G2GVCFError("A filename must be supplied")
 
         self.file_name = file_name
         self.samples = None
@@ -48,19 +54,19 @@ class VCFFile(object):
     def _parse_header(self):
         self.current_line = self.reader.next()
 
-        while self.current_line.startswith('##'):
+        while self.current_line.startswith("##"):
             self.current_line = self.reader.next()
 
-        if self.current_line.startswith('#'):
-            elems = self.current_line.strip().split('\t')
+        if self.current_line.startswith("#"):
+            elems = self.current_line.strip().split("\t")
             samples = elems[9:]
-            self.samples = dict(zip(samples, (x for x in xrange(len(samples)))))
+            self.samples = dict(zip(samples, (x for x in range(len(samples)))))
         else:
-            raise exceptions.G2GVCFError("Improperly formatted VCF file")
+            raise G2GVCFError("Improperly formatted VCF file")
 
     def parse_gt(self, sample):
         if sample is None:
-            raise exceptions.G2GVCFError("Sample must contain a value")
+            raise G2GVCFError("Sample must contain a value")
 
         sample_index = self.get_sample_index(sample)
         return parse_gt(self.current_record, sample_index)
@@ -80,14 +86,14 @@ class VCFFile(object):
 
     def get_sample_index(self, sample):
         if sample is None:
-            raise exceptions.G2GVCFError("Sample must contain a value")
+            raise G2GVCFError("Sample must contain a value")
 
         if sample in self.samples:
             return self.samples[sample]
 
         parse_vcf_line()
 
-        raise exceptions.G2GVCFError("Unknown sample: '{0}'".format(sample))
+        raise G2GVCFError(f"Unknown sample: '{sample}'")
 
 
 def parse_vcf_line(line):
@@ -100,10 +106,10 @@ def parse_vcf_line(line):
     """
 
     if isinstance(line, str):
-        if line.startswith('#'):
+        if line.startswith("#"):
             return None
 
-        elem = line.strip().split('\t')
+        elem = line.strip().split("\t")
     elif isinstance(line, list):
         elem = line
 
@@ -117,8 +123,8 @@ def parse_vcf_line(line):
 
     filter_field = None
 
-    if elem[6] != '.':
-        filter_field = elem[6].split(';')
+    if elem[6] != ".":
+        filter_field = elem[6].split(";")
 
     info = elem[7]
 
@@ -127,11 +133,13 @@ def parse_vcf_line(line):
     except IndexError:
         fmt = None
     else:
-        if fmt == '.':
+        if fmt == ".":
             fmt = None
 
-    return VCFRecord(elem[0], int(elem[1]), None if elem[2] == '.' else elem[2], elem[3],
-                     elem[4].split(','), quality, filter_field, info, fmt, elem[9:])
+    return VCFRecord(
+        elem[0], int(elem[1]), None if elem[2] == "." else elem[2], elem[3],
+        elem[4].split(","), quality, filter_field, info, fmt, elem[9:]
+    )
 
 
 def parse_gt(vcf_record, sample_index):
@@ -145,7 +153,7 @@ def parse_gt(vcf_record, sample_index):
     :return: :class:`.vcf.GTData`
     """
     if sample_index is None:
-        raise exceptions.G2GVCFError("Sample index must contain a value")
+        raise G2GVCFError("Sample index must contain a value")
 
     sample_data = vcf_record.samples[sample_index]
     gt = None
@@ -155,25 +163,25 @@ def parse_gt(vcf_record, sample_index):
     phase = None
 
     # check for to see if ALT is <CN*> or something not ACGT
-    if vcf_record.alt.find('<') == -1 and sample_data != '.':
-    #if sample_data != '.':
-        gt_index = vcf_record.format.split(':').index('GT')
-        fi_index = vcf_record.format.split(':').index('FI')
+    if vcf_record.alt.find("<") == -1 and sample_data != ".":
+    # if sample_data != ".":
+        gt_index = vcf_record.format.split(":").index("GT")
+        fi_index = vcf_record.format.split(":").index("FI")
 
         try:
             # parse the GT field
-            gt = sample_data.split(':')[gt_index]
+            gt = sample_data.split(":")[gt_index]
 
             # make sure a call can be made
-            if gt != '.' and gt != './.' and gt != '.|.':
+            if gt != "." and gt != "./." and gt != ".|.":
                 if GENOTYPE_PHASED in gt:
-                    genotypes = lmap(int, gt.split(GENOTYPE_PHASED))
+                    genotypes = list(map(int, gt.split(GENOTYPE_PHASED)))
                     phase = GENOTYPE_PHASED
                 elif GENOTYPE_UNPHASED in gt:
-                    genotypes = lmap(int, gt.split(GENOTYPE_UNPHASED))
+                    genotypes = list(map(int, gt.split(GENOTYPE_UNPHASED)))
                     phase = GENOTYPE_UNPHASED
                 else:
-                    raise ValueError("Unknown phase in GT, {0}".format(gt))
+                    raise ValueError(f"Unknown phase in GT, {gt}")
 
                 # assuming no triploids for now
                 if genotypes[0] == 0:
@@ -203,14 +211,16 @@ def parse_gt(vcf_record, sample_index):
         except IndexError as ie:
             LOG.debug(ie)
         try:
-            fi = sample_data.split(':')[fi_index]
+            fi = sample_data.split(":")[fi_index]
         except ValueError as ve:
             LOG.debug(ve)
         except IndexError as ie:
             LOG.debug(ie)
 
     is_snp = len(vcf_record.REF) == 1 == (len(left) if left else 0) == (len(right) if right else 0)
-    return GTData(vcf_record.REF, left, right, gt, fi, phase, gt_left, gt_right, is_snp)
+    return GTData(
+        vcf_record.REF, left, right, gt, fi, phase, gt_left, gt_right, is_snp
+    )
 
 
 def parse_gt_tuple(vcf_record, sample_index):
@@ -218,7 +228,7 @@ def parse_gt_tuple(vcf_record, sample_index):
     Parse the GT field within the VCF line.
     """
     if sample_index is None:
-        raise exceptions.G2GVCFError("Sample index must contain a value")
+        raise G2GVCFError("Sample index must contain a value")
 
     sample_data = vcf_record[sample_index]
     gt = None
@@ -230,36 +240,36 @@ def parse_gt_tuple(vcf_record, sample_index):
     gt_right = None
 
     # check for to see if ALT is <CN*> or something not ACGT
-    if vcf_record.alt.find('<') == -1 and sample_data != '.':
-        formats = vcf_record.format.split(':')
-        gt_index = formats.index('GT')
-        fi_index = formats.index('FI') if 'FI' in formats else None
+    if vcf_record.alt.find("<") == -1 and sample_data != ".":
+        formats = vcf_record.format.split(":")
+        gt_index = formats.index("GT")
+        fi_index = formats.index("FI") if "FI" in formats else None
 
         try:
             # parse the GT field
-            gt = sample_data.split(':')[gt_index]
+            gt = sample_data.split(":")[gt_index]
 
             # make sure a call can be made
-            if gt != '.' and gt != './.' and gt != '.|.':
+            if gt != "." and gt != "./." and gt != ".|.":
                 if GENOTYPE_PHASED in gt:
-                    genotypes = lmap(int, gt.split(GENOTYPE_PHASED))
+                    genotypes = list(map(int, gt.split(GENOTYPE_PHASED)))
                     phase = GENOTYPE_PHASED
                 elif GENOTYPE_UNPHASED in gt:
-                    genotypes = lmap(int, gt.split(GENOTYPE_UNPHASED))
+                    genotypes = list(map(int, gt.split(GENOTYPE_UNPHASED)))
                     phase = GENOTYPE_UNPHASED
                 else:
-                    raise ValueError("Unknown phase in GT, {0}".format(gt))
+                    raise ValueError(f"Unknown phase in GT, {gt}")
 
                 # assuming no triploids for now
                 if genotypes[0] == 0:
                     left = vcf_record.ref
                 else:
-                    left = vcf_record.alt.split(',')[genotypes[0]-1]
+                    left = vcf_record.alt.split(",")[genotypes[0]-1]
 
                 if genotypes[1] == 0:
                     right = vcf_record.ref
                 else:
-                    right = vcf_record.alt.split(',')[genotypes[1]-1]
+                    right = vcf_record.alt.split(",")[genotypes[1]-1]
 
                 gt_left = genotypes[0]
                 gt_right = genotypes[1]
@@ -281,7 +291,7 @@ def parse_gt_tuple(vcf_record, sample_index):
             LOG.debug(ie)
         try:
             if fi_index:
-                fi = sample_data.split(':')[fi_index]
+                fi = sample_data.split(":")[fi_index]
         except ValueError as ve:
             LOG.debug(ve)
         except IndexError as ie:

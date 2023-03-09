@@ -1,14 +1,19 @@
-# -*- coding: utf-8 -*-
-
+#
 # http://genomewiki.ucsc.edu/index.php/Bin_indexing_system
+#
 
 BIN_NEXT_SHIFT = 3    # How much to shift to get to finest bin
 BIN_FIRST_SHIFT = 17  # How much to shift to get to next larger bin
 BIN_OFFSETS = [4096+512+64+8+1, 512+64+8+1, 64+8+1, 8+1, 1, 0]
-#BIN_OFFSETS = [32768+4096+512+64+8+1, 4096+512+64+8+1, 512+64+8+1, 64+8+1, 8+1, 1, 0]
+# BIN_OFFSETS = [
+#     32768+4096+512+64+8+1, 4096+512+64+8+1, 512+64+8+1, 64+8+1, 8+1, 1, 0
+# ]
 
 # for BED (0-based, half-open) or GFF (1-based, closed intervals)
-COORD_OFFSETS = {'bed': 0, 'gff': 1}
+COORD_OFFSETS = {
+    "bed": 0,
+    "gff": 1
+}
 
 
 def bins(start, stop, fmt='gff', one=True):
@@ -35,7 +40,7 @@ def bins(start, stop, fmt='gff', one=True):
     stop = (stop) >> BIN_FIRST_SHIFT
 
     # We always at least fit within the chrom, which is bin 1.
-    bins = set([1])
+    bins = {1}
 
     for offset in BIN_OFFSETS:
         # Since we're going from smallest to largest bins, the first one where
@@ -67,10 +72,10 @@ def bin_info():
     for i, offset in reversed(list(enumerate(BIN_OFFSETS))):
         level += 1
         number_of_bins = 8 ** level
-
         binstart = offset
+
         try:
-            binstop = BIN_OFFSETS[i+1]
+            # binstop = BIN_OFFSETS[i+1]
             binstop = number_of_bins + binstart - 1
         except IndexError:
             binstop = binstart
@@ -79,15 +84,17 @@ def bin_info():
         actual_size = bin_size
 
         # nice formatting
-        bin_size, suffix = bin_size / 1024, 'Kb'
+        bin_size, suffix = bin_size / 1024, "Kb"
         if bin_size >= 1024:
-            bin_size, suffix = bin_size / 1024, 'Mb'
+            bin_size, suffix = bin_size / 1024, "Mb"
         if bin_size >= 1024:
-            bin_size, suffix = bin_size / 1024, 'Gb'
-        size = '(%s %s)' % (bin_size, suffix)
-        actual_size = '%s bp' % (actual_size)
+            bin_size, suffix = bin_size / 1024, "Gb"
 
-        print('{level}\t{number_of_bins}\t{binstart}\t{binstop}\t{actual_size}\t{size}'.format(**locals()))
+        size = f"({bin_size}, {suffix})"
+        actual_size = f"{actual_size:,} bp"
+
+        print((f"{level}\t{number_of_bins}\t{binstart}\t{binstop}\t"
+               f"{actual_size}\t{size}"))
 
 
 if __name__ == "__main__":

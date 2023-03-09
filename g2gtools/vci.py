@@ -1,34 +1,33 @@
-# -*- coding: utf-8 -*-
-
-from __future__ import print_function
-
+# standard library imports
 import collections
-import multiprocessing
 import os
 import time
 
-try:
-    from cStringIO import StringIO
-except ImportError:
-    from io import StringIO
-
-from . import exceptions
-from . import g2g
-from . import g2g_utils
-
+# 3rd party library imports
 import pysam
 from bx.intervals.intersection import Interval, IntervalTree
 
+# local library imports
+from .exceptions import G2GError
+from .exceptions import G2GRegionError
+from . import g2g
+from . import g2g_utils
 
-LOG = g2g.get_logger()
 
-IntervalInfo = collections.namedtuple('IntervalInfo', ['chr', 'start', 'end', 'shared', 'inserted', 'deleted', 'pos'])
+InfoFields = [
+    "chr", "start", "end", "shared", "inserted", "deleted", "pos"
+]
+IntervalInfo = collections.namedtuple("IntervalInfo", InfoFields)
 
-IntervalMapping = collections.namedtuple('IntervalMapping', ['from_chr', 'from_start', 'from_end', 'from_seq',
-                                                             'to_chr', 'to_start', 'to_end', 'to_seq',
-                                                             'same_bases', 'vcf_pos'])
+MappingFields = [
+    "from_chr", "from_start", "from_end", "from_seq",
+    "to_chr", "to_start", "to_end", "to_seq",
+    "same_bases", "vcf_pos"
+]
+IntervalMapping = collections.namedtuple("IntervalMapping", MappingFields)
 
 global_mapping_tree = None
+LOG = g2g.get_logger()
 
 #
 # VCIFile
@@ -46,14 +45,15 @@ global_mapping_tree = None
 # #CHROM POS SHARE INS DEL FRAG
 # DATA
 
+
 def d(x):
     print(x)
 
 
 def process_piece(args):
-    filename = args['filename']
-    contig = args['contig']
-    reverse = args['reverse']
+    filename = args["filename"]
+    contig = args["contig"]
+    reverse = args["reverse"]
 
     try:
         _chrom = 0
@@ -74,15 +74,15 @@ def process_piece(args):
         tabix_file = pysam.TabixFile(filename)
         iterator = tabix_file.fetch(contig, parser=pysam.asTuple())
 
-        LOG.info("Parsing VCI, contig: {}".format(contig))
+        LOG.info(f"Parsing VCI, contig: {contig}")
 
         for rec in iterator:
             num_lines_chrom += 1
 
             if len(rec) != 6:
-                raise exceptions.G2GError("Unexpected line in VCI file: {0}".format(rec))
+                raise G2GError(f"Unexpected line in VCI file: {rec}")
 
-            if rec[2] == '.':
+            if rec[2] == ".":
                 continue
 
             """
@@ -95,15 +95,10 @@ def process_piece(args):
             1 3007272 GC  C . 438
             1 3008489 T . ATC 1215
             """
-
-            #LOG.debug("||".join(rec))
-
             fragment = int(rec[_fragment])
-            deleted_bases = 0 if rec[_deleted] == '.' else len(rec[_deleted])
-            inserted_bases = 0 if rec[_inserted] == '.' else len(rec[_inserted])
+            deleted_bases = 0 if rec[_deleted] == "." else len(rec[_deleted])
+            inserted_bases = 0 if rec[_inserted] == "." else len(rec[_inserted])
 
-            #LOG.debug("pos_from={}, pos_to={}".format(pos_from, pos_to))
-            #LOG.debug("Inserting interval {} - {}".format(pos_from, pos_from + fragment))
             interval = Interval(pos_from, pos_from + fragment,
                                 IntervalInfo(contig, pos_to, pos_to + fragment, rec[_shared],
                                              rec[_deleted], rec[_inserted], rec[_pos]))
@@ -120,8 +115,10 @@ def process_piece(args):
     except Exception as e:
         LOG.error(e)
 
-    return {'tree': tree,
-            'contig': contig}
+    return {
+        "tree": tree,
+        "contig": contig
+    }
 
 
 def wrapper(args):
@@ -139,20 +136,20 @@ class VCIFile:
     Encapsulate a VCI (Variant Call Information) File
     """
     HEADERS = [
-        'CREATION_TIME',
-        'INDEL_VCF',
-        'INDEL_SNP',
-        'STRAIN',
-        'VCF_KEEP',
-        'FILTER_PASSED',
-        'FILTER_QUALITY',
-        'DIPLOID',
-        'PROCESSES'
+        "CREATION_TIME",
+        "INDEL_VCF",
+        "INDEL_SNP",
+        "STRAIN",
+        "VCF_KEEP",
+        "FILTER_PASSED",
+        "FILTER_QUALITY",
+        "DIPLOID",
+        "PROCESSES"
     ]
 
-    def __init__(self, filename, mode='r', parser=None, index=None, encoding="ascii", seq_ids=None, reverse=False):
+    def __init__(self, filename, mode="r", parser=None, index=None, encoding="ascii", seq_ids=None, reverse=False):
         if not filename:
-            raise exceptions.G2GError("VCI File must have a name")
+            raise G2GError("VCI File must have a name")
 
         self.filename = filename
         self.dir, self.name = os.path.split(self.filename)
@@ -162,6 +159,7 @@ class VCIFile:
         self.seq_ids = seq_ids
         self.is_reversed = reverse
         self.contigs = {}
+        self.valid = False
 
         self._tabix_file = pysam.TabixFile(self.filename, mode=mode, parser=parser, index=index, encoding=encoding)
 
@@ -177,13 +175,13 @@ class VCIFile:
         return self._tabix_file.fetch(reference, start, end, region, parser, multiple_iterators)
 
     def is_diploid(self):
-        if 'DIPLOID' in self.headers:
-            return self.headers['DIPLOID'].lower() in ['true', 't', 'yes', '1']
+        if "DIPLOID" in self.headers:
+            return self.headers["DIPLOID"].lower() in ["true", "t", "yes", "1"]
         return False
 
     def is_haploid(self):
-        if 'DIPLOID' in self.headers:
-            if self.headers['DIPLOID'].lower() in ['true', 't', 'yes', '1']:
+        if "DIPLOID" in self.headers:
+            if self.headers["DIPLOID"].lower() in ["true", "t", "yes", "1"]:
                 return False
         return True
 
@@ -193,18 +191,18 @@ class VCIFile:
         for header_line in self._tabix_file.header:
             header_line = g2g_utils.s(header_line)
             if header_line.startswith("##"):
-                elems = header_line[2:].split('=')
+                elems = header_line[2:].split("=")
                 #print(elems)
 
-                if elems[0] == 'CONTIG':
-                    info = elems[1].split(':')
+                if elems[0] == "CONTIG":
+                    info = elems[1].split(":")
                     self.contigs[info[0]] = int(info[1])
                 else:
                     self.headers[elems[0]] = elems[1]
 
     def get_seq_ids(self):
         if self.mapping_tree:
-            return self.mapping_tree.keys()
+            return list(self.mapping_tree.keys())
         return None
 
     def parse(self, reverse):
@@ -231,7 +229,7 @@ class VCIFile:
             for contig in contigs:
                 comtig_start_time = time.time()
 
-                LOG.info("Parsing VCI, contig: {}".format(contig))
+                LOG.info(f"Parsing VCI, contig: {contig}")
                 num_lines_chrom = 0
                 num_lines_processed = 0
 
@@ -256,9 +254,9 @@ class VCIFile:
                     total_num_lines_chrom += 1
 
                     if len(rec) != 6:
-                        raise exceptions.G2GError("Unexpected line in VCI file. Line #{0:,}: {1}".format(total_num_lines_chrom, rec))
+                        raise G2GError(f"Unexpected line in VCI file. Line #{total_num_lines_chrom:,}: {rec}")
 
-                    if rec[2] == '.':
+                    if rec[2] == ".":
                         continue
 
                     """
@@ -275,8 +273,8 @@ class VCIFile:
                     #LOG.debug("||".join(rec))
 
                     fragment = int(rec[_fragment])
-                    deleted_bases = 0 if rec[_deleted] == '.' else len(rec[_deleted])
-                    inserted_bases = 0 if rec[_inserted] == '.' else len(rec[_inserted])
+                    deleted_bases = 0 if rec[_deleted] == "." else len(rec[_deleted])
+                    inserted_bases = 0 if rec[_inserted] == "." else len(rec[_inserted])
 
                     #LOG.debug("pos_from={}, pos_to={}".format(pos_from, pos_to))
                     #LOG.debug("Inserting interval {} - {}".format(pos_from, pos_from + fragment))
@@ -293,7 +291,6 @@ class VCIFile:
                     num_lines_processed += 1
                     total_num_lines_processed += 1
 
-
                 if self.is_diploid():
                     interval = Interval(pos_from, self.contigs[contig[:-2]],
                                         IntervalInfo(contig, pos_to, pos_to + (self.contigs[contig[:-2]] - pos_from), None, None, None, None))
@@ -303,7 +300,8 @@ class VCIFile:
 
                 mapping_tree[contig].insert_interval(interval)
 
-                LOG.debug("Parsed {0:,} lines for contig {1} in {2}".format(num_lines_processed, contig, g2g_utils.format_time(comtig_start_time, time.time())))
+                elapsed_time = g2g_utils.format_time(comtig_start_time, time.time())
+                LOG.debug(f"Parsed {num_lines_processed:,} lines for contig {contig} in {elapsed_time}")
 
             self.valid = True
             self.mapping_tree = mapping_tree
@@ -336,7 +334,7 @@ class VCIFile:
             return None
 
         if int(start1) > int(end1) or int(start2) > int(end2):
-            raise exceptions.G2GRegionError("Start cannot be larger than end")
+            raise G2GRegionError("Start cannot be larger than end")
 
         return chr1, max(start1, start2), min(end1, end2)
 
@@ -358,12 +356,11 @@ class VCIFile:
                                             interval.value.chr, i_start, i_start + size, interval.value.deleted,
                                             interval.value.shared, interval.value.pos)
 
-            LOG.debug("Mapping: {}".format(mapping))
+            LOG.debug(f"Mapping: {mapping}")
 
             return mapping
 
         return None
-
 
     def find_mappings(self, chromosome, start, end):
         """
@@ -378,11 +375,11 @@ class VCIFile:
         mappings = []
 
         if chromosome not in self.mapping_tree:
-            LOG.debug("Chromosome {} not found in mapping tree".format(chromosome))
-            LOG.debug("Available chromsomes are: {}".format(self.mapping_tree.keys()))
+            LOG.debug(f"Chromosome {chromosome} not found in mapping tree")
+            LOG.debug(f"Available chromosomes are: {list(self.mapping_tree.keys())}")
             return None
         else:
-            LOG.debug("Chromosome {}, in mapping tree".format(chromosome))
+            LOG.debug(f"Chromosome {chromosome}, in mapping tree")
 
         all_intervals = self.mapping_tree[chromosome].find(start, end)
 
@@ -401,10 +398,7 @@ class VCIFile:
                                                 interval.value.chr, i_start, i_start + size, interval.value.deleted,
                                                 interval.value.shared, interval.value.pos))
 
-
-
                 #LOG.debug("Mapping {0}={1}".format(len(mappings)-1, mappings[-1]))
-
 
         return mappings
 
@@ -413,10 +407,10 @@ def vci_query(vci_file, region, fasta_file):
     # ./bin/g2gtools vciquery -v data/mm/REF2CAST.vci.gz -r "1:13009000-13009800" -d
     start = time.time()
 
-    vci_file = g2g_utils.check_file(vci_file, 'r')
+    vci_file = g2g_utils.check_file(vci_file, "r")
 
-    LOG.info("VCI File: {}".format(vci_file))
-    LOG.info("Region: {}".format(region))
+    LOG.info(f"VCI File: {vci_file}")
+    LOG.info(f"Region: {region}")
 
     vci_f = VCIFile(vci_file, seq_ids=[region.seq_id])
     vci_f.parse(False)
@@ -429,7 +423,7 @@ def vci_query(vci_file, region, fasta_file):
     start_pos = mappings[0].to_start
     end_pos = mappings[-1].to_end
 
-    LOG.debug("Converted Region: {}:{}-{}".format(region.seq_id, start_pos + 1, end_pos + 1))
+    LOG.debug(f"Converted Region: {region.seq_id}:{start_pos+1}-{end_pos + 1}")
 
     for line in vci_f.fetch(reference=region.seq_id, start=start_pos, end=end_pos, parser=pysam.asTuple()):
         print(str(line))

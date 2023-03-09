@@ -1,33 +1,45 @@
-# -*- coding: utf-8 -*-
-
 #
 # Collection of functions related to GTF
 #
 
-from future.utils import implements_iterator
-
-from collections import namedtuple, OrderedDict
+# standard library imports
+from collections import namedtuple
+from collections import OrderedDict
 import sys
 
-from . import compat
+# 3rd party library imports
+# none
+
+# local library imports
+from .exceptions import G2GGTFError
 from . import g2g
 from . import g2g_utils
 from . import vci
-from . import exceptions
 
-gtfInfoFields = ['seqid', 'source', 'type', 'start', 'end', 'score', 'strand', 'frame', 'attributes']
-GTFRecord = namedtuple('GTFRecord', gtfInfoFields)
+gtfInfoFields = [
+    "seqid", "source", "type", "start", "end",
+    "score", "strand", "frame", "attributes"
+]
+GTFRecord = namedtuple("GTFRecord", gtfInfoFields)
 
-ATTRIBUTES_TO_ALTER = {'gene_id':'gene_id', 'transcript_id':'transcript_id', 'exon_id':'exon_id', 'protein_id':'protein_id', 'ccds_id':'ccds_id'}
+ATTRIBUTES_TO_ALTER = {
+    "gene_id": "gene_id",
+    "transcript_id": "transcript_id",
+    "exon_id": "exon_id",
+    "protein_id": "protein_id",
+    "ccds_id": "ccds_id"
+}
 
-ATTRIBUTES_TO_ALTER_GFF = {'ID':'ID', 'Parent':'Parent', 'Name':'Name', 'Note':'Note'}
-
-
-
+ATTRIBUTES_TO_ALTER_GFF = {
+    "ID": "ID",
+    "Parent": "Parent",
+    "Name": "Name",
+    "Note": "Note"
+}
 
 LOG = g2g.get_logger()
 
-@implements_iterator
+
 class GTF(object):
     """
     Simple GTF object for parsing GTF files
@@ -38,7 +50,7 @@ class GTF(object):
     """
     def __init__(self, file_name):
         if not file_name:
-            raise exceptions.G2GGTFError("A filename must be supplied")
+            raise G2GGTFError("A filename must be supplied")
 
         self.file_name = file_name
         self.current_line = None
@@ -49,14 +61,9 @@ class GTF(object):
         return self
 
     def __next__(self):
-        if compat.is_py2:
-            self.current_line = self.reader.next()
-            while self.current_line.startswith('#') or self.current_line.startswith('!'):
-                self.current_line = self.reader.next()
-        else:
+        self.current_line = g2g_utils.s(self.reader.__next__())
+        while self.current_line.startswith("#") or self.current_line.startswith("!"):
             self.current_line = g2g_utils.s(self.reader.__next__())
-            while self.current_line.startswith('#') or self.current_line.startswith('!'):
-                self.current_line = g2g_utils.s(self.reader.__next__())
 
         self.current_record = parse_gtf_line(self.current_line)
 
@@ -73,9 +80,9 @@ def attributes_to_odict(attributes):
     ret = OrderedDict()
     for attribute in attributes.strip().split(";"):
         if len(attribute):
-            elems = attribute.strip().split(' ')
+            elems = attribute.strip().split(" ")
             key = elems[0]
-            val = ' '.join(elems[1:])
+            val = " ".join(elems[1:])
 
             if val[0] == '"':
                 val = val[1:]
@@ -93,11 +100,11 @@ def odict_to_attributes(attributes):
     if attributes:
         atts = []
         for k, v in attributes.items():
-            atts.append('{} "{}"'.format(k, v))
+            atts.append(f'{k} "{v}"')
         temp_atts = "; ".join(atts)
         return temp_atts.rstrip() + ";"
 
-    return '.'
+    return "."
 
 
 def parse_gtf_line(line):  # works for both gtf and gff files
@@ -113,23 +120,28 @@ def parse_gtf_line(line):  # works for both gtf and gff files
     # If this fails, the file format is not standard-compatible
     if len(elem) != len(gtfInfoFields):
         LOG.error(line)
-        LOG.error("{0} != {1}".format(len(elem), len(gtfInfoFields)))
-        raise exceptions.G2GGTFError("Improperly formatted GTF file")
+        LOG.error(f"{len(elem)} != {len(gtfInfoFields)}")
+        raise G2GGTFError("Improperly formatted GTF file")
 
     data = {
-        'seqid': None if elem[0] == '.' else elem[0].replace('"', ''),
-        'source': None if elem[1] == '.' else elem[1].replace('"', ''),
-        'type': None if elem[2] == '.' else elem[2].replace('"', ''),
-        'start': None if elem[3] == '.' else int(elem[3]),
-        'end': None if elem[4] == '.' else int(elem[4]),
-        'score': None if elem[5] == '.' else float(elem[5]),
-        'strand': None if elem[6] == '.' else elem[6].replace('"', ''),
-        'frame': None if elem[7] == '.' else elem[7].replace('"', '')}
+        "seqid": None if elem[0] == "." else elem[0].replace('"', ""),
+        "source": None if elem[1] == "." else elem[1].replace('"', ""),
+        "type": None if elem[2] == "." else elem[2].replace('"', ""),
+        "start": None if elem[3] == "." else int(elem[3]),
+        "end": None if elem[4] == "." else int(elem[4]),
+        "score": None if elem[5] == "." else float(elem[5]),
+        "strand": None if elem[6] == "." else elem[6].replace('"', ""),
+        "frame": None if elem[7] == "." else elem[7].replace('"', '')}
 
-
-    if '"' in elem[8]:  # since GTF will contain '"' vs. GFF will contain '=' in the elem[8]
-        data.update({'attributes': attributes_to_odict(elem[8])})
-    elif '=' in elem[8]: data.update({'attributes': attributes_to_odict_gff(elem[8])})
+    # since GTF will contain '"' vs. GFF will contain '=' in the elem[8]
+    if '"' in elem[8]:
+        data.update({
+            "attributes": attributes_to_odict(elem[8])
+        })
+    elif "=" in elem[8]:
+        data.update({
+            "attributes": attributes_to_odict_gff(elem[8])
+        })
 
     return GTFRecord(**data)
 
@@ -152,41 +164,38 @@ def convert_gtf_file(vci_file, input_file, output_file=None, reverse=False):
     """
 
     if isinstance(vci_file, vci.VCIFile):
-        LOG.info("VCI FILE: {0}".format(vci_file.filename))
-        LOG.info("VCI FILE IS DIPLOID: {0}".format(vci_file.is_diploid()))
+        LOG.info(f"VCI FILE: {vci_file.filename}")
+        LOG.info(f"VCI FILE IS DIPLOID: {vci_file.is_diploid()}")
     else:
         vci_file = g2g_utils.check_file(vci_file)
         vci_file = vci.VCIFile(vci_file)
-        LOG.info("VCI FILE: {0}".format(vci_file.filename))
-        LOG.info("VCI FILE IS DIPLOID: {0}".format(vci_file.is_diploid()))
-        #vci_file.parse_fast(reverse)
+        LOG.info(f"VCI FILE: {vci_file.filename}")
+        LOG.info(f"VCI FILE IS DIPLOID: {vci_file.is_diploid()}")
         vci_file.parse(reverse)
 
-        #LOG.info(vci_file.mapping_tree.keys())
-
     input_file = g2g_utils.check_file(input_file)
-    LOG.info("INPUT FILE: {0}".format(input_file))
+    LOG.info(f"INPUT FILE: {input_file}")
 
     gtf_out = None
     gtf_unmapped_file = None
 
     if output_file:
-        output_file = g2g_utils.check_file(output_file, 'w')
-        unmapped_file = "{0}.unmapped".format(output_file)
+        output_file = g2g_utils.check_file(output_file, "w")
+        unmapped_file = f"{output_file}.unmapped"
         gtf_out = open(output_file, "w")
         gtf_unmapped_file = open(unmapped_file, "w")
         LOG.info("OUTPUT FILE: {0}".format(output_file))
         LOG.info("UNMAPPED FILE: {0}".format(unmapped_file))
     else:
         input_dir, input_name = g2g_utils.get_dir_and_file(input_file)
-        unmapped_file = "{0}.unmapped".format(input_name)
-        unmapped_file = g2g_utils.check_file(unmapped_file, 'w')
+        unmapped_file = f"{input_name}.unmapped"
+        unmapped_file = g2g_utils.check_file(unmapped_file, "w")
         gtf_out = sys.stdout
         gtf_unmapped_file = open(unmapped_file, "w")
         LOG.info("OUTPUT FILE: stdout")
         LOG.info("UNMAPPED FILE: {0}".format(unmapped_file))
 
-    left_right = [''] if vci_file.is_haploid() else ['_L', '_R']
+    left_right = [""] if vci_file.is_haploid() else ["_L", "_R"]
 
     LOG.info("Converting GTF file...")
 
@@ -203,15 +212,15 @@ def convert_gtf_file(vci_file, input_file, output_file=None, reverse=False):
 
     for record in gtf_file:
 
-        LOG.debug("\nORIGINAL: {0}".format(str(gtf_file.current_line).strip()))
+        LOG.debug(f"\nORIGINAL: {str(gtf_file.current_line).strip()}")
 
         total += 1
 
         if total % 100000 == 0:
-            LOG.info("Processed {0:,} lines".format(total))
+            LOG.info(f"Processed {total:,} lines")
 
         for lr in left_right:
-            seqid = "{}{}".format(record.seqid, lr)
+            seqid = f"{record.seqid}{lr}"
             mappings = vci_file.find_mappings(seqid, record.start - 1, record.end)
 
             # unmapped
@@ -221,16 +230,15 @@ def convert_gtf_file(vci_file, input_file, output_file=None, reverse=False):
                 fail += 0
                 continue
             else:
-                LOG.debug("{0} mappings found".format(len(mappings)))
+                LOG.debug(f"{len(mappings)} mappings found")
 
             success += 1
             start = mappings[0].to_start + 1
             end = mappings[-1].to_end
 
+            LOG.debug(f"({record.start-1}, {record.end}) => ({start}, {end})")
 
-            LOG.debug("({0}, {1}) => ({2}, {3})".format(record.start - 1, record.end, start, end))
-
-            elems = gtf_file.current_line.rstrip().split('\t')
+            elems = gtf_file.current_line.rstrip().split("\t")
             elems[0] = seqid
             elems[3] = start
             elems[4] = end
@@ -239,7 +247,7 @@ def convert_gtf_file(vci_file, input_file, output_file=None, reverse=False):
                 attributes = attributes_to_odict(elems[8])
                 for k,v in ATTRIBUTES_TO_ALTER.items():
                     if k in attributes:
-                        attributes[k] = '{}{}'.format(attributes[k], lr)
+                        attributes[k] = f"{attributes[k]}{lr}"
                 elems[8] = odict_to_attributes(attributes)
 
             LOG.debug("     NEW: {0}".format("\t".join(map(str, elems))))
@@ -250,11 +258,8 @@ def convert_gtf_file(vci_file, input_file, output_file=None, reverse=False):
     gtf_out.close()
     gtf_unmapped_file.close()
 
-    LOG.info("Generated {0:,} records from the original {1:,} records".format(success, total))
-    LOG.info('GTF file converted')
-
-
-
+    LOG.info(f"Generated {success:,} records from the original {total:,} records")
+    LOG.info("GTF file converted")
 
 
 #####################################################################################################
@@ -278,43 +283,38 @@ def convert_gff_file(vci_file, input_file, output_file=None, reverse=False):
     """
 
     if isinstance(vci_file, vci.VCIFile):
-        LOG.info("VCI FILE: {0}".format(vci_file.filename))
-        LOG.info("VCI FILE IS DIPLOID: {0}".format(vci_file.is_diploid()))
+        LOG.info(f"VCI FILE: {vci_file.filename}")
+        LOG.info(f"VCI FILE IS DIPLOID: {vci_file.is_diploid()}")
     else:
         vci_file = g2g_utils.check_file(vci_file)
         vci_file = vci.VCIFile(vci_file)
-        LOG.info("VCI FILE: {0}".format(vci_file.filename))
-        LOG.info("VCI FILE IS DIPLOID: {0}".format(vci_file.is_diploid()))
-        #vci_file.parse_fast(reverse)
+        LOG.info(f"VCI FILE: {vci_file.filename}")
+        LOG.info(f"VCI FILE IS DIPLOID: {vci_file.is_diploid()}")
         vci_file.parse(reverse)
 
-        #LOG.info(vci_file.mapping_tree.keys())
-
     input_file = g2g_utils.check_file(input_file)
-    LOG.info("INPUT FILE: {0}".format(input_file))
+    LOG.info(f"INPUT FILE: {input_file}")
 
     gtf_out = None
     gtf_unmapped_file = None
 
     if output_file:
-        output_file = g2g_utils.check_file(output_file, 'w')
-        unmapped_file = "{0}.unmapped".format(output_file)
+        output_file = g2g_utils.check_file(output_file, "w")
+        unmapped_file = f"{output_file}.unmapped"
         gtf_out = open(output_file, "w")
         gtf_unmapped_file = open(unmapped_file, "w")
-        LOG.info("OUTPUT FILE: {0}".format(output_file))
-        LOG.info("UNMAPPED FILE: {0}".format(unmapped_file))
+        LOG.info(f"OUTPUT FILE: {output_file}")
+        LOG.info(f"UNMAPPED FILE: {unmapped_file}")
     else:
         input_dir, input_name = g2g_utils.get_dir_and_file(input_file)
-        unmapped_file = "{0}.unmapped".format(input_name)
-        unmapped_file = g2g_utils.check_file(unmapped_file, 'w')
+        unmapped_file = f"{input_name}.unmapped"
+        unmapped_file = g2g_utils.check_file(unmapped_file, "w")
         gtf_out = sys.stdout
         gtf_unmapped_file = open(unmapped_file, "w")
         LOG.info("OUTPUT FILE: stdout")
-        LOG.info("UNMAPPED FILE: {0}".format(unmapped_file))
+        LOG.info(f"UNMAPPED FILE: {unmapped_file}")
 
-    left_right = [''] if vci_file.is_haploid() else ['_L', '_R']
-
-
+    left_right = [""] if vci_file.is_haploid() else ["_L", "_R"]
 
     LOG.info("Converting GFF file...")
 
@@ -330,15 +330,15 @@ def convert_gff_file(vci_file, input_file, output_file=None, reverse=False):
     #       bx-python (s, e) does it s <= x < e.
 
     for record in gff_file:
-        LOG.debug("\nORIGINAL: {0}".format(str(gff_file.current_line).strip()))
+        LOG.debug(f"\nORIGINAL: {str(gff_file.current_line).strip()}")
 
         total += 1
 
         if total % 100000 == 0:
-            LOG.info("Processed {0:,} lines".format(total))
+            LOG.info(F"Processed {total:,} lines")
 
         for lr in left_right:
-            seqid = "{}{}".format(record.seqid, lr)
+            seqid = f"{record.seqid}{lr}"
             mappings = vci_file.find_mappings(seqid, record.start - 1, record.end)
 
             # unmapped
@@ -348,16 +348,15 @@ def convert_gff_file(vci_file, input_file, output_file=None, reverse=False):
                 fail += 0
                 continue
             else:
-                LOG.debug("{0} mappings found".format(len(mappings)))
+                LOG.debug(f"{len(mappings)} mappings found")
 
             success += 1
             start = mappings[0].to_start + 1
             end = mappings[-1].to_end
 
+            LOG.debug(f"({record.start}, {record.end}) => ({start}, {end})")
 
-            LOG.debug("({0}, {1}) => ({2}, {3})".format(record.start - 1, record.end, start, end))
-
-            elems = gff_file.current_line.rstrip().split('\t')
+            elems = gff_file.current_line.rstrip().split("\t")
             elems[0] = seqid
             elems[3] = start
             elems[4] = end
@@ -366,7 +365,7 @@ def convert_gff_file(vci_file, input_file, output_file=None, reverse=False):
                 attributes = attributes_to_odict_gff(elems[8])
                 for k,v in ATTRIBUTES_TO_ALTER_GFF.items():
                     if k in attributes:
-                        attributes[k] = '{}{}'.format(attributes[k], lr)
+                        attributes[k] = f"{attributes[k]}{lr}"
                 elems[8] = odict_to_attributes_gff(attributes)
 
             LOG.debug("     NEW: {0}".format("\t".join(map(str, elems))))
@@ -377,8 +376,8 @@ def convert_gff_file(vci_file, input_file, output_file=None, reverse=False):
     gtf_out.close()
     gtf_unmapped_file.close()
 
-    LOG.info("Generated {0:,} records from the original {1:,} records".format(success, total))
-    LOG.info('GFF file converted')
+    LOG.info(f"Generated {success:,} records from the original {total:,} records")
+    LOG.info("GFF file converted")
 
 
 def attributes_to_odict_gff(attributes):
@@ -392,9 +391,9 @@ def attributes_to_odict_gff(attributes):
     ret_gff = OrderedDict()
     for attribute in attributes.strip().split(";"):
         if len(attribute):
-            elems = attribute.strip().split('=')
+            elems = attribute.strip().split("=")
             key = elems[0]
-            val = ','.join(elems[1:])
+            val = ",".join(elems[1:])
 
             ret_gff[key] = val
 
@@ -408,9 +407,9 @@ def odict_to_attributes_gff(attributes):
     if attributes:
         atts = []
         for k, v in attributes.items():
-            atts.append('{}={}'.format(k, v))
+            atts.append(f"{k}={v}")
         temp_atts = ";".join(atts)
         return temp_atts.rstrip()
 
-    return '.'
+    return "."
 

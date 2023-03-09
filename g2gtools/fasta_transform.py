@@ -1,25 +1,24 @@
-
-# -*- coding: utf-8 -*-
-
 #
 # A way to transform a Fasta file quickly
 #
 
+# standard library imports
+from io import StringIO
 import copy
-import mmap
 import multiprocessing
 import os
-import sys
 import time
 
-try:
-    from cStringIO import StringIO
-except ImportError:
-    from io import StringIO
 
+# 3rd party library imports
 import pysam
 
-from . import exceptions
+# local library imports
+from .exceptions import G2GError
+from .exceptions import G2GFastaError
+from .exceptions import G2GRegionError
+from .exceptions import G2GValueError
+from .exceptions import KeyboardInterruptError
 from . import fasta
 from . import fasta_patch
 from . import g2g
@@ -31,6 +30,7 @@ LOG = g2g.get_logger()
 ###########
 VCI_FILE = None
 ###########
+
 
 class FastaTransformParams(object):
     def __init__(self):
@@ -76,8 +76,7 @@ class FastaTransformResult(object):
         self.del_count = 0
 
     def __str__(self):
-        return "File: {}".format(self.output_file)
-
+        return f"File: {self.output_file}"
 
 
 #@profile
@@ -93,36 +92,33 @@ def process_piece(fasta_transform_params):
 
     try:
         fasta_file = fasta.FastaFile(fasta_transform_params.input_file)
-        #vci_file = vci.VCIFile(fasta_transform_params.vci_file, seq_ids=[fasta_transform_params.output_region.seq_id], reverse=fasta_transform_params.reverse)
-        #vci_file.parse(reverse=fasta_transform_params.reverse)
 
-        LOG.debug('fasta_transform_params.input_region={}'.format(fasta_transform_params.input_region))
-        LOG.debug('fasta_transform_params.input_file={}'.format(fasta_transform_params.input_file))
-        LOG.debug('fasta_transform_params.output_file={}'.format(fasta_transform_params.output_file))
-        LOG.debug('fasta_transform_params.output_region={}'.format(fasta_transform_params.output_region))
-        LOG.debug('fasta_transform_params.output_header={}'.format(fasta_transform_params.output_header))
-        LOG.debug('fasta_transform_params.vci_query={}'.format(fasta_transform_params.vci_query))
+        LOG.debug(f"fasta_transform_params.input_region={fasta_transform_params.input_region}")
+        LOG.debug(f"fasta_transform_params.input_file={fasta_transform_params.input_file}")
+        LOG.debug(f"fasta_transform_params.output_file={fasta_transform_params.output_file}")
+        LOG.debug(f"fasta_transform_params.output_region={fasta_transform_params.output_region}")
+        LOG.debug(f"fasta_transform_params.output_header={fasta_transform_params.output_header}")
+        LOG.debug(f"fasta_transform_params.vci_query={fasta_transform_params.vci_query}")
 
-        tmp_fasta = g2g_utils.gen_file_name(prefix=g2g_utils.location_to_filestring(fasta_transform_params.input_region) + '_', extension="fa", append_time=False, output_dir=fasta_transform_params.temp_dir)
-        LOG.debug('tmp_fasta={}'.format(tmp_fasta))
+        tmp_fasta = g2g_utils.gen_file_name(prefix=g2g_utils.location_to_filestring(fasta_transform_params.input_region) + "_", extension="fa", append_time=False, output_dir=fasta_transform_params.temp_dir)
+        LOG.debug(f"tmp_fasta={tmp_fasta}")
 
         working = open(tmp_fasta, "w")
-        working.write(">{}\n".format(fasta_transform_params.input_region.seq_id))
-        LOG.debug("Fasta Fetch {}".format(fasta_transform_params.input_region))
-
+        working.write(f">{fasta_transform_params.input_region.seq_id}\n")
+        LOG.debug(f"Fasta Fetch {fasta_transform_params.input_region}")
 
         sequence = fasta_file.fetch(fasta_transform_params.input_region.seq_id, fasta_transform_params.input_region.start - 1, fasta_transform_params.input_region.end)
         if len(sequence) < 50:
-            LOG.debug("Fasta Fetch = {}".format(sequence))
+            LOG.debug(f"Fasta Fetch = {sequence}")
         else:
-            LOG.debug("Fasta Fetch = {} ... {}".format(sequence[:25], sequence[-25:]))
+            LOG.debug(f"Fasta Fetch = {sequence[:25]} ... {sequence[-25:]}")
         g2g_utils.write_sequence(sequence, working)
         working.close()
 
         if fasta_transform_params.patch:
-            LOG.info("#########################################################################")
-            LOG.info("############################  PATCHING ##################################")
-            LOG.info("#########################################################################")
+            LOG.info("########################################################")
+            LOG.info("#################### PATCHING ##########################")
+            LOG.info("########################################################")
 
             p = fasta_patch.FastaPatchParams()
             p.input_region = fasta_transform_params.input_region
@@ -135,7 +131,16 @@ def process_piece(fasta_transform_params):
 
             p.output_file = tmp_fasta
             p.output_region = fasta_transform_params.input_region
-            p.output_header = fasta.FastaHeader("{}".format(fasta_transform_params.input_region.seq_id), "{} {}:{}-{}".format(fasta_transform_params.input_region.seq_id, fasta_transform_params.input_region.seq_id, fasta_transform_params.input_region.start, fasta_transform_params.input_region.end))
+            f_desc = (
+                f"{fasta_transform_params.input_region.seq_id} "
+                f"{fasta_transform_params.input_region.seq_id}:"
+                f"{fasta_transform_params.input_region.start}-"
+                f"{fasta_transform_params.input_region.end}"
+            )
+            p.output_header = fasta.FastaHeader(
+                str(fasta_transform_params.input_region.seq_id),
+                f_desc
+            )
 
             # vci information
             p.vci_file = fasta_transform_params.vci_file
@@ -148,7 +153,7 @@ def process_piece(fasta_transform_params):
             p.offset = fasta_transform_params.offset
 
             p1 = fasta_patch.process_piece(p)
-            LOG.debug('\n\n\npatch output = {}\n\n\n'.format(p1.output_file))
+            LOG.debug(f"\n\n\npatch output = {p1.output_file}\n\n\n")
             fasta_file = fasta.FastaFile(p1.output_file)
             fasta_transform_result.snp_count = p1.count
         else:
@@ -157,11 +162,9 @@ def process_piece(fasta_transform_params):
         offset = fasta_transform_params.offset
         reverse = fasta_transform_params.reverse
 
-        #offset = 0
-
-        LOG.info("Transforming {}...".format(fasta_transform_params.input_region))
+        LOG.info(f"Transforming {fasta_transform_params.input_region}...")
         region = g2g.parse_region(fasta_transform_params.vci_query)
-        LOG.info("Finding VCI mappings for {}".format(region))
+        LOG.info(f"Finding VCI mappings for {region}")
         global VCI_FILE
         mappings = VCI_FILE.find_mappings(region.seq_id, fasta_transform_params.output_region.start-1, fasta_transform_params.output_region.end)
 
@@ -200,7 +203,7 @@ def process_piece(fasta_transform_params):
         last_pos = 0
         new_sequence = StringIO()
 
-        #LOG.debug("index of '>' is {}".format(new_sequence.getvalue().find('>')))
+        #LOG.debug("index of '>' is {}".format(new_sequence.getvalue().find(">")))
 
         start = mappings[0].from_start
         LOG.debug("Setting start to {} (mappings[0].from_start)".format(start))
@@ -208,8 +211,8 @@ def process_piece(fasta_transform_params):
         found = False
         new_sequence_len = 0
 
-        LOG.debug('start={}'.format(start))
-        LOG.debug('last_pos={}'.format(last_pos))
+        LOG.debug("start={}".format(start))
+        LOG.debug("last_pos={}".format(last_pos))
 
 
         LOG.debug("VCI Fetch {}".format(fasta_transform_params.vci_query))
@@ -217,32 +220,32 @@ def process_piece(fasta_transform_params):
         for line in local_vci_file.fetch(fasta_transform_params.vci_query, parser=pysam.asTuple()):
             aline = line
 
-            if line[5] == '.':
+            if line[5] == ".":
                 continue
 
             found = True
-            LOG.debug('')
+            LOG.debug("")
             LOG.debug("LINE: {}".format(line))
             #new_sequence_value = new_sequence.getvalue()
 
             #if len(new_sequence_value) > 50:
-            #    LOG.debug('current={}...{}'.format(new_sequence_value[:25], new_sequence_value[-25:]))
+            #    LOG.debug("current={}...{}".format(new_sequence_value[:25], new_sequence_value[-25:]))
             #else:
-            #    LOG.debug('current={}'.format(new_sequence_value))
+            #    LOG.debug("current={}".format(new_sequence_value))
 
             # chromosome, position, shared_bases, deleted_bases, inserted_bases, fragment_size
 
             shared_bases = line[2]
             deleted_bases = line[3 if not reverse else 4]
-            deleted_bases_length = len(deleted_bases) if deleted_bases != '.' else 0
+            deleted_bases_length = len(deleted_bases) if deleted_bases != "." else 0
             inserted_bases = line[4 if not reverse else 3]
-            inserted_bases_length = len(inserted_bases) if inserted_bases != '.' else 0
+            inserted_bases_length = len(inserted_bases) if inserted_bases != "." else 0
             fragment_size = int(line[5])
 
             if first:
                 # fragment_size = (current_pos + shared_bases_length) -
                 #                 (previous_pos + previous_shared_length + previous_inserted_length)
-                LOG.debug('First result in query...')
+                LOG.debug("First result in query...")
 
                 LOG.debug("Adjusting last_pos from {} to {}".format(last_pos, start))
                 last_pos = start
@@ -256,12 +259,12 @@ def process_piece(fasta_transform_params):
                     continue
 
 
-            LOG.debug('last_pos={}'.format(last_pos))
-            LOG.debug('offset={}'.format(offset))
-            LOG.debug('fragment_size={}'.format(fragment_size))
+            LOG.debug("last_pos={}".format(last_pos))
+            LOG.debug("offset={}".format(offset))
+            LOG.debug("fragment_size={}".format(fragment_size))
             #LOG.debug("Fasta Fetch {}:{}-{} (0-based)".format(fasta_transform_params.input_region.seq_id, last_pos - offset, last_pos + fragment_size - offset))
 
-            LOG.debug('extracting... {}-{}'.format(last_pos - offset, last_pos + fragment_size - offset))
+            LOG.debug("extracting... {}-{}".format(last_pos - offset, last_pos + fragment_size - offset))
             partial_seq = fasta_file.fetch(fasta_transform_params.input_region.seq_id, last_pos - offset, last_pos + fragment_size - offset)
 
             if len(partial_seq) < 50:
@@ -271,13 +274,13 @@ def process_piece(fasta_transform_params):
 
             new_sequence.write(partial_seq)
             new_sequence_len += fragment_size
-            #LOG.debug("index of '>' is {}".format(new_sequence.getvalue().find('>')))
+            #LOG.debug("index of '>' is {}".format(new_sequence.getvalue().find(">")))
 
             if inserted_bases_length > 0:
                 # insertion
                 LOG.debug("INSERTION")
                 new_sequence.write(inserted_bases)
-                #LOG.debug("index of '>' is {}".format(new_sequence.getvalue().find('>')))
+                #LOG.debug("index of '>' is {}".format(new_sequence.getvalue().find(">")))
                 #LOG.debug("{0}:{1}-{2} (Length: {3})".format(location.seqid, last_pos, last_pos + fragment_size, len(partial_seq)))
                 #if len(partial_seq) > 100:
                 #    LOG.debug("{0}...{1}".format(partial_seq[:10], partial_seq[-10:]))
@@ -313,14 +316,14 @@ def process_piece(fasta_transform_params):
                 else:
                     LOG.debug("Fasta Fetch = {} ... {}".format(partial_seq[:25], partial_seq[-25:]))
                 new_sequence.write(partial_seq)
-                #LOG.debug("index of '>' is {}".format(new_sequence.getvalue().find('>')))
+                #LOG.debug("index of '>' is {}".format(new_sequence.getvalue().find(">")))
                 new_sequence_len += (fasta_transform_params.input_region.end - last_pos)
         else:
             LOG.debug("NO INDELS FOUND IN REGION")
             LOG.debug("Fetching ONLY bit of sequence")
-            LOG.debug('start={}'.format(start))
-            LOG.debug('offset={}'.format(offset))
-            LOG.debug('fasta_transform_params.input_region.end={}'.format(fasta_transform_params.input_region.end))
+            LOG.debug("start={}".format(start))
+            LOG.debug("offset={}".format(offset))
+            LOG.debug("fasta_transform_params.input_region.end={}".format(fasta_transform_params.input_region.end))
 
             LOG.debug("Fasta Fetch {}:{}-{} (0-based)".format(fasta_transform_params.input_region.seq_id, start - offset, fasta_transform_params.input_region.end - offset))
             partial_seq = fasta_file.fetch(fasta_transform_params.input_region.seq_id, start - offset, fasta_transform_params.input_region.end - offset)
@@ -329,7 +332,7 @@ def process_piece(fasta_transform_params):
             #else:
             #    LOG.debug("Fasta Fetch = {} ... {}".format(partial_seq[:25], partial_seq[-25:]))
             new_sequence.write(partial_seq)
-            #LOG.debug("index of '>' is {}".format(new_sequence.getvalue().find('>')))
+            #LOG.debug("index of '>' is {}".format(new_sequence.getvalue().find(">")))
             new_sequence_len += len(partial_seq) #(fasta_transform_params.input_region.end - offset) - 1
 
         LOG.debug("the new_sequence_len={}".format(new_sequence_len))
@@ -343,18 +346,18 @@ def process_piece(fasta_transform_params):
 
         LOG.debug("WRITING HEADER: {}".format(out_header))
         fasta_out.write(out_header)
-        #LOG.debug("index of '>' is {}".format(new_sequence.getvalue().find('>')))
+        #LOG.debug("index of '>' is {}".format(new_sequence.getvalue().find(">")))
         g2g_utils.write_sequence(new_sequence.getvalue(), fasta_out)
         fasta_out.close()
     except KeyboardInterrupt:
-        raise exceptions.KeyboardInterruptError()
-    except exceptions.G2GRegionError as le:
+        raise KeyboardInterruptError()
+    except G2GRegionError as le:
         LOG.debug("Unable to parse location, {0}".format(le.message))
         raise le
-    except exceptions.G2GValueError as e:
+    except G2GValueError as e:
         LOG.debug("Unable to parse alocation, {0}".format(e.message))
         raise e
-    except exceptions.G2GFastaError as e:
+    except G2GFastaError as e:
         LOG.debug("Unable to parse blocation, {0}".format(e.message))
         raise e
     except TypeError as e:
@@ -390,18 +393,18 @@ def prepare_fasta_transform(filename_fasta, filename_output):
     Initialize fasta_transform variables
 
     """
-    filename_output = g2g_utils.check_file(filename_output, 'w')
+    filename_output = g2g_utils.check_file(filename_output, "w")
     output_file_dir = os.path.abspath(os.path.dirname(filename_output))
 
     new_filename_output = filename_output
 
     # let's figure out what our output name will be
-    if new_filename_output.lower().endswith('.gz'):
+    if new_filename_output.lower().endswith(".gz"):
         # strip off .gz
         new_filename_output = new_filename_output[:-3]
 
-    if not filename_output.lower().endswith('.fa'):
-        raise exceptions.G2GValueError("Expecting output filename extension to be either '.fa.gz' or '.fa'")
+    if not filename_output.lower().endswith(".fa"):
+        raise G2GValueError("Expecting output filename extension to be either '.fa.gz' or '.fa'")
 
     g2g_utils.delete_index_files(new_filename_output)
 
@@ -443,12 +446,12 @@ def process(filename_fasta, filename_vci, regions, filename_output=None, bgzip=F
 
     dump_fasta = False
 
-    temp_directory = g2g_utils.create_temp_dir('transform_', dir='.')
+    temp_directory = g2g_utils.create_temp_dir("transform_", dir=".")
     LOG.debug("Temp directory: {}".format(temp_directory))
 
     try:
         if filename_output:
-            filename_output = g2g_utils.check_file(filename_output, 'w')
+            filename_output = g2g_utils.check_file(filename_output, "w")
 
             if not regions:
                 filename_output = prepare_fasta_transform(filename_fasta, filename_output)
@@ -471,7 +474,7 @@ def process(filename_fasta, filename_vci, regions, filename_output=None, bgzip=F
 
         vci_file = vci.VCIFile(filename_vci)
         if fasta_file.is_diploid() and vci_file.is_haploid():
-            raise exceptions.G2GFastaError("Haploid VCI file and diploid Fasta file combination is not currently supported for transform")
+            raise G2GFastaError("Haploid VCI file and diploid Fasta file combination is not currently supported for transform")
 
         full_file = True
 
@@ -492,8 +495,8 @@ def process(filename_fasta, filename_vci, regions, filename_output=None, bgzip=F
         all_params = []
         for region in regions:
             params = FastaTransformParams()
-            LOG.debug('region={}'.format(region))
-            LOG.debug('region.original_base={}'.format(region.original_base))
+            LOG.debug(f"region={region}")
+            LOG.debug(f"region.original_base={region.original_base}")
 
             params.input_region = region
             params.input_file = filename_fasta
@@ -582,7 +585,7 @@ def process(filename_fasta, filename_vci, regions, filename_output=None, bgzip=F
         LOG.info("Processed {0:,} insertions total".format(total_ins))
         LOG.info("Processed {0:,} deletions total".format(total_del))
 
-        LOG.debug('all temp files created, copy to master temp file and delete');
+        LOG.debug("all temp files created, copy to master temp file and delete");
         g2g_utils.concatenate_files(files, filename_output, False)
 
         if dump_fasta:
@@ -597,16 +600,17 @@ def process(filename_fasta, filename_vci, regions, filename_output=None, bgzip=F
                 LOG.info("Compressing and indexing...")
 
                 if filename_output.lower().endswith((".fa", ".fasta")):
-                    g2g_utils.bgzip_and_index_file(filename_output, "{0}.gz".format(filename_output), delete_original=True, file_format='fa')
+                    g2g_utils.bgzip_and_index_file(filename_output, "{0}.gz".format(filename_output), delete_original=True, file_format="fa")
                 elif filename_output.lower().endswith(".gz"):
-                    g2g_utils.bgzip_and_index_file(filename_output, filename_output, delete_original=True, file_format='fa')
+                    g2g_utils.bgzip_and_index_file(filename_output, filename_output, delete_original=True, file_format="fa")
 
     except KeyboardInterrupt:
-        raise exceptions.KeyboardInterruptError()
+        raise KeyboardInterruptError()
     except Exception as e:
-        raise exceptions.G2GError(str(e))
+        raise G2GError(str(e))
     finally:
         # clean up the temporary files
         g2g_utils.delete_dir(temp_directory)
-        LOG.info("Transform complete: {0}".format(g2g_utils.format_time(start, time.time())))
+        fmt_time = g2g_utils.format_time(start, time.time())
+        LOG.info(f"Transform complete: {fmt_time}")
 

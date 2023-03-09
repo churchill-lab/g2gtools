@@ -1,9 +1,15 @@
-# -*- coding: utf-8 -*-
-
 #
 # Collection of module errors
 #
 
+# standard library imports
+# none
+
+# 3rd party library imports
+# none
+
+# local library imports
+# none
 
 class G2GError(Exception):
     """

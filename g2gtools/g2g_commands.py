@@ -1,8 +1,11 @@
-# -*- coding: utf-8 -*-
-
+# standard library imports
 import argparse
 import sys
 
+# 3rd party library imports
+# none
+
+# local library imports
 from . import bsam
 from . import bed
 from . import exceptions
@@ -59,7 +62,7 @@ def command_convert(raw_args, prog=None):
             sys.stderr.write(message)
         else:
             sys.stderr.write(command_convert.__doc__)
-        sys.stderr.write('\n')
+        sys.stderr.write("\n")
         sys.exit(1)
 
     parser.error = print_message
@@ -69,13 +72,13 @@ def command_convert(raw_args, prog=None):
     parser.add_argument("-c", "--vci", dest="vci", metavar="VCI_File")
 
     # optional
-    parser.add_argument("-f", "--format", dest="format", metavar='bam|sam|gtf|bed',
-                        choices=['bam', 'sam', 'gtf', 'bed', 'gff'])  # ** added 'gff'
+    parser.add_argument("-f", "--format", dest="format", metavar="bam|sam|gtf|bed",
+                        choices=["bam", "sam", "gtf", "bed", "gff"])  # ** added "gff"
     parser.add_argument("-o", "--output", dest="output", metavar="Output_File")
-    parser.add_argument("--reverse", dest="reverse", action='store_true')
+    parser.add_argument("--reverse", dest="reverse", action="store_true")
 
     # debugging and help
-    parser.add_argument("-h", "--help", dest="help", action='store_true')
+    parser.add_argument("-h", "--help", dest="help", action="store_true")
     parser.add_argument("-d", "--debug", dest="debug", action="count", default=0)
 
     args = parser.parse_args(raw_args)
@@ -95,39 +98,38 @@ def command_convert(raw_args, prog=None):
         file_format = None  # prolly unnecessary 
 
         if args.format:
-            #file_format = file_format.upper()
             file_format = args.format.upper()  # ** this prolly was a bug
 
-            if file_format not in ['BED', 'BAM', 'SAM', 'GTF', 'GFF']:  # ** added 'GFF'
+            if file_format not in ["BED", "BAM", "SAM", "GTF", "GFF"]:  # ** added "GFF"
                 raise exceptions.G2GValueError("Only BAM/SAM to BAM/SAM, GTF to GTF, or BED to BED are supported")
         else:
             # try to determine the type from the input
             file_all_caps = args.input.upper()
-            if file_all_caps.endswith(('BAM', 'SAM')):
-                file_format = 'BAM'
-            elif file_all_caps.endswith('BED'):
-                file_format = 'BED'
-            elif file_all_caps.endswith('GTF'):
-                file_format = 'GTF'
+            if file_all_caps.endswith(("BAM", "SAM")):
+                file_format = "BAM"
+            elif file_all_caps.endswith("BED"):
+                file_format = "BED"
+            elif file_all_caps.endswith("GTF"):
+                file_format = "GTF"
 
             # addded **
-            elif file_all_caps.endswith('GFF'):
-                file_format = 'GFF'
+            elif file_all_caps.endswith("GFF"):
+                file_format = "GFF"
 
             else:
                 raise exceptions.G2GValueError("File format cannot be determined, please specify.")
 
-        if file_format in ['BAM', 'SAM']:
+        if file_format in ["BAM", "SAM"]:
             bsam.convert_bam_file(vci_file=args.vci, file_in=args.input, file_out=args.output, reverse=args.reverse)
-        elif file_format in ['GTF']:
+        elif file_format in ["GTF"]:
             gtf.convert_gtf_file(vci_file=args.vci, input_file=args.input, output_file=args.output, reverse=args.reverse)
-        elif file_format in ['BED']:
+        elif file_format in ["BED"]:
             bed.convert_bed_file(vci_file=args.vci, input_file=args.input, output_file=args.output, reverse=args.reverse)
 
 
         # added ** to include GFF parsing
         # it will still use the same module "gtf" but different function convert_gff_file
-        elif file_format in ['GFF']:
+        elif file_format in ["GFF"]:
             gtf.convert_gff_file(vci_file=args.vci, input_file=args.input, output_file=args.output, reverse=args.reverse)
 
 
@@ -181,27 +183,27 @@ def command_vcf2vci(raw_args, prog=None):
             sys.stderr.write(message)
         else:
             sys.stderr.write(command_vcf2vci.__doc__)
-        sys.stderr.write('\n')
+        sys.stderr.write("\n")
         sys.exit(1)
 
     parser.error = print_message
 
     # required
-    parser.add_argument("-i", "--vcf", dest="vcf_files", metavar="vcf_file", action='append')
+    parser.add_argument("-i", "--vcf", dest="vcf_files", metavar="vcf_file", action="append")
     parser.add_argument("-f", "--fasta", dest="fasta_file", metavar="fasta_file")
     parser.add_argument("-s", "--strain", dest="strain", metavar="strain")
     parser.add_argument("-o", "--output", dest="output", metavar="VCI_File")
 
     # optional
     parser.add_argument("-p", "--num-processes", type=int, dest="numprocesses", metavar="number_of_processes")
-    parser.add_argument("--diploid", dest="diploid", action='store_true')
-    parser.add_argument("--keep", dest="keep", action='store_true')
-    parser.add_argument("--pass", dest="passed", action='store_true')
-    parser.add_argument("--quality", dest="quality", action='store_true')
-    parser.add_argument("--no-bgzip", dest="nobgzip", action='store_false', default=True)
+    parser.add_argument("--diploid", dest="diploid", action="store_true")
+    parser.add_argument("--keep", dest="keep", action="store_true")
+    parser.add_argument("--pass", dest="passed", action="store_true")
+    parser.add_argument("--quality", dest="quality", action="store_true")
+    parser.add_argument("--no-bgzip", dest="nobgzip", action="store_false", default=True)
 
     # debugging and help
-    parser.add_argument("-h", "--help", dest="help", action='store_true')
+    parser.add_argument("-h", "--help", dest="help", action="store_true")
     parser.add_argument("-d", "--debug", dest="debug", action="count", default=0)
 
     args = parser.parse_args(raw_args)
@@ -273,7 +275,7 @@ def command_fasta_extract(raw_args, prog=None):
             sys.stderr.write(message)
         else:
             sys.stderr.write(command_fasta_extract.__doc__)
-        sys.stderr.write('\n')
+        sys.stderr.write("\n")
         sys.exit(1)
 
     parser.error = print_message
@@ -299,7 +301,7 @@ def command_fasta_extract(raw_args, prog=None):
     parser.add_argument("--raw", dest="raw", action="store_true", default=False)
 
     # debugging and help
-    parser.add_argument("-h", "--help", dest="help", action='store_true')
+    parser.add_argument("-h", "--help", dest="help", action="store_true")
     parser.add_argument("-d", "--debug", dest="debug", action="count", default=0)
 
     args = parser.parse_args(raw_args)
@@ -357,17 +359,14 @@ def command_fasta_extract(raw_args, prog=None):
 
         if args.region:
             # simple region
-            LOG.debug('ARGS.REGION={}'.format(args.region))
+            LOG.debug(f"ARGS.REGION={args.region}")
             region = g2g.parse_region(args.region, base=1)
 
+            LOG.debug(f"--> start = {region.start}")
+            LOG.debug(f"--> _start = {region._start}")
+            LOG.debug(f"--> get_start() = {region.get_start()}")
 
-            #region.name = "{}:{}-{}".format(region.seq_id, region.start, region.end)
-
-            LOG.debug("--> start = {}".format(region.start))
-            LOG.debug("--> _start = {}".format(region._start))
-            LOG.debug("--> get_start() = {}".format(region.get_start()))
-
-            LOG.debug('REGION PARSED={}'.format(region))
+            LOG.debug(f"REGION PARSED={region}")
             all_regions.append(region)
 
             # TEMPORARY OVERRIDE
@@ -378,7 +377,7 @@ def command_fasta_extract(raw_args, prog=None):
             bed_file = bed.BED(args.bed_file)
             for bed_rec in bed_file:
                 if bed_file.current_line_is_bed:
-                    strand = bed_rec.strand if bed_rec.strand else '+'
+                    strand = bed_rec.strand if bed_rec.strand else "+"
                     LOG.debug(bed_rec)
                     all_regions.append(g2g.Region(bed_rec.chrom, bed_rec.start, bed_rec.end, strand, bed_rec.name, 0))
 
@@ -401,8 +400,7 @@ def command_fasta_extract(raw_args, prog=None):
             #                        transcript_info=transcript_info)
 
             if args.region:
-                #overridden here, fasta.extract expects 1 base
-
+                # overridden here, fasta.extract expects 1 base
                 all_regions = [g2g.parse_region(args.region)]
 
             fasta_transform.process(filename_fasta=args.fasta, filename_vci=args.vci, regions=all_regions,
@@ -491,7 +489,7 @@ def command_fasta_patch(raw_args, prog=None):
             sys.stderr.write(message)
         else:
             sys.stderr.write(command_fasta_patch.__doc__)
-        sys.stderr.write('\n')
+        sys.stderr.write("\n")
         sys.exit(1)
 
     parser.error = print_message
@@ -506,10 +504,10 @@ def command_fasta_patch(raw_args, prog=None):
     parser.add_argument("-r", "--region", dest="region", metavar="chr1:3000000-4000000")
     parser.add_argument("-b", "--bed", dest="bed_file", metavar="BED_File")
     parser.add_argument("--reverse", dest="reverse", action="store_true", default=False)
-    parser.add_argument("--bgzip", dest="bgzip", action='store_true')
+    parser.add_argument("--bgzip", dest="bgzip", action="store_true")
 
     # debugging and help
-    parser.add_argument("-h", "--help", dest="help", action='store_true')
+    parser.add_argument("-h", "--help", dest="help", action="store_true")
     parser.add_argument("-d", "--debug", dest="debug", action="count", default=0)
 
     args = parser.parse_args(raw_args)
@@ -539,7 +537,7 @@ def command_fasta_patch(raw_args, prog=None):
         all_locations = []
         for bed_rec in bed_file:
             if bed_file.current_line_is_bed:
-                strand = bed_rec.strand if bed_rec.strand else '+'
+                strand = bed_rec.strand if bed_rec.strand else "+"
                 all_locations.append(g2g.Region(bed_rec.chrom, bed_rec.start, bed_rec.end, strand, name=bed_rec.name))
 
     try:
@@ -590,7 +588,7 @@ def command_fasta_transform(raw_args, prog=None):
             sys.stderr.write(message)
         else:
             sys.stderr.write(command_fasta_transform.__doc__)
-        sys.stderr.write('\n')
+        sys.stderr.write("\n")
         sys.exit(1)
 
     parser.error = print_message
@@ -605,10 +603,10 @@ def command_fasta_transform(raw_args, prog=None):
     parser.add_argument("-r", "--region", dest="region", metavar="chr1:3000000-4000000")
     parser.add_argument("-b", "--bed", dest="bed_file", metavar="BED_File")
     parser.add_argument("--reverse", dest="reverse", action="store_true", default=False)
-    parser.add_argument("--bgzip", dest="bgzip", action='store_true')
+    parser.add_argument("--bgzip", dest="bgzip", action="store_true")
 
     # debugging and help
-    parser.add_argument("-h", "--help", dest="help", action='store_true')
+    parser.add_argument("-h", "--help", dest="help", action="store_true")
     parser.add_argument("-d", "--debug", dest="debug", action="count", default=0)
 
     args = parser.parse_args(raw_args)
@@ -639,7 +637,7 @@ def command_fasta_transform(raw_args, prog=None):
             all_locations = []
             for bed_rec in bed_file:
                 if bed_file.current_line_is_bed:
-                    strand = bed_rec.strand if bed_rec.strand else '+'
+                    strand = bed_rec.strand if bed_rec.strand else "+"
                     all_locations.append(g2g.Region(bed_rec.chrom, bed_rec.start, bed_rec.end, strand))
 
         fasta_transform.process(args.fasta, args.vci, all_locations, args.output, args.bgzip, False, args.numprocesses, False)
@@ -686,7 +684,7 @@ def command_parse_region(raw_args, prog=None):
             sys.stderr.write(message)
         else:
             sys.stderr.write(command_parse_region.__doc__)
-        sys.stderr.write('\n')
+        sys.stderr.write("\n")
         sys.exit(1)
 
     parser.error = print_message
@@ -699,7 +697,7 @@ def command_parse_region(raw_args, prog=None):
     parser.add_argument("-n", "--name", dest="name", default=None)
 
     # debugging and help
-    parser.add_argument("-h", "--help", dest="help", action='store_true')
+    parser.add_argument("-h", "--help", dest="help", action="store_true")
     parser.add_argument("-d", "--debug", dest="debug", action="count", default=0)
 
     args = parser.parse_args(raw_args)
@@ -711,26 +709,26 @@ def command_parse_region(raw_args, prog=None):
 
     try:
         if args.region:
-            LOG.debug("Input: {0}".format(args.region))
+            LOG.debug(f"Input: {args.region}")
 
             if args.name:
-                LOG.debug("-n '{}'".format(args.name))
+                LOG.debug(f"-n '{args.name}'")
 
             base = 1
 
             if args.base:
-                LOG.debug("-b {}".format(args.base))
+                LOG.debug(f"-b {args.base}")
                 base = args.base
 
             region = g2g.parse_region(args.region, base=base, name=args.name)
             LOG.info(region)
-            LOG.info("Seq ID: {}".format(region.seq_id))
-            LOG.info("Start: {}".format(region.start))
-            LOG.info("_Start: {}".format(region._start))
-            LOG.info("End: {}".format(region.end))
-            LOG.info("Name: {}".format(region.name))
-            LOG.info("Base: {}".format(region.original_base))
-            LOG.info("Display Start: {}".format(region.get_start()))
+            LOG.info(f"Seq ID: {region.seq_id}")
+            LOG.info(f"Start: {region.start}")
+            LOG.info(f"_Start: {region._start}")
+            LOG.info(f"End: {region.end}")
+            LOG.info(f"Name: {region.name}")
+            LOG.info(f"Base: {region.original_base}")
+            LOG.info(f"Display Start: {region.get_start()}")
 
     except KeyboardInterrupt as ki:
         LOG.debug(ki)
@@ -774,7 +772,7 @@ def command_fastaformat(raw_args, prog=None):
             sys.stderr.write(message)
         else:
             sys.stderr.write(command_fastaformat.__doc__)
-        sys.stderr.write('\n')
+        sys.stderr.write("\n")
         sys.exit(1)
 
     parser.error = print_message
@@ -787,7 +785,7 @@ def command_fastaformat(raw_args, prog=None):
     parser.add_argument("-o", "--output", dest="output", metavar="fasta_file")
 
     # debugging and help
-    parser.add_argument("-h", "--help", dest="help", action='store_true')
+    parser.add_argument("-h", "--help", dest="help", action="store_true")
     parser.add_argument("-d", "--debug", dest="debug", action="count", default=0)
     # Matt, where's "-s" option? Not supported anymore?
 
@@ -837,7 +835,7 @@ def command_gtf2db(raw_args, prog=None):
             sys.stderr.write(message)
         else:
             sys.stderr.write(command_gtf2db.__doc__)
-        sys.stderr.write('\n')
+        sys.stderr.write("\n")
         sys.exit(1)
 
     parser.error = print_message
@@ -847,7 +845,7 @@ def command_gtf2db(raw_args, prog=None):
     parser.add_argument("-o", "--output", dest="output", metavar="DB_file")
 
     # debugging and help
-    parser.add_argument("-h", "--help", dest="help", action='store_true')
+    parser.add_argument("-h", "--help", dest="help", action="store_true")
     parser.add_argument("-d", "--debug", dest="debug", action="count", default=0)
 
     args = parser.parse_args(raw_args)
@@ -902,7 +900,7 @@ def command_vciquery(raw_args, prog=None):
             sys.stderr.write(message)
         else:
             sys.stderr.write(command_vciquery.__doc__)
-        sys.stderr.write('\n')
+        sys.stderr.write("\n")
         sys.exit(1)
 
     parser.error = print_message
@@ -915,7 +913,7 @@ def command_vciquery(raw_args, prog=None):
     parser.add_argument("-f", "--fasta", dest="fasta", metavar="Fasta_file")
 
     # debugging and help
-    parser.add_argument("-h", "--help", dest="help", action='store_true')
+    parser.add_argument("-h", "--help", dest="help", action="store_true")
     parser.add_argument("-d", "--debug", dest="debug", action="count", default=0)
 
     args = parser.parse_args(raw_args)

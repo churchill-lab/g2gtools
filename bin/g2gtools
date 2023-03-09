@@ -1,16 +1,19 @@
 #!/usr/bin/env python
 
-from __future__ import print_function
-
+# standard library imports
 import argparse
 import importlib
 import os
 import sys
 
+# 3rd party library imports
+# none
+
+# local library imports
+from g2gtools import __version__ as version
 import g2gtools.g2g
 import g2gtools.g2g_commands
 
-from g2gtools import __version__ as version
 
 __author__ = "Matthew Vincent mvincent@jax.org"
 
@@ -35,6 +38,7 @@ for dependency in ext_modules:
         importlib.import_module(dependency)
     except ImportError as ie:
         failed_modules.append(dependency)
+
 
 if len(failed_modules) > 0:
     sys.stderr.write('Error: The following modules need to be installed: ')
@@ -127,6 +131,7 @@ class G2GToolsApp(object):
 
     def logo(self):
         print(logo_text)
+
 
 if __name__ == '__main__':
     G2GToolsApp()
