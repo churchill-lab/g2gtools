@@ -21,8 +21,6 @@ from . import g2g
 from . import g2g_utils
 from . import vcf
 
-LOG = g2g.get_logger()
-
 
 class VCFFileInformation:
     def __init__(self, file_name=None, discard_file=None, sample_index=None):
@@ -58,6 +56,7 @@ class VCF2VCIInfo(object):
 
         self.stats_left = {}
         self.stats_right = {}
+        self.debug_level = 0
 
 
 def walk_vcfs_together(readers, **kwargs):
@@ -114,6 +113,7 @@ def update_stats(stats, reason):
 def process_piece(merge_info):
 
     stats = {}
+    logger = g2g.get_logger(merge_info.debug_level)
 
     try:
         output_file_left = None
@@ -129,7 +129,7 @@ def process_piece(merge_info):
         if merge_info.diploid:
             mi = ["L", "R"]
 
-        LOG.info(f"Processing Chromosome {merge_info.chromosome}...")
+        logger.warn(f"Processing Chromosome {merge_info.chromosome}...")
 
         iterators = []
         discard_functions = []
@@ -158,14 +158,14 @@ def process_piece(merge_info):
         line_numbers = 0
         for vcf_records in walk_vcfs_together(iterators):
             for i, vcf_record in enumerate(vcf_records):
-                # LOG.debug(vcf_record)
+                # logger.debug(vcf_record)
                 if vcf_record is None:
                     continue
-                # LOG.debug(vcf_record.alt)
-                # LOG.debug(type(vcf_record.alt))
+                # logger.debug(vcf_record.alt)
+                # logger.debug(type(vcf_record.alt))
 
                 gt = vcf.parse_gt_tuple(vcf_record, merge_info.vcf_files[i].sample_index)
-                # LOG.debug(gt)
+                # logger.debug(gt)
 
                 line_numbers = line_numbers + 1
                 if gt.is_snp:
@@ -173,7 +173,7 @@ def process_piece(merge_info):
                     if merge_info.passed and "PASS" not in vcf_record.filter:
                         discard_functions[i](vcf_record)
 
-                    # LOG.debug("Processing SNP {}".format(vcf_record))
+                    # logger.debug("Processing SNP {}".format(vcf_record))
                     n += 1
 
                     if merge_info.quality and gt.fi == "0":
@@ -190,18 +190,18 @@ def process_piece(merge_info):
                         else:
                             if gt.gt_left == gt.gt_right and gt.gt_left != 0:
                                 # ignore heterozygotes 0/1, 1/0, only process 0/0 and 1/1
-                                # LOG.debug("ACCEPTED")
+                                # logger.debug("ACCEPTED")
 
-                                # LOG.debug("pos {} : ref {}, left {}, right {}".format(vcf_snp.pos, vcf_snp.ref, gt.left, gt.right))
+                                # logger.debug("pos {} : ref {}, left {}, right {}".format(vcf_snp.pos, vcf_snp.ref, gt.left, gt.right))
                                 output_file_left.write("{}\t{}\t{}\t{}\t{}\t{}\n".format(merge_info.chromosome, vcf_record.pos+1, ".", vcf_record.ref, gt.left, "."))
                 else:
                     # indel
-                    LOG.debug(f"Processing INDEL {vcf_record}")
+                    logger.debug(f"Processing INDEL {vcf_record}")
 
                     if merge_info.passed and "PASS" not in vcf_record.filter:
 
-                        LOG.debug("TOSSED: FILTERED ON PASS")
-                        LOG.debug(vcf_record)
+                        logger.debug("TOSSED: FILTERED ON PASS")
+                        logger.debug(vcf_record)
                         stats = update_stats(stats, "FILTERED ON PASS")
 
                         discard_functions[i](vcf_record)
@@ -211,19 +211,19 @@ def process_piece(merge_info):
 
                         # FI : Whether a sample was a Pass(1) or fail (0) based on FILTER values
 
-                        LOG.debug("TOSSED: FILTERED ON QUALITY")
-                        LOG.debug(vcf_record)
+                        logger.debug("TOSSED: FILTERED ON QUALITY")
+                        logger.debug(vcf_record)
                         stats = update_stats(stats, "FILTERED ON QUALITY")
                         discard_functions[i](vcf_record)
                         continue
 
                     elif gt.left is None and gt.right is None:
 
-                        LOG.debug("TOSSED: NO STRAIN DATA")
-                        LOG.debug(vcf_record)
+                        logger.debug("TOSSED: NO STRAIN DATA")
+                        logger.debug(vcf_record)
                         stats = update_stats(stats, "NO STRAIN DATA")
-                        LOG.debug(i)
-                        LOG.debug(type(vcf_record))
+                        logger.debug(i)
+                        logger.debug(type(vcf_record))
                         discard_functions[i](vcf_record)
                         continue
 
@@ -231,8 +231,8 @@ def process_piece(merge_info):
                         # haploid or hexaploid
                         # gt must be equal
 
-                        LOG.debug("TOSSED: HETEROZYGOUS")
-                        LOG.debug(vcf_record)
+                        logger.debug("TOSSED: HETEROZYGOUS")
+                        logger.debug(vcf_record)
                         stats = update_stats(stats, "HETEROZYGOUS")
                         discard_functions[i](vcf_record)
                         continue
@@ -240,38 +240,38 @@ def process_piece(merge_info):
                     # START L AND R, ONLY R IF DIPLOID
 
                     for l_or_r in mi:
-                        #LOG.debug("******************")
-                        #LOG.debug(l_or_r)
+                        #logger.debug("******************")
+                        #logger.debug(l_or_r)
                         lr_out = ""
                         if l_or_r == "L":
-                            #LOG.debug("->LEFT")
+                            #logger.debug("->LEFT")
                             lr_out = "_L" if merge_info.diploid else ""
                             alt_seq = str(gt.left)
                             stats = merge_info.stats_left
                             output_file = output_file_left
                             prev_next_ref_pos = merge_info.prev_next_ref_pos_left
                         else:
-                            #LOG.debug("->RIGHT")
+                            #logger.debug("->RIGHT")
                             lr_out = "_R" if merge_info.diploid else ""
                             alt_seq = str(gt.right)
                             stats = merge_info.stats_right
                             output_file = output_file_right
                             prev_next_ref_pos = merge_info.prev_next_ref_pos_right
 
-                        LOG.debug(f"prev_next_ref_pos={prev_next_ref_pos}")
+                        logger.debug(f"prev_next_ref_pos={prev_next_ref_pos}")
 
                         if gt.ref == alt_seq:
 
-                            LOG.debug("TOSSED, REF AND ALT ARE EQUAL")
-                            LOG.debug(vcf_record)
+                            logger.debug("TOSSED, REF AND ALT ARE EQUAL")
+                            logger.debug(vcf_record)
                             stats = update_stats(stats, "REF AND ALT ARE EQUAL")
                             discard_functions[i](vcf_record)
                             continue
 
                         orig_alt_seq = alt_seq
 
-                        LOG.debug(f"SAMPLE: {vcf_record[merge_info.vcf_files[i].sample_index]}")
-                        LOG.debug(f"REF='{gt.ref}', ALT_L='{gt.left}', ALT_R='{gt.right}', POS={vcf_record.pos}")
+                        logger.debug(f"SAMPLE: {vcf_record[merge_info.vcf_files[i].sample_index]}")
+                        logger.debug(f"REF='{gt.ref}', ALT_L='{gt.left}', ALT_R='{gt.right}', POS={vcf_record.pos}")
 
                         position = vcf_record.pos + 1
 
@@ -283,8 +283,8 @@ def process_piece(merge_info):
                         base_pos_diff = 0
 
                         if position < prev_next_ref_pos:
-                            LOG.debug(f"TOSSED: VCF ROLLBACK: {vcf_record}")
-                            LOG.debug(vcf_record)
+                            logger.debug(f"TOSSED: VCF ROLLBACK: {vcf_record}")
+                            logger.debug(vcf_record)
 
                             stats = update_stats(stats, "VCF ROLLBACK")
                             discard_functions[i](vcf_record)
@@ -316,23 +316,23 @@ def process_piece(merge_info):
 
                         """
 
-                        LOG.debug("           gt.ref: {0}".format(gt.ref))
-                        LOG.debug("          ref_seq: {0}".format(ref_seq))
-                        LOG.debug("               dt: {0}".format(dt))
-                        LOG.debug("           gt.alt: {0}".format(orig_alt_seq))
-                        LOG.debug("          alt_seq: {0}".format(alt_seq))
-                        LOG.debug("               dq: {0}".format(dq))
-                        LOG.debug("         position: {0}".format(position))
-                        LOG.debug("prev_next_ref_pos: {0}".format(prev_next_ref_pos))
-                        LOG.debug("     next_ref_pos: {0}".format(next_ref_pos))
-                        LOG.debug("    fragment_size: {0}".format(fragment_size))
-                        LOG.debug("     base_changes: {0}".format(base_changes))
-                        LOG.debug("    base_pos_diff: {0}".format(base_pos_diff))
-                        LOG.debug("     shared_bases: {0}".format(shared_bases))
+                        logger.debug("           gt.ref: {0}".format(gt.ref))
+                        logger.debug("          ref_seq: {0}".format(ref_seq))
+                        logger.debug("               dt: {0}".format(dt))
+                        logger.debug("           gt.alt: {0}".format(orig_alt_seq))
+                        logger.debug("          alt_seq: {0}".format(alt_seq))
+                        logger.debug("               dq: {0}".format(dq))
+                        logger.debug("         position: {0}".format(position))
+                        logger.debug("prev_next_ref_pos: {0}".format(prev_next_ref_pos))
+                        logger.debug("     next_ref_pos: {0}".format(next_ref_pos))
+                        logger.debug("    fragment_size: {0}".format(fragment_size))
+                        logger.debug("     base_changes: {0}".format(base_changes))
+                        logger.debug("    base_pos_diff: {0}".format(base_pos_diff))
+                        logger.debug("     shared_bases: {0}".format(shared_bases))
                         """
                         # fix any 0 length
                         if fragment_size < 0:
-                            # LOG.debug("TOSSED: FRAGMENT: {0}".format(vcf_record))
+                            # logger.debug("TOSSED: FRAGMENT: {0}".format(vcf_record))
 
                             stats = update_stats(stats, "FRAGMENT SIZE < 0")
                             discard_functions[i](vcf_record)
@@ -342,7 +342,7 @@ def process_piece(merge_info):
                             ref_str = ref_seq if ref_seq else "."
                             alt_str = alt_seq if alt_seq else "."
                             out = f"{merge_info.chromosome}{lr_out}\t{vcf_record.pos+1}\t{shared_bases}\t{ref_str}\t{alt_str}\t{fragment_size}\n"
-                            LOG.debug(out)
+                            logger.debug(out)
                             output_file.write(out)
                         else:
                             #
@@ -355,11 +355,11 @@ def process_piece(merge_info):
                         if l_or_r == "L":
                             merge_info.stats_left = stats
                             merge_info.prev_next_ref_pos_left = next_ref_pos
-                            LOG.debug(f"setting merge_info.prev_next_ref_pos_left={merge_info.prev_next_ref_pos_left}")
+                            logger.debug(f"setting merge_info.prev_next_ref_pos_left={merge_info.prev_next_ref_pos_left}")
                         else:
                             merge_info.stats_right = stats
                             merge_info.prev_next_ref_pos_right = next_ref_pos
-                            LOG.debug(f"setting merge_info.prev_next_ref_pos_right={merge_info.prev_next_ref_pos_right}")
+                            logger.debug(f"setting merge_info.prev_next_ref_pos_right={merge_info.prev_next_ref_pos_right}")
 
         if merge_info.output_file_left:
             output_file_left.close()
@@ -388,14 +388,7 @@ def wrapper(args):
     :param args: the arguments to process_piece
     :return: the same as process_piece
     """
-    LOG.debug(args)
     return process_piece(*args)
-
-
-def log_stats(stats):
-    LOG.info("STATISTICS")
-    for s, stat in stats.items():
-        LOG.info(f"{stat:,}\t\t{s}")
 
 
 def create_vci_header(temp_directory, fasta_file, vcf_input_files, output_file, strain, vcf_keep, passed, quality, diploid, num_processes, bgzip):
@@ -424,8 +417,10 @@ def create_vci_header(temp_directory, fasta_file, vcf_input_files, output_file, 
     return file
 
 
-def process(vcf_files, fasta_file, output_file, strain, vcf_keep=False, passed=False, quality=False, diploid=False, num_processes=None, bgzip=False):
+def process(vcf_files, fasta_file, output_file, strain, vcf_keep=False, passed=False, quality=False, diploid=False, num_processes=None, bgzip=False, debug_level=0):
     start = time.time()
+
+    logger = g2g.get_logger(debug_level)
 
     output_file = g2g_utils.check_file(output_file, "w")
     output_file_dir = os.path.dirname(output_file)
@@ -435,15 +430,15 @@ def process(vcf_files, fasta_file, output_file, strain, vcf_keep=False, passed=F
     if vcf_files:
         for file_name in vcf_files:
             vcf_file = g2g_utils.check_file(file_name)
-            LOG.info(f"VCF file: {vcf_file}")
-            LOG.info("Checking for index file, creating if needed...")
+            logger.warn(f"VCF file: {vcf_file}")
+            logger.info("Checking for index file, creating if needed...")
             g2g_utils.index_file(original_file=vcf_file, file_format="vcf", overwrite=False)
 
             vcf_discard_file = None
             if vcf_keep:
                 vcf_discard_file = f"{os.path.basename(output_file)}.errors.vcf"
                 vcf_discard_file = os.path.join(output_file_dir, vcf_discard_file)
-                LOG.info(f"VCF indel discard file: {vcf_discard_file}")
+                logger.warn(f"VCF indel discard file: {vcf_discard_file}")
 
             vcf_file_inputs.append(VCFFileInformation(vcf_file, vcf_discard_file))
 
@@ -462,19 +457,19 @@ def process(vcf_files, fasta_file, output_file, strain, vcf_keep=False, passed=F
         if num_processes <= 0:
             num_processes = 1
 
-    LOG.info(f"Fasta File: {fasta_file}")
-    LOG.info(f"Strain: {strain}")
-    LOG.info(f"Pass filter on: {passed}")
-    LOG.info(f"Quality filter on: {quality}")
-    LOG.info(f"Diploid: {diploid}")
-    LOG.info(f"Number of processes: {num_processes}")
-    LOG.info(f"Output VCI File: {output_file}")
+    logger.warn(f"Fasta File: {fasta_file}")
+    logger.warn(f"Strain: {strain}")
+    logger.warn(f"Pass filter on: {passed}")
+    logger.warn(f"Quality filter on: {quality}")
+    logger.warn(f"Diploid: {diploid}")
+    logger.warn(f"Number of processes: {num_processes}")
+    logger.warn(f"Output VCI File: {output_file}")
 
     # not all chromosomes/seqid will be processed if not in vcf file
     processed_seq_ids = {}
 
     temp_directory = g2g_utils.create_temp_dir("vcf2vci", dir=".")
-    LOG.debug("fTemp directory: {temp_directory}")
+    logger.debug(f"Temp directory: {temp_directory}")
 
     header_file = create_vci_header(temp_directory, fasta_file, vcf_file_inputs, output_file, strain, vcf_keep, passed, quality, diploid, num_processes, bgzip)
 
@@ -514,6 +509,7 @@ def process(vcf_files, fasta_file, output_file, strain, vcf_keep=False, passed=F
             merge_info.passed = passed
             merge_info.quality = quality
             merge_info.vcf_keep = vcf_keep
+            merge_info.debug_level = debug_level
 
             if diploid:
                 merge_info.output_file_left = g2g_utils.gen_file_name(f"chr{c}.left", output_dir=temp_directory, extension="vci", append_time=False)
@@ -528,7 +524,7 @@ def process(vcf_files, fasta_file, output_file, strain, vcf_keep=False, passed=F
 
             all_merge_info.append(merge_info)
 
-        LOG.info("Parsing VCF files...")
+        logger.info("Parsing VCF files...")
 
         args = zip(all_merge_info)
         pool = multiprocessing.Pool(num_processes)
@@ -543,8 +539,8 @@ def process(vcf_files, fasta_file, output_file, strain, vcf_keep=False, passed=F
 
         #TODO: make sure stats are good and show statistics
 
-        LOG.debug("Combining temp files...")
-        LOG.info("Finalizing VCI file...")
+        logger.debug("Combining temp files...")
+        logger.info("Finalizing VCI file...")
 
         files = [header_file]
         if diploid:
@@ -569,7 +565,7 @@ def process(vcf_files, fasta_file, output_file, strain, vcf_keep=False, passed=F
 #            vcf_discard_file.close()
 
         # TODO: make sure stats are good and show statistics
-        LOG.info("Parsed {0:,} total lines".format(total))
+        logger.warn("Parsed {0:,} total lines".format(total))
     except KeyboardInterruptError:
         pool.terminate()
         raise G2GError("Keyboard quit consumed")
@@ -582,5 +578,5 @@ def process(vcf_files, fasta_file, output_file, strain, vcf_keep=False, passed=F
     finally:
         g2g_utils.delete_dir(temp_directory)
         fmt_time = g2g_utils.format_time(start, time.time())
-        LOG.info(f"VCI creation complete: {fmt_time}")
+        logger.warn(f"VCI creation complete: {fmt_time}")
 

@@ -27,7 +27,6 @@ MappingFields = [
 IntervalMapping = collections.namedtuple("IntervalMapping", MappingFields)
 
 global_mapping_tree = None
-LOG = g2g.get_logger()
 
 #
 # VCIFile
@@ -74,7 +73,7 @@ def process_piece(args):
         tabix_file = pysam.TabixFile(filename)
         iterator = tabix_file.fetch(contig, parser=pysam.asTuple())
 
-        LOG.info(f"Parsing VCI, contig: {contig}")
+        # LOG.info(f"Parsing VCI, contig: {contig}")
 
         for rec in iterator:
             num_lines_chrom += 1
@@ -113,7 +112,8 @@ def process_piece(args):
 
         #LOG.debug("Parsed {0:,} lines for contig {1} in {2}".format(num_lines_processed, contig, g2g_utils.format_time(cotig_start_time, time.time())))
     except Exception as e:
-        LOG.error(e)
+        #LOG.error(e)
+        pass
 
     return {
         "tree": tree,
@@ -160,6 +160,7 @@ class VCIFile:
         self.is_reversed = reverse
         self.contigs = {}
         self.valid = False
+        self.debug_level = 0
 
         self._tabix_file = pysam.TabixFile(self.filename, mode=mode, parser=parser, index=index, encoding=encoding)
 
@@ -229,7 +230,7 @@ class VCIFile:
             for contig in contigs:
                 comtig_start_time = time.time()
 
-                LOG.info(f"Parsing VCI, contig: {contig}")
+                #LOG.info(f"Parsing VCI, contig: {contig}")
                 num_lines_chrom = 0
                 num_lines_processed = 0
 
@@ -301,7 +302,7 @@ class VCIFile:
                 mapping_tree[contig].insert_interval(interval)
 
                 elapsed_time = g2g_utils.format_time(comtig_start_time, time.time())
-                LOG.debug(f"Parsed {num_lines_processed:,} lines for contig {contig} in {elapsed_time}")
+                #LOG.debug(f"Parsed {num_lines_processed:,} lines for contig {contig} in {elapsed_time}")
 
             self.valid = True
             self.mapping_tree = mapping_tree
@@ -356,7 +357,7 @@ class VCIFile:
                                             interval.value.chr, i_start, i_start + size, interval.value.deleted,
                                             interval.value.shared, interval.value.pos)
 
-            LOG.debug(f"Mapping: {mapping}")
+            #LOG.debug(f"Mapping: {mapping}")
 
             return mapping
 
@@ -375,16 +376,16 @@ class VCIFile:
         mappings = []
 
         if chromosome not in self.mapping_tree:
-            LOG.debug(f"Chromosome {chromosome} not found in mapping tree")
-            LOG.debug(f"Available chromosomes are: {list(self.mapping_tree.keys())}")
+            # LOG.debug(f"Chromosome {chromosome} not found in mapping tree")
+            # LOG.debug(f"Available chromosomes are: {list(self.mapping_tree.keys())}")
             return None
-        else:
-            LOG.debug(f"Chromosome {chromosome}, in mapping tree")
+        # else:
+        #LOG.debug(f"Chromosome {chromosome}, in mapping tree")
 
         all_intervals = self.mapping_tree[chromosome].find(start, end)
 
         if len(all_intervals) == 0:
-            LOG.debug("No intervals found")
+            #LOG.debug("No intervals found")
             return None
         else:
             for interval in all_intervals:
@@ -403,14 +404,15 @@ class VCIFile:
         return mappings
 
 
-def vci_query(vci_file, region, fasta_file):
+def vci_query(vci_file, region, fasta_file, debug_level=0):
     # ./bin/g2gtools vciquery -v data/mm/REF2CAST.vci.gz -r "1:13009000-13009800" -d
     start = time.time()
+    logger = g2g.get_logger(debug_level)
 
     vci_file = g2g_utils.check_file(vci_file, "r")
 
-    LOG.info(f"VCI File: {vci_file}")
-    LOG.info(f"Region: {region}")
+    logger.warn(f"VCI File: {vci_file}")
+    logger.warn(f"Region: {region}")
 
     vci_f = VCIFile(vci_file, seq_ids=[region.seq_id])
     vci_f.parse(False)
@@ -418,14 +420,14 @@ def vci_query(vci_file, region, fasta_file):
     mappings = vci_f.find_mappings(region.seq_id, region.start, region.end)
 
     for m in mappings:
-        LOG.debug(m)
+        logger.debug(m)
 
     start_pos = mappings[0].to_start
     end_pos = mappings[-1].to_end
 
-    LOG.debug(f"Converted Region: {region.seq_id}:{start_pos+1}-{end_pos + 1}")
+    logger.debug(f"Converted Region: {region.seq_id}:{start_pos+1}-{end_pos + 1}")
 
     for line in vci_f.fetch(reference=region.seq_id, start=start_pos, end=end_pos, parser=pysam.asTuple()):
         print(str(line))
 
-    LOG.info("VCI parsed: {0}".format(g2g_utils.format_time(start, time.time())))
+    logger.warn("VCI parsed: {0}".format(g2g_utils.format_time(start, time.time())))

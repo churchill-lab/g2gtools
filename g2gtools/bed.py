@@ -17,11 +17,8 @@ from . import g2g_utils
 from .exceptions import G2GBedError
 from .vci import VCIFile
 
-
 bed_fields = ["chrom", "start", "end", "name", "score", "strand", "extra"]
 BEDRecord = collections.namedtuple("BEDRecord", bed_fields)
-
-LOG = g2g.get_logger()
 
 
 class BED(object):
@@ -83,14 +80,12 @@ class BED(object):
             self.current_record = BEDRecord(**bed_data)
             return self.current_record
         except IndexError as ie:
-            LOG.debug(ie)
             raise G2GBedError((
                 "Improperly formatted BED file, "
                 f"line number: {self.current_line_no}, "
                 f"line: {self.current_line}"
             ))
         except ValueError as ve:
-            LOG.debug(ve)
             raise G2GBedError((
                 "Improperly formatted BED file, "
                 f"line number: {self.current_line_no}, "
@@ -99,7 +94,7 @@ class BED(object):
 
 
 # TODO: kb test
-def convert_bed_file(vci_file, input_file, output_file=None, reverse=False):
+def convert_bed_file(vci_file, input_file, output_file=None, reverse=False, debug_level=0):
     """
     Convert BED coordinates.
 
@@ -113,19 +108,20 @@ def convert_bed_file(vci_file, input_file, output_file=None, reverse=False):
     :type reverse: boolean
     :return:
     """
+    logger = g2g.get_logger(debug_level)
 
     if isinstance(vci_file, VCIFile):
-        LOG.info(f"VCI FILE: {vci_file.filename}")
-        LOG.info(f"VCI FILE IS DIPLOID: {vci_file.is_diploid()}")
+        logger.warn(f"VCI FILE: {vci_file.filename}")
+        logger.info(f"VCI FILE IS DIPLOID: {vci_file.is_diploid()}")
     else:
         vci_file = g2g_utils.check_file(vci_file)
         vci_file = VCIFile(vci_file)
-        LOG.info(f"VCI FILE: {vci_file.filename}")
-        LOG.info(f"VCI FILE IS DIPLOID: {vci_file.is_diploid()}")
+        logger.warn(f"VCI FILE: {vci_file.filename}")
+        logger.info(f"VCI FILE IS DIPLOID: {vci_file.is_diploid()}")
         vci_file.parse(reverse)
 
     input_file = g2g_utils.check_file(input_file)
-    LOG.info(f"INPUT FILE: {input_file}")
+    logger.warn(f"INPUT FILE: {input_file}")
 
     bed_out = None
     bed_unmapped_file = None
@@ -135,20 +131,20 @@ def convert_bed_file(vci_file, input_file, output_file=None, reverse=False):
         unmapped_file = f"{output_file}.unmapped"
         bed_out = open(output_file, "w")
         bed_unmapped_file = open(unmapped_file, "w")
-        LOG.info(f"OUTPUT FILE: {output_file}")
-        LOG.info(f"UNMAPPED FILE: {unmapped_file}")
+        logger.info(f"OUTPUT FILE: {output_file}")
+        logger.info(f"UNMAPPED FILE: {unmapped_file}")
     else:
         input_dir, input_name = g2g_utils.get_dir_and_file(input_file)
         unmapped_file = f"{input_name}.unmapped"
         unmapped_file = g2g_utils.check_file(unmapped_file, "w")
         bed_out = sys.stdout
         bed_unmapped_file = open(unmapped_file, "w")
-        LOG.info("OUTPUT FILE: stdout")
-        LOG.info(f"UNMAPPED FILE: {unmapped_file}")
+        logger.info("OUTPUT FILE: stdout")
+        logger.info(f"UNMAPPED FILE: {unmapped_file}")
 
     left_right = [""] if vci_file.is_haploid() else ["_L", "_R"]
 
-    LOG.info("Converting BED file...")
+    logger.info("Converting BED file...")
 
     bed_file = BED(input_file)
 
@@ -158,12 +154,12 @@ def convert_bed_file(vci_file, input_file, output_file=None, reverse=False):
 
     for record in bed_file:
 
-        LOG.debug("\nORIGINAL: {0}".format(str(bed_file.current_line).strip()))
+        logger.debug("\nORIGINAL: {0}".format(str(bed_file.current_line).strip()))
 
         total += 1
 
         if total % 100000 == 0:
-            LOG.info(f"Processed {total:,} lines")
+            logger.info(f"Processed {total:,} lines")
 
         for lr in left_right:
             seqid = f"{record.chrom}{lr}"
@@ -175,33 +171,33 @@ def convert_bed_file(vci_file, input_file, output_file=None, reverse=False):
 
             # unmapped
             if mappings is None:
-                LOG.debug("\tFail due to no mappings")
+                logger.debug("\tFail due to no mappings")
                 bed_unmapped_file.write(bed_file.current_line)
                 fail += 0
                 continue
             else:
-                LOG.debug(f"{len(mappings)} mappings found")
+                logger.debug(f"{len(mappings)} mappings found")
 
             success += 1
             start = mappings[0].to_start + 1
             end = mappings[-1].to_end
             elems = bed_file.current_line.rstrip().split("\t")
 
-            LOG.debug(f"({record.start-1}, {record.end}) => ({start}, {end})")
-            LOG.debug(elems)
+            logger.debug(f"({record.start-1}, {record.end}) => ({start}, {end})")
+            logger.debug(elems)
 
             elems[0] = seqid
             elems[1] = start
             elems[2] = end
 
             temp_elems = "\t".join(map(str, elems))
-            LOG.debug(f"     NEW: {temp_elems}")
+            logger.debug(f"     NEW: {temp_elems}")
 
             bed_out.write(f"{temp_elems}\n")
 
     bed_out.close()
     bed_unmapped_file.close()
 
-    LOG.info(f"Converted {success:,} of {total:,} records")
-    LOG.info("BED file converted")
+    logger.warn(f"Converted {success:,} of {total:,} records")
+    logger.warn("BED file converted")
 

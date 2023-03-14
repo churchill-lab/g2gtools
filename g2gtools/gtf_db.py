@@ -200,7 +200,7 @@ def count_me(conn, table):
     c.close()
 
 
-def gtf2db(input_file, output_file):
+def gtf2db(input_file, output_file, debug_level=0):
     """
     Convert a GTF file into SQLite
 
@@ -208,19 +208,20 @@ def gtf2db(input_file, output_file):
     :param output_file: The generated database file
     """
     start = time.time()
+    logger = g2g.get_logger(debug_level)
 
     input_file = g2g_utils.check_file(input_file, 'r')
     output_file = g2g_utils.check_file(output_file, 'w')
 
     g2g_utils.delete_file(output_file)
 
-    LOG.info(f"GTF FILE: {input_file}")
-    LOG.info(f"DB File: {output_file}")
+    logger.warn(f"GTF FILE: {input_file}")
+    logger.warn(f"DB File: {output_file}")
 
     conn = sqlite3.connect(output_file)
     c = conn.cursor()
 
-    LOG.debug("Generating tables")
+    logger.info("Generating tables...")
     c.execute(SQL_CREATE_GTF_TABLE)
     c.execute(SQL_CREATE_GTF_LOOKUP_TABLE)
     c.execute(SQL_CREATE_GTF_SOURCES_TABLE)
@@ -231,7 +232,7 @@ def gtf2db(input_file, output_file):
     gtf_sources = {}
     gtf_attributes = {}
 
-    LOG.info("Parsing GTF file...")
+    logger.info("Parsing GTF file...")
 
     gtf_file = gtf.GTF(input_file)
 
@@ -239,9 +240,9 @@ def gtf2db(input_file, output_file):
     prev_gene_id = None
 
     for record in gtf_file:
-        LOG.debug(f"LINE={record}")
+        logger.debug(f"LINE={record}")
         if counter and counter % 100000 == 0:
-            LOG.info(f"Processed {counter:,} records")
+            logger.info(f"Processed {counter:,} records")
 
         if record.type not in gtf_types:
             _type_key = len(gtf_types.keys())
@@ -262,13 +263,13 @@ def gtf2db(input_file, output_file):
         gene_id = record.attributes["gene_id"]
 
         if prev_gene_id != gene_id:
-            LOG.debug("-"*80)
+            logger.debug("-"*80)
             prev_gene_id = gene_id
 
         transcript_id = record.attributes["transcript_id"] if "transcript_id" in record.attributes else None
         ensembl_id = None
 
-        LOG.debug(f"transcript_id = {transcript_id}")
+        logger.debug(f"transcript_id = {transcript_id}")
 
         if record.type == "gene":
             ensembl_id = record.attributes["gene_id"]
@@ -279,13 +280,13 @@ def gtf2db(input_file, output_file):
         else:
             ensembl_id = record.attributes["protein_id"] if "protein_id" in record.attributes else None
 
-        LOG.debug(f"ensembl_id = {ensembl_id}")
+        logger.debug(f"ensembl_id = {ensembl_id}")
 
         c.execute(SQL_INSERT_GTF_TABLE, (gene_id, transcript_id, ensembl_id, record.seqid, record.start, record.end, strand, record.score, _source_key, _type_key, record.frame))
 
-        LOG.debug("INSERTING GTF = {}".format(str((gene_id, transcript_id, ensembl_id, record.seqid, record.start, record.end, strand, record.score, _source_key, _type_key, record.frame))))
+        logger.debug("INSERTING GTF = {}".format(str((gene_id, transcript_id, ensembl_id, record.seqid, record.start, record.end, strand, record.score, _source_key, _type_key, record.frame))))
         gtf_key = c.lastrowid
-        LOG.debug(f"gtf_key={gtf_key}")
+        logger.debug(f"gtf_key={gtf_key}")
 
         for (attribute, value) in record.attributes.items():
             if attribute not in ["gene_id", "transcript_id", "exon_id"]:
@@ -295,7 +296,7 @@ def gtf2db(input_file, output_file):
                 else:
                     _attribute_key = gtf_attributes[attribute]
 
-                LOG.debug("inserting {}".format(str((gtf_key, _attribute_key, value))))
+                logger.debug("inserting {}".format(str((gtf_key, _attribute_key, value))))
                 c.execute(SQL_INSERT_GTF_LOOKUP_TABLE, (gtf_key, _attribute_key, value))
 
         counter += 1
@@ -315,37 +316,37 @@ def gtf2db(input_file, output_file):
         c.execute(SQL_INSERT_GTF_ATTRIBUTES_TABLE, (_key, attribute))
         conn.commit()
 
-    LOG.info("GTF File parsed")
+    logger.info("GTF File parsed")
 
-    LOG.info("Finalizing database...")
+    logger.info("Finalizing database...")
 
     for sql in SQL_INDICES_GTF:
-        LOG.debug(sql)
+        logger.debug(sql)
         c.execute(sql)
 
     for sql in SQL_INDICES_GTF_LOOKUP:
-        LOG.debug(sql)
+        logger.debug(sql)
         c.execute(sql)
 
     for sql in SQL_INDICES_GTF_TYPES:
-        LOG.debug(sql)
+        logger.debug(sql)
         c.execute(sql)
 
     for sql in SQL_INDICES_GTF_SOURCES:
-        LOG.debug(sql)
+        logger.debug(sql)
         c.execute(sql)
 
     for sql in SQL_INDICES_GTF_ATTRIBUTES:
-        LOG.debug(sql)
+        logger.debug(sql)
         c.execute(sql)
 
-    LOG.info("Database created")
+    logger.info("Database created")
 
     # close connection
     conn.close()
 
     fmt_time = g2g_utils.format_time(start, time.time())
-    LOG.info(f"Execution complete: {fmt_time}")
+    logger.warn(f"Execution complete: {fmt_time}")
 
 
 class GTFObject(object):
@@ -520,16 +521,17 @@ def get_gene(db, ensembl_id):
     return genes
 
 
-def get_genes_ids(db, location=None, use_strand=False, overlap=True):
+def get_genes_ids(db, location=None, use_strand=False, overlap=True, debug_level=0):
     """
     Get ensembl ids for genes
     """
+    logger = g2g.get_logger(debug_level)
 
     sql, sql_parameters = location_to_sql(location, use_strand, overlap)
     sql = f"{SQL_GENES_SIMPLE} {sql} {SQL_GENES_SIMPLE_ORDER_BY}"
 
-    LOG.debug(f"SQL:\n{sql}")
-    LOG.debug(f"PARAMETERS: {sql_parameters}")
+    logger.debug(f"SQL:\n{sql}")
+    logger.debug(f"PARAMETERS: {sql_parameters}")
 
     conn = sqlite3.connect(db)
     sqlite3.enable_callback_tracebacks(True)
@@ -565,13 +567,14 @@ def get_genes(db, location=None, use_strand=False, overlap=True):
     return genes
 
 
-def get_genes_simple(db, location=None, use_strand=False, overlap=True):
+def get_genes_simple(db, location=None, use_strand=False, overlap=True, debug_level=0):
 
     sql, sql_parameters = location_to_sql(location, use_strand, overlap)
     sql = f"{SQL_GENES_SIMPLE} {sql} {SQL_GENES_SIMPLE_ORDER_BY}"
 
-    LOG.debug(f"SQL:\n{sql}")
-    LOG.debug(f"PARAMETERS: {sql_parameters}")
+    logger = g2g.get_logger(debug_level)
+    logger.debug(f"SQL:\n{sql}")
+    logger.debug(f"PARAMETERS: {sql_parameters}")
 
     conn = sqlite3.connect(db)
     sqlite3.enable_callback_tracebacks(True)
@@ -591,15 +594,16 @@ def get_genes_simple(db, location=None, use_strand=False, overlap=True):
     return genes
 
 #def get_transcripts_simple(db, location=None, use_strand=False, overlap=True):
-def get_transcripts_simple(db):
+def get_transcripts_simple(db, debug_level=0):
     sql = f"{SQL_TRANSCRIPTS_SIMPLE} {SQL_TRANSCRIPTS_SIMPLE_ORDER_BY}"
 
-    LOG.debug(f"SQL:\n{sql}")
+    logger = g2g.get_logger(debug_level)
+    logger.debug(f"SQL:\n{sql}")
 
     conn = sqlite3.connect(db)
 
-    #LOG.debug("SQLite Version: {}".format(sqlite3.sqlite_version))
-    #LOG.debug("sqlite3 driver {}, version: {}".format(sqlite3.__name__, sqlite3.version))
+    #logger.debug("SQLite Version: {}".format(sqlite3.sqlite_version))
+    #logger.debug("sqlite3 driver {}, version: {}".format(sqlite3.__name__, sqlite3.version))
     sqlite3.enable_callback_tracebacks(True)
     conn.row_factory = sqlite3.Row
     conn.text_factory = str
@@ -612,12 +616,12 @@ def get_transcripts_simple(db):
     for r in cursor:
         counter += 1
         if counter % 10000 == 0:
-            LOG.debug(f"Parsed {counter} elements")
+            logger.debug(f"Parsed {counter} elements")
 
         if r["transcript_id"] == r["ensembl_id"]:
             # transcript
             if r["transcript_id"] not in transcripts:
-                #LOG.debug("adding transcript {}".format(r["transcript_id"]))
+                #logger.debug("adding transcript {}".format(r["transcript_id"]))
 
                 # ** deactivated
                 #transcripts[r["ensembl_id"]] = Transcript(r["ensembl_id"], r["seqid"], r["start"], r["end"], r["strand"])
@@ -628,7 +632,7 @@ def get_transcripts_simple(db):
                 transcripts[r["transcript_id"]] = Transcript(r["ensembl_id"], r["seqid"], r["start"], r["end"],
                                                           r["strand"])
 
-                #LOG.debug(transcripts[r["ensembl_id"]])
+                #logger.debug(transcripts[r["ensembl_id"]])
 
         # ** deactivated
         #elif r["transcript_id"] is not None and (r["gene_id"] != r["ensembl_id"]):
@@ -637,8 +641,8 @@ def get_transcripts_simple(db):
         elif r["transcript_id"] is not None and r["ensembl_id"] is not None \
                     and (r["gene_id"] != r["ensembl_id"]):
             # exon
-            LOG.debug("ADDING exon")
-            LOG.debug(f"{r['ensembl_id']}:{r['exon_number']}")
+            logger.debug("ADDING exon")
+            logger.debug(f"{r['ensembl_id']}:{r['exon_number']}")
             exon = Exon(r["ensembl_id"], r["seqid"], r["start"], r["end"], r["strand"])
             exon.gene_id = r["gene_id"]
             exon.transcript_ids[r["transcript_id"]] = r["transcript_id"]
@@ -666,7 +670,7 @@ def get_transcripts_simple(db):
             # to include missing transcript_ids database from single exon genes adding another condition
             # transcript
             if r["transcript_id"] not in transcripts:
-                # LOG.debug("adding transcript {}".format(r["transcript_id"]))
+                # logger.debug("adding transcript {}".format(r["transcript_id"]))
 
                 ## ** New method: Since the condition i.e r["transcript_id"] != r["ensembl_id"] ..
                 # .. and also that we are building transcript-ids, using "transcript_id" as key is more comprehensive
@@ -674,29 +678,29 @@ def get_transcripts_simple(db):
                                                              r["strand"])
 
         else:
-            #LOG.debug("gene")
+            #logger.debug("gene")
             pass
 
 
-    LOG.debug("Simplifying transcripts")
+    logger.debug("Simplifying transcripts")
     #transcripts = {transcript.ensembl_id: transcript for i, transcript in transcripts.items()}
-    #LOG.debug(transcripts)
+    #logger.debug(transcripts)
     for i, transcript in transcripts.items():
-        LOG.debug(f"Transcript={transcript}")
+        logger.debug(f"Transcript={transcript}")
 
         for ensembl_id, exon in transcript.exons.items():
-            LOG.debug(f"Exon ID={ensembl_id};{exon}")
+            logger.debug(f"Exon ID={ensembl_id};{exon}")
 
     #for _id, exon in exons.items():
-    #    LOG.debug("_id={}\texon={}".format(_id, str(exon)))
+    #    logger.debug("_id={}\texon={}".format(_id, str(exon)))
     #    for _tid in exon.transcript_ids:
-    #        #LOG.debug("_tid={}".format(_id))
-    #        LOG.debug(transcripts[_tid])
+    #        #logger.debug("_tid={}".format(_id))
+    #        logger.debug(transcripts[_tid])
     #        transcripts[_tid].exons[exon.ensembl_id] = exon
 
     cursor.close()
     conn.close()
 
-    LOG.debug(f"Number of transcripts: {len(transcripts.values())}")
+    logger.debug(f"Number of transcripts: {len(transcripts.values())}")
 
     return transcripts.values()

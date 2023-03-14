@@ -12,8 +12,6 @@ from .exceptions import G2GRegionError
 REGEX_REGION = re.compile("(\w*)\s*(-|:)?\s*(\d+)\s*(MB|M|K|)?\s*(-|:|)?\s*(\d+|)\s*(MB|M|K|)?", re.IGNORECASE)
 REGEX_REGION_CHR = re.compile("(CHR|)*\s*([0-9]{1,2}|X|Y|MT)\s*(-|:)?\s*(\d+)\s*(MB|M|K|)?\s*(-|:|)?\s*(\d+|)\s*(MB|M|K|)?", re.IGNORECASE)
 
-LOG = logging.getLogger("G2G")
-
 #
 #
 # Logging
@@ -21,69 +19,32 @@ LOG = logging.getLogger("G2G")
 #
 
 
-class G2GFormatter(logging.Formatter):
-
-    err_fmt = "[g2gtools] %(msg)s"
-    # err_fmt = "DEBUG: %(asctime)s, %(module)s: %(lineno)d: %(msg)s"
-    # dbg_fmt = "DEBUG: %(asctime)s, %(module)s: %(lineno)d: %(msg)s"
-    dbg_fmt = "[g2gtools debug] %(msg)s"
-    info_fmt = "[g2gtools] %(msg)s"
-
-    def __init__(self, fmt="[g2gtools] %(msg)s"):
-        logging.Formatter.__init__(self, fmt)
-
-    def format(self, record):
-
-        # Save the original format configured by the user
-        # when the logger formatter was instantiated
-        format_orig = self._fmt
-
-        # Replace the original format with one customized by logging level
-        if record.levelno == logging.DEBUG:
-            self._fmt = G2GFormatter.dbg_fmt
-
-        elif record.levelno == logging.INFO:
-            self._fmt = G2GFormatter.info_fmt
-
-        elif record.levelno == logging.ERROR:
-            self._fmt = G2GFormatter.err_fmt
-
-        # Call the original formatter class to do the grunt work
-        result = logging.Formatter.format(self, record)
-
-        # Restore the original format configured by the user
-        self._fmt = format_orig
-
-        return result
-
-
-def get_logger():
+def get_logger(level=0):
     """
-    Get the logger
-    :return: logger object
+    Logging levels:
+        50  CRITICAL
+        40  ERROR
+        30  WARNING -d
+        20  INFO    -dd
+        10  DEBUG   -ddd
+        0   NOTSET
     """
-    return LOG
+    logger = logging.getLogger("G2G")
 
-
-def configure_logging(level):
-    """
-
-    :param level: 0=ERROR, 1=INFO, 2+=DEBUG
-    """
-    global LOG
-    LOG = logging.getLogger("G2G")
-
-    handler = logging.StreamHandler(sys.stderr)
-
-    mfmt = G2GFormatter()
-    handler.setFormatter(mfmt)
+    if not logger.hasHandlers():
+        handler = logging.StreamHandler(sys.stderr)
+        formatter = logging.Formatter("[g2gtools] %(levelname)s %(msg)s")
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
 
     if level == 0:
-        LOG.setLevel(logging.INFO)
+        logger.setLevel(logging.WARNING)
+    elif level == 1:
+        logger.setLevel(logging.INFO)
     else:
-        LOG.setLevel(logging.DEBUG)
+        logger.setLevel(logging.DEBUG)
 
-    LOG.addHandler(handler)
+    return logger
 
 
 def exit(message="", parser=None):
@@ -285,11 +246,11 @@ def parse_region(location_str, base=0, name=None):
     else:
         end = end_base * get_multiplier(end_mult)
 
-    LOG.debug(f"identifier={identifier}, start={start}, end={end}, base={base}, name={name}")
+    # LOG.debug(f"identifier={identifier}, start={start}, end={end}, base={base}, name={name}")
 
     region = Region(identifier, start, end, "+", original_base=base, name=name)
 
-    LOG.debug(f"parse_region returning: region = {region}")
+    # LOG.debug(f"parse_region returning: region = {region}")
 
     return region
 

@@ -189,7 +189,7 @@ class FAI(object):
             print(str(self.records[record]))
 
 
-def extract(fasta_input, locations, output=None, reverse=False, complement=False, raw=False):
+def extract(fasta_input, locations, output=None, reverse=False, complement=False, raw=False, debug_level=0):
     """
 
     :param fasta_input: the name of the Fasta file
@@ -207,6 +207,7 @@ def extract(fasta_input, locations, output=None, reverse=False, complement=False
     """
 
     start_time = time.time()
+    logger = g2g.get_logger(debug_level)
 
     if isinstance(fasta_input, pysam.FastaFile):
         fasta = fasta_input
@@ -214,7 +215,7 @@ def extract(fasta_input, locations, output=None, reverse=False, complement=False
         fasta_input = g2g_utils.check_file(fasta_input)
         fasta = pysam.FastaFile(fasta_input)
 
-    LOG.debug(f"FASTA FILE: {fasta.filename}")
+    logger.warn(f"FASTA FILE: {fasta.filename}")
 
     if output:
         output = g2g_utils.check_file(output, "w")
@@ -227,7 +228,7 @@ def extract(fasta_input, locations, output=None, reverse=False, complement=False
             locations = [locations]
 
         for location in locations:
-            LOG.debug(f"LOCATION: {location}")
+            logger.debug(f"LOCATION: {location}")
             if not isinstance(location, g2g.Region):
                 raise G2GRegionError(f"Found: {location}, which is not a Region")
 
@@ -260,34 +261,35 @@ def extract(fasta_input, locations, output=None, reverse=False, complement=False
                     end = len_seq + start - 1
 
                 fasta_id = f">{location.seq_id}:{start}-{end}\n"
-                LOG.debug(f"Fasta ID: {fasta_id}")
-                LOG.debug(f"{sequence[:10]}...{sequence[-10:]}")
+                logger.debug(f"Fasta ID: {fasta_id}")
+                logger.debug(f"{sequence[:10]}...{sequence[-10:]}")
 
                 if location.name:
                     fasta_id = f">{location.name} {location.seq_id}:{start}-{end}\n"
-                    LOG.debug("Location name specified, Fasta ID: {}".format(fasta_id))
+                    logger.debug("Location name specified, Fasta ID: {}".format(fasta_id))
 
                 fasta_out.write(fasta_id)
 
                 g2g_utils.write_sequence(sequence, fasta_out)
 
     except G2GRegionError as e:
-        LOG.info(e.msg.rstrip())
+        logger.info(e.msg.rstrip())
         raise e
     except G2GFastaError as e:
-        LOG.info(e.msg.rstrip())
+        logger.info(e.msg.rstrip())
         raise e
 
     fasta_out.close()
 
     fmt_time = g2g_utils.format_time(start_time, time.time())
-    LOG.info(f"Execution complete: {fmt_time}")
+    logger.warn(f"Execution complete: {fmt_time}")
 
 
-def extract_id(fasta_input, identifier, output=None, reverse=False, complement=False, raw=False):
+def extract_id(fasta_input, identifier, output=None, reverse=False, complement=False, raw=False, debug_level=0):
     """
     """
-    LOG.info("Execution start")
+    logger = g2g.get_logger(debug_level)
+    logger.info("Execution start")
 
     start_time = time.time()
 
@@ -297,7 +299,7 @@ def extract_id(fasta_input, identifier, output=None, reverse=False, complement=F
         fasta_input = g2g_utils.check_file(fasta_input)
         fasta = pysam.FastaFile(fasta_input)
 
-    LOG.debug(f"FASTA FILE: {fasta.filename}")
+    logger.debug(f"FASTA FILE: {fasta.filename}")
 
     if output:
         output = g2g_utils.check_file(output, "w")
@@ -326,15 +328,15 @@ def extract_id(fasta_input, identifier, output=None, reverse=False, complement=F
                 fasta_out.write("\n")
 
     except G2GRegionError as e:
-        LOG.info(e.msg.rstrip())
+        logger.info(e.msg.rstrip())
         raise e
     except G2GFastaError as e:
-        LOG.info(e.msg.rstrip())
+        logger.info(e.msg.rstrip())
         raise e
 
     fasta_out.close()
 
-    LOG.info("Execution complete: {0}".format(g2g_utils.format_time(start_time, time.time())))
+    logger.info("Execution complete: {0}".format(g2g_utils.format_time(start_time, time.time())))
 
 
 def diff_files(file1, file2):
@@ -475,9 +477,10 @@ def parse_fasta_header(fasta_header):
     return None
 
 
-def reformat(fasta_input, output_file, length=60):
+def reformat(fasta_input, output_file, length=60, debug_level=0):
     fasta_input = g2g_utils.check_file(fasta_input)
     output = sys.stdout
+    logger = g2g.get_logger(debug_level)
 
     if output_file:
         output_file = g2g_utils.check_file(output_file, "w")
@@ -496,14 +499,14 @@ def reformat(fasta_input, output_file, length=60):
                     output.write("\n")
                     g2g_utils.write_sequence(new_sequence.getvalue(), output, length)
 
-                    LOG.info(f"Reformatting {new_header}")
+                    logger.info(f"Reformatting {new_header}")
 
                 new_sequence = StringIO()
                 new_header = line
             else:
                 new_sequence.write(line)
 
-        LOG.info(f"Reformatting {new_header}")
+        logger.info(f"Reformatting {new_header}")
         output.write(new_header)
         output.write("\n")
         g2g_utils.write_sequence(new_sequence.getvalue(), output, length)
@@ -512,9 +515,9 @@ def reformat(fasta_input, output_file, length=60):
     output.close()
 
 
-def fasta_extract_transcripts(fasta_file, database_file, output, raw=False):
+def fasta_extract_transcripts(fasta_file, database_file, output, raw=False, debug_level=0):
     start = time.time()
-
+    logger = g2g.get_logger(debug_level)
     if isinstance(fasta_file, FastaFile):
         fasta = fasta_file
     else:
@@ -529,25 +532,25 @@ def fasta_extract_transcripts(fasta_file, database_file, output, raw=False):
         output = g2g_utils.check_file(output, "w")
         fasta_out = open(output, "w")
 
-    LOG.info(f"FASTA FILE: {fasta.filename}")
-    LOG.info(f"DATABASE FILE: {database_file}")
-    LOG.info(f"OUTPUT FILE: {fasta_out.name}")
+    logger.warn(f"FASTA FILE: {fasta.filename}")
+    logger.warn(f"DATABASE FILE: {database_file}")
+    logger.warn(f"OUTPUT FILE: {fasta_out.name}")
 
     try:
         transcripts = gtf_db.get_transcripts_simple(database_file)
 
         for i, transcript in enumerate(transcripts):
-            LOG.debug(f"Transcript={transcript}")
+            logger.debug(f"Transcript={transcript}")
 
             if transcript.seqid not in fasta.references:
-                LOG.debug("skipping, transcript seqid not in fasta references")
-                LOG.debug(f"{transcript.seqid} not in {fasta.references}")
+                logger.debug("skipping, transcript seqid not in fasta references")
+                logger.debug(f"{transcript.seqid} not in {fasta.references}")
                 continue
 
             new_sequence = StringIO()
             locations = []
             for ensembl_id, exon in transcript.exons.items():
-                LOG.debug(f"Exon ID={ensembl_id};{exon}")
+                logger.debug(f"Exon ID={ensembl_id};{exon}")
 
                 partial_seq = fasta.fetch(exon.seqid, exon.start-1, exon.end)
                 partial_seq_str = str(partial_seq)
@@ -558,7 +561,7 @@ def fasta_extract_transcripts(fasta_file, database_file, output, raw=False):
                     partial_seq_str = str(g2g_utils.reverse_complement_sequence(partial_seq))
                     new_sequence.write(partial_seq_str)
 
-                LOG.debug(f"{exon.seqid}:{exon.start}-{exon.end} (Length: {len(partial_seq)})\n{partial_seq_str}")
+                logger.debug(f"{exon.seqid}:{exon.start}-{exon.end} (Length: {len(partial_seq)})\n{partial_seq_str}")
                 locations.append(f"{exon.seqid}:{exon.start}-{exon.end}")
 
             if raw:
@@ -574,18 +577,19 @@ def fasta_extract_transcripts(fasta_file, database_file, output, raw=False):
                     fasta_out.write("\n")
 
     except G2GValueError as e:
-        LOG.info(e.msg.rstrip())
+        logger.info(e.msg.rstrip())
         raise e
     except G2GFastaError as e:
-        LOG.info(e.msg.rstrip())
+        logger.info(e.msg.rstrip())
         raise e
 
     fmt_time = g2g_utils.format_time(start, time.time())
-    LOG.info(f"Execution complete: {fmt_time}")
+    logger.warn(f"Execution complete: {fmt_time}")
 
 
-def fasta_extract_exons(fasta_file, database_file, output, raw=False):
+def fasta_extract_exons(fasta_file, database_file, output, raw=False, debug_level=0):
     start = time.time()
+    logger = g2g.get_logger(debug_level)
 
     if isinstance(fasta_file, FastaFile):
         fasta = fasta_file
@@ -601,9 +605,9 @@ def fasta_extract_exons(fasta_file, database_file, output, raw=False):
         output = g2g_utils.check_file(output, "w")
         fasta_out = open(output, "w")
 
-    LOG.info(f"FASTA FILE: {fasta.filename}")
-    LOG.info(f"DATABASE FILE: {database_file}")
-    LOG.info(f"OUTPUT FILE: {fasta_out.name}")
+    logger.warn(f"FASTA FILE: {fasta.filename}")
+    logger.warn(f"DATABASE FILE: {database_file}")
+    logger.warn(f"OUTPUT FILE: {fasta_out.name}")
 
     try:
         transcripts = gtf_db.get_transcripts_simple(database_file)
@@ -613,7 +617,7 @@ def fasta_extract_exons(fasta_file, database_file, output, raw=False):
                 continue
 
             for ensembl_id, exon in transcript.exons.items():
-                LOG.debug(f"Exon={exon}")
+                logger.debug(f"Exon={exon}")
 
                 partial_seq = fasta.fetch(exon.seqid, exon.start-1, exon.end)
                 partial_seq_str = partial_seq
@@ -621,7 +625,7 @@ def fasta_extract_exons(fasta_file, database_file, output, raw=False):
                 if transcript.strand == -1:
                     partial_seq_str = str(g2g_utils.reverse_complement_sequence(partial_seq))
 
-                LOG.debug(f"{exon.seqid}:{exon.start}-{exon.end} (Length: {len(partial_seq)})\n{partial_seq_str}")
+                logger.debug(f"{exon.seqid}:{exon.start}-{exon.end} (Length: {len(partial_seq)})\n{partial_seq_str}")
 
                 if raw:
                     fasta_out.write(partial_seq_str)
@@ -634,14 +638,11 @@ def fasta_extract_exons(fasta_file, database_file, output, raw=False):
                         fasta_out.write("\n")
 
     except G2GValueError as e:
-        LOG.info(e.msg.rstrip())
+        logger.info(e.msg.rstrip())
         raise e
     except G2GFastaError as e:
-        LOG.info(e.msg.rstrip())
+        logger.info(e.msg.rstrip())
         raise e
 
-    LOG.info("Execution complete: {0}".format(g2g_utils.format_time(start, time.time())))
+    logger.warn("Execution complete: {0}".format(g2g_utils.format_time(start, time.time())))
 
-
-if __name__ == "__main__":
-    g2g.configure_logging(5)

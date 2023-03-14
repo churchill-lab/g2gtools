@@ -2,6 +2,16 @@
 # http://genomewiki.ucsc.edu/index.php/Bin_indexing_system
 #
 
+# standard library imports
+# none
+
+# 3rd party library imports
+# none
+
+# local library imports
+# none
+
+
 BIN_NEXT_SHIFT = 3    # How much to shift to get to finest bin
 BIN_FIRST_SHIFT = 17  # How much to shift to get to next larger bin
 BIN_OFFSETS = [4096+512+64+8+1, 512+64+8+1, 64+8+1, 8+1, 1, 0]

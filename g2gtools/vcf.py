@@ -33,8 +33,6 @@ GENOTYPE_PHASED = "|"
 
 REGEX_ALT = re.compile("(^[A|C|G|T]+)")
 
-LOG = g2g.get_logger()
-
 
 class VCFFile(object):
     """
@@ -207,15 +205,19 @@ def parse_gt(vcf_record, sample_index):
                     gt_right = None
 
         except ValueError as ve:
-            LOG.debug(ve)
+            # LOG.debug(ve)
+            pass
         except IndexError as ie:
-            LOG.debug(ie)
+            # LOG.debug(ie)
+            pass
         try:
             fi = sample_data.split(":")[fi_index]
         except ValueError as ve:
-            LOG.debug(ve)
+            # LOG.debug(ve)
+            pass
         except IndexError as ie:
-            LOG.debug(ie)
+            # LOG.debug(ie)
+            pass
 
     is_snp = len(vcf_record.REF) == 1 == (len(left) if left else 0) == (len(right) if right else 0)
     return GTData(
@@ -286,16 +288,20 @@ def parse_gt_tuple(vcf_record, sample_index):
                 #    gt_right = None
 
         except ValueError as ve:
-            LOG.debug(ve)
+            # LOG.debug(ve)
+            pass
         except IndexError as ie:
-            LOG.debug(ie)
+            # LOG.debug(ie)
+            pass
         try:
             if fi_index:
                 fi = sample_data.split(":")[fi_index]
         except ValueError as ve:
-            LOG.debug(ve)
+            # LOG.debug(ve)
+            pass
         except IndexError as ie:
-            LOG.debug(ie)
+            # LOG.debug(ie)
+            pass
 
     is_snp = len(vcf_record.ref) == 1 == (len(left) if left else 0) == (len(right) if right else 0)
     return GTData(vcf_record.ref, left, right, gt, fi, phase, gt_left, gt_right, is_snp)
