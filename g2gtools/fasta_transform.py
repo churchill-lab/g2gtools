@@ -94,7 +94,7 @@ def process_piece(fasta_transform_params):
 
         logger.debug(f"fasta_transform_params.input_region={fasta_transform_params.input_region}")
         logger.debug(f"fasta_transform_params.input_file={fasta_transform_params.input_file}")
-        logger.debug(f"fasta_transform_params.output_file={fasta_transform_params.output_file}")
+        logger.debug(f"fasta_transform_params.bed_file_out={fasta_transform_params.output_file}")
         logger.debug(f"fasta_transform_params.output_region={fasta_transform_params.output_region}")
         logger.debug(f"fasta_transform_params.output_header={fasta_transform_params.output_header}")
         logger.debug(f"fasta_transform_params.vci_query={fasta_transform_params.vci_query}")
@@ -177,7 +177,7 @@ def process_piece(fasta_transform_params):
             logger.info("This region was deleted")
             logger.info("TODO: dump the fasta sequence here")
             logger.info("fasta_transform_params.output_region.seq_id={}".format(fasta_transform_params.output_region.seq_id))
-            logger.info("fasta_transform_params.output_file={}".format(fasta_transform_params.output_file))
+            logger.info("fasta_transform_params.bed_file_out={}".format(fasta_transform_params.output_file))
 
             if fasta_transform_params.full_file:
                 out_header = ">{} {}:{}-{} from|{}:{}-{}\n".format(fasta_transform_params.output_region.seq_id, fasta_transform_params.input_region.seq_id, fasta_transform_params.input_region.start, fasta_transform_params.input_region.end, fasta_transform_params.input_region.seq_id, fasta_transform_params.input_region.start, fasta_transform_params.input_region.end)

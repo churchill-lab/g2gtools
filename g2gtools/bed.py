@@ -27,17 +27,17 @@ class BED(object):
 
     Supports transparent gzip decompression.
     """
-    def __init__(self, filename):
-        if not filename:
-            raise G2GBedError("A filename must be supplied")
+    def __init__(self, file_name):
+        if not file_name:
+            raise G2GBedError("A file_name must be supplied")
 
-        self.filename = filename
-        self.current_line = None
-        self.current_line_is_bed = False
+        self.file_name: str = file_name
+        self.current_line: str | None = None
+        self.current_line_is_bed: bool = False
         self.current_record = None
-        self.reader = g2g_utils.open_resource(filename)
-        self.nitems = None
-        self.current_line_no = 0
+        self.reader = g2g_utils.open_resource(file_name)
+        self.n_items: int | None = None
+        self.current_line_no: int = 0
 
     def __iter__(self):
         return self
@@ -60,10 +60,10 @@ class BED(object):
         self.current_line_is_bed = True
         elem = self.current_line.strip().split("\t")
 
-        if not self.nitems:
-            self.nitems = len(elem)
+        if not self.n_items:
+            self.n_items = len(elem)
         else:
-            if self.nitems != len(elem):
+            if self.n_items != len(elem):
                 raise G2GBedError("Improperly formatted BED file")
 
         try:
@@ -71,21 +71,21 @@ class BED(object):
                 "chrom": elem[0],
                 "start": int(elem[1]),
                 "end": int(elem[2]),
-                "name": elem[3] if self.nitems > 3 else None,
-                "score": elem[4] if self.nitems > 4 else None,
-                "strand": elem[5] if self.nitems > 5 else None,
-                "extra": elem[6:] if self.nitems > 6 else None
+                "name": elem[3] if self.n_items > 3 else None,
+                "score": elem[4] if self.n_items > 4 else None,
+                "strand": elem[5] if self.n_items > 5 else None,
+                "extra": elem[6:] if self.n_items > 6 else None
             }
 
             self.current_record = BEDRecord(**bed_data)
             return self.current_record
-        except IndexError as ie:
+        except IndexError:
             raise G2GBedError((
                 "Improperly formatted BED file, "
                 f"line number: {self.current_line_no}, "
                 f"line: {self.current_line}"
             ))
-        except ValueError as ve:
+        except ValueError:
             raise G2GBedError((
                 "Improperly formatted BED file, "
                 f"line number: {self.current_line_no}, "
@@ -93,20 +93,22 @@ class BED(object):
             ))
 
 
-# TODO: kb test
-def convert_bed_file(vci_file, input_file, output_file=None, reverse=False, debug_level=0):
+def convert_bed_file(
+        vci_file: str | VCIFile,
+        bed_file_name_in: str,
+        bed_file_name_out: str | None = None,
+        reverse: bool | None = False,
+        debug_level: int | None = 0
+) -> None:
     """
     Convert BED coordinates.
 
-    :param vci_file: VCI input file
-    :type vci_file: :class:`.vci.VCIFile`
-    :param input_file: the input BED file
-    :type input_file: string
-    :param output_file: the output BED file
-    :type output_file: string
-    :param reverse: reverse direction of original file
-    :type reverse: boolean
-    :return:
+    Args
+        vci_file: Name of the VCI file.
+        bed_file_name_in: Input BED file to convert.
+        bed_file_name_out: Name of output BED file.
+        reverse: True to process VCI in reverse.
+        debug_level: Debug level (0=WARN,1=INFO,2+=DEBUG).
     """
     logger = g2g.get_logger(debug_level)
 
@@ -120,21 +122,18 @@ def convert_bed_file(vci_file, input_file, output_file=None, reverse=False, debu
         logger.info(f"VCI FILE IS DIPLOID: {vci_file.is_diploid()}")
         vci_file.parse(reverse)
 
-    input_file = g2g_utils.check_file(input_file)
-    logger.warn(f"INPUT FILE: {input_file}")
+    bed_file_name_in = g2g_utils.check_file(bed_file_name_in)
+    logger.warn(f"BED FILE: {bed_file_name_in}")
 
-    bed_out = None
-    bed_unmapped_file = None
-
-    if output_file:
-        output_file = g2g_utils.check_file(output_file, "w")
-        unmapped_file = f"{output_file}.unmapped"
-        bed_out = open(output_file, "w")
+    if bed_file_name_out:
+        bed_file_name_out = g2g_utils.check_file(bed_file_name_out, "w")
+        unmapped_file = f"{bed_file_name_out}.unmapped"
+        bed_out = open(bed_file_name_out, "w")
         bed_unmapped_file = open(unmapped_file, "w")
-        logger.info(f"OUTPUT FILE: {output_file}")
+        logger.info(f"OUTPUT FILE: {bed_file_name_out}")
         logger.info(f"UNMAPPED FILE: {unmapped_file}")
     else:
-        input_dir, input_name = g2g_utils.get_dir_and_file(input_file)
+        input_dir, input_name = g2g_utils.get_dir_and_file(bed_file_name_in)
         unmapped_file = f"{input_name}.unmapped"
         unmapped_file = g2g_utils.check_file(unmapped_file, "w")
         bed_out = sys.stdout
@@ -144,17 +143,16 @@ def convert_bed_file(vci_file, input_file, output_file=None, reverse=False, debu
 
     left_right = [""] if vci_file.is_haploid() else ["_L", "_R"]
 
-    logger.info("Converting BED file...")
+    logger.warn("Converting BED file...")
 
-    bed_file = BED(input_file)
+    bed_file = BED(bed_file_name_in)
 
     total = 0
     success = 0
     fail = 0
 
     for record in bed_file:
-
-        logger.debug("\nORIGINAL: {0}".format(str(bed_file.current_line).strip()))
+        logger.debug("ORIGINAL: {0}".format(str(bed_file.current_line).strip()))
 
         total += 1
 
@@ -162,9 +160,9 @@ def convert_bed_file(vci_file, input_file, output_file=None, reverse=False, debu
             logger.info(f"Processed {total:,} lines")
 
         for lr in left_right:
-            seqid = f"{record.chrom}{lr}"
+            seq_id = f"{record.chrom}{lr}"
             mappings = vci_file.find_mappings(
-                seqid,
+                seq_id,
                 record.start - 1,
                 record.end
             )
@@ -181,23 +179,22 @@ def convert_bed_file(vci_file, input_file, output_file=None, reverse=False, debu
             success += 1
             start = mappings[0].to_start + 1
             end = mappings[-1].to_end
-            elems = bed_file.current_line.rstrip().split("\t")
+            elem = bed_file.current_line.rstrip().split("\t")
 
-            logger.debug(f"({record.start-1}, {record.end}) => ({start}, {end})")
-            logger.debug(elems)
+            logger.debug(f"({record.start-1}, {record.end})=>({start}, {end})")
+            logger.debug(elem)
 
-            elems[0] = seqid
-            elems[1] = start
-            elems[2] = end
+            elem[0] = seq_id
+            elem[1] = start
+            elem[2] = end
 
-            temp_elems = "\t".join(map(str, elems))
-            logger.debug(f"     NEW: {temp_elems}")
+            temp_elem = "\t".join(map(str, elem))
+            logger.debug(f"     NEW: {temp_elem}")
 
-            bed_out.write(f"{temp_elems}\n")
+            bed_out.write(f"{temp_elem}\n")
 
     bed_out.close()
     bed_unmapped_file.close()
 
     logger.warn(f"Converted {success:,} of {total:,} records")
     logger.warn("BED file converted")
-

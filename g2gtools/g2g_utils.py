@@ -55,9 +55,9 @@ def s(value):
     return value
 
 
-def _show_error():
+def show_error():
     """
-    show system errors
+    Show system errors
     """
     et, ev, tb = sys.exc_info()
 
@@ -232,7 +232,20 @@ def reverse_complement_sequence(sequence):
     return reverse_sequence(complement_sequence(sequence))
 
 
-def concatenate_files(list_files, to_file, delete=False, mode="wb"):
+def concatenate_files(
+        list_files: list[str],
+        to_file: str,
+        delete: bool | None = False,
+        mode: str | None = "wb"
+) -> None:
+    """
+    Concatenate the files in the order they are listed.
+
+    list_files: A list of the files to concatenate.
+    to_file: Name of the file to concatenate to.
+    delete: True to delete the files after they have been concatenated.
+    mode: Mode to write the concatenated file.
+    """
     with open(to_file, mode) as out:
         for from_file in list_files:
             with open(from_file, "rb") as f:
@@ -241,18 +254,29 @@ def concatenate_files(list_files, to_file, delete=False, mode="wb"):
                 delete_file(from_file)
 
 
-def delete_file(file_name):
+def delete_file(filename: str) -> None:
     """
-    :param file_name:
-    :return:
+    Delete the file.
+
+    Args:
+        filename: Name of the file to parse.
     """
     try:
-        os.remove(file_name)
-    except:
+        os.remove(filename)
+    except OSError:
         pass
 
 
 def delete_index_files(filename):
+    """
+    Delete the file indices of the filename.
+        filename.gzi
+        filename.fai
+        filename.tbi
+
+    Args:
+        filename: Name of the file to parse.
+    """
     delete_file(f"{filename}.gzi")
     delete_file(f"{filename}.fai")
     delete_file(f"{filename}.tbi")
@@ -267,15 +291,21 @@ def bgzip_decompress(filename):
     delete_index_files(filename)
 
 
-def bgzip_file(original_file, new_file, delete_original=False, force=True):
+def bgzip_file(
+    original_file: str,
+    new_file: str,
+    delete_original: bool | None = False,
+    force: bool | None = True
+) -> None:
     """
+    bgzip a file and index it
 
-    :param original_file:
-    :param new_file:
-    :param force:
-    :return:
+    Args:
+        original_file: The file to compress and index.
+        new_file: Name of the new file.
+        delete_original: True to delete the original file.
+        force: True to force overwrite and index.
     """
-
     pysam.tabix_compress(original_file, new_file, force)
 
     if delete_original:
@@ -316,26 +346,49 @@ def has_index_file(original_file, file_format=None):
     return os.path.exists(idx_file)
 
 
-def index_file(original_file, file_format="vcf", overwrite=False):
+def index_file(
+        original_file: str,
+        file_format: str | None = "vcf",
+        overwrite: bool | None = False
+) -> None:
     """
+    Parse the VCF file and create a VCI file.
 
-    :param original_file:
-    :param new_file:
-    :param file_format:
-    :return:
+    Args
+        original_file (str): Name of the file to index.
+        file_format (str): Format of the file (fa, vcf, vci).
+        overwrite(bool): True to overwrite existing file.
     """
     if overwrite or not has_index_file(original_file, file_format=file_format):
         if file_format.lower() == "fa":
-            pysam.faidx(original_file)
+            pysam.FastaFile(original_file)
         elif file_format.lower() == "vcf":
             pysam.tabix_index(original_file, preset="vcf", force=True)
         elif file_format.lower() == "vci":
-            pysam.tabix_index(original_file, seq_col=0, start_col=1, end_col=1, force=True)
+            pysam.tabix_index(
+                original_file, seq_col=0, start_col=1, end_col=1, force=True
+            )
         else:
             raise G2GValueError(f"Unknown file format: {file_format}")
 
 
-def bgzip_and_index_file(original_file, new_file, delete_original=False, force=True, file_format="vcf"):
+def bgzip_and_index_file(
+        original_file: str,
+        new_file: str,
+        delete_original: bool | None = False,
+        force: bool | None = True,
+        file_format: str | None = "vcf"
+) -> None:
+    """
+    bgzip a file and index it
+
+    Args:
+        original_file: The file to compress and index.
+        new_file: Name of the new file.
+        delete_original: True to delete the original file.
+        force: True to force overwrite and index.
+        file_format: Format of the file so we can compress and index correctly.
+    """
     bgzip_file(original_file, new_file, delete_original, force)
     index_file(new_file, file_format)
 
@@ -370,15 +423,25 @@ def create_random_string(size=6, chars=string.ascii_uppercase + string.digits):
     return "".join(random.choice(chars) for _ in range(size))
 
 
-def gen_file_name(name=None, prefix="", output_dir=".", extension="log", append_time=True):
+def gen_file_name(
+        name: str | None = None,
+        prefix: str | None = "",
+        output_dir=".",
+        extension="log",
+        append_time=True
+) -> str:
     """
     Generate a file name.
 
-    :param name: a base for the file name
-    :param output_dir: the directory
-    :param extension: give the file an extension
-    :param append_time: append time to the file name (before the extension)
-    :return: the absolute path to the file
+    Args
+        name: A base name for the file.
+        prefix: A prefix for the file if necessary.
+        output_dir: name of the directory
+        extension: which strain to process
+        append_time: True to place troubling VCF lines in extra file
+
+    Returns
+        The absolute path to the file.
     """
     if name is None:
         name = create_random_string(15)
@@ -420,23 +483,34 @@ def get_dir_and_file(filename):
     return os.path.split(abspath)
 
 
-def check_file(filename, mode="r"):
+def check_file(
+        file_name: str,
+        mode: str | None = "r"
+) -> str:
+    """
+    Check if file_name exists and accessible for reading or writing.
+
+    Args:
+        file_name: The name of the file.
+        mode: "r" for reading, "w" for writing.
+
+    Returns:
+        The absolute path of the file.
+    """
     if mode == "r":
+        if file_name and os.path.exists(file_name):
+            return os.path.abspath(file_name)
 
-        if filename and os.path.exists(filename):
-            return os.path.abspath(filename)
-
-        raise G2GValueError(f"The following file does not exist: {filename}")
-
+        raise G2GValueError(f"The following file does not exist: {file_name}")
     elif mode == "w":
         file_dir = "."
 
-        if filename:
-            file_name = os.path.abspath(filename)
+        if file_name:
+            file_name = os.path.abspath(file_name)
             file_dir = os.path.dirname(file_name)
 
             if not os.access(file_dir, os.W_OK | os.X_OK):
-                raise G2GValueError(f"Cannot generate file: {filename}")
+                raise G2GValueError(f"Cannot generate file: {file_name}")
 
             return file_name
 

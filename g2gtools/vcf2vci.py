@@ -111,7 +111,6 @@ def update_stats(stats, reason):
 
 
 def process_piece(merge_info):
-
     stats = {}
     logger = g2g.get_logger(merge_info.debug_level)
 
@@ -137,7 +136,9 @@ def process_piece(merge_info):
         for i, file_info in enumerate(merge_info.vcf_files):
             vcf_tabix = pysam.TabixFile(file_info.file_name)
             try:
-                vcf_iterator = vcf_tabix.fetch(merge_info.chromosome, parser=pysam.asVCF())
+                vcf_iterator = vcf_tabix.fetch(
+                    merge_info.chromosome, parser=pysam.asVCF()
+                )
                 iterators.append(vcf_iterator)
             except ValueError as ve:
                 iterators.append(None)
@@ -164,7 +165,9 @@ def process_piece(merge_info):
                 # logger.debug(vcf_record.alt)
                 # logger.debug(type(vcf_record.alt))
 
-                gt = vcf.parse_gt_tuple(vcf_record, merge_info.vcf_files[i].sample_index)
+                gt = vcf.parse_gt_tuple(
+                    vcf_record, merge_info.vcf_files[i].sample_index
+                )
                 # logger.debug(gt)
 
                 line_numbers = line_numbers + 1
@@ -370,7 +373,7 @@ def process_piece(merge_info):
     except KeyboardInterrupt:
         raise KeyboardInterruptError()
     except Exception as e:
-        g2g_utils._show_error()
+        g2g_utils.show_error()
         raise Exception("Unknown exception")
 
     return {
@@ -391,8 +394,36 @@ def wrapper(args):
     return process_piece(*args)
 
 
-def create_vci_header(temp_directory, fasta_file, vcf_input_files, output_file, strain, vcf_keep, passed, quality, diploid, num_processes, bgzip):
-    file = g2g_utils.gen_file_name("header", output_dir=temp_directory, extension="", append_time=False)
+def create_vci_header(
+        temp_directory: str,
+        fasta_file: str,
+        vcf_input_files: list[VCFFileInformation],
+        strain: str,
+        vcf_keep: bool,
+        passed: bool,
+        quality: bool,
+        diploid: bool,
+        num_processes: int
+) -> str:
+    """
+    Create a VCI file header that contains meta information about the VCI file.
+
+    Args:
+        temp_directory: Directory to build the file.
+        fasta_file: Fasta file used in VCI file creation.
+        vcf_input_files: List of VCIFileInformation.
+        strain: The strain used to make the file.
+        vcf_keep: True to place troubling VCF lines in extra file.
+        passed: True uses only VCF lines that have a PASS for the filter.
+        quality: True to filter on quality, FI=PASS.
+        diploid: Create diploid VCI file.
+        num_processes: Specify the number of processes.
+
+    """
+    file = g2g_utils.gen_file_name(
+        "header", output_dir=temp_directory, extension="", append_time=False
+    )
+
     with open(file, "w") as fd:
         create_time = time.strftime("%m/%d/%Y %H:%M:%S")
         fd.write(f"##CREATION_TIME={create_time}\n")
@@ -417,9 +448,36 @@ def create_vci_header(temp_directory, fasta_file, vcf_input_files, output_file, 
     return file
 
 
-def process(vcf_files, fasta_file, output_file, strain, vcf_keep=False, passed=False, quality=False, diploid=False, num_processes=None, bgzip=False, debug_level=0):
-    start = time.time()
+def process(
+        vcf_files: list[str],
+        fasta_file: str,
+        output_file: str,
+        strain: str,
+        vcf_keep: bool | None = False,
+        passed: bool | None = False,
+        quality: bool | None = False,
+        diploid: bool | None = False,
+        num_processes: int = None,
+        bgzip: bool | None = False,
+        debug_level: int | None = 0
+) -> None:
+    """
+    Parse the VCF file and create a VCI file.
 
+    Args
+        vcf_files: Name of the VCF files.
+        fasta_file: Name of the Fasta file associated with the VCF file.
+        bed_file_out: Name of output file.
+        strain: Which strain to process.
+        vcf_keep: True to place troubling VCF lines in extra file.
+        passed: True uses only VCF lines that have a PASS for the filter.
+        quality: True to filter on quality, FI=PASS.
+        diploid: Create diploid VCI file.
+        num_processes: Specify the number of processes.
+        bgzip: True tp bgzip the VCI file.
+        debug_level: Debug level (0=WARN,1=INFO,2+=DEBUG).
+    """
+    start = time.time()
     logger = g2g.get_logger(debug_level)
 
     output_file = g2g_utils.check_file(output_file, "w")
@@ -431,16 +489,22 @@ def process(vcf_files, fasta_file, output_file, strain, vcf_keep=False, passed=F
         for file_name in vcf_files:
             vcf_file = g2g_utils.check_file(file_name)
             logger.warn(f"VCF file: {vcf_file}")
-            logger.info("Checking for index file, creating if needed...")
-            g2g_utils.index_file(original_file=vcf_file, file_format="vcf", overwrite=False)
+            logger.debug("Checking for index file, creating if needed...")
+            g2g_utils.index_file(
+                original_file=vcf_file, file_format="vcf", overwrite=False
+            )
 
             vcf_discard_file = None
             if vcf_keep:
-                vcf_discard_file = f"{os.path.basename(output_file)}.errors.vcf"
-                vcf_discard_file = os.path.join(output_file_dir, vcf_discard_file)
+                vcf_discard_file = os.path.join(
+                    output_file_dir,
+                    f"{os.path.basename(output_file)}.errors.vcf"
+                )
                 logger.warn(f"VCF indel discard file: {vcf_discard_file}")
 
-            vcf_file_inputs.append(VCFFileInformation(vcf_file, vcf_discard_file))
+            vcf_file_inputs.append(
+                VCFFileInformation(vcf_file, vcf_discard_file)
+            )
 
     if len(vcf_file_inputs) == 0:
         raise G2GValueError("No VCF files.")
@@ -465,13 +529,16 @@ def process(vcf_files, fasta_file, output_file, strain, vcf_keep=False, passed=F
     logger.warn(f"Number of processes: {num_processes}")
     logger.warn(f"Output VCI File: {output_file}")
 
-    # not all chromosomes/seqid will be processed if not in vcf file
+    # not all chromosomes/seq_id will be processed if not in vcf file
     processed_seq_ids = {}
 
     temp_directory = g2g_utils.create_temp_dir("vcf2vci", dir=".")
     logger.debug(f"Temp directory: {temp_directory}")
 
-    header_file = create_vci_header(temp_directory, fasta_file, vcf_file_inputs, output_file, strain, vcf_keep, passed, quality, diploid, num_processes, bgzip)
+    header_file = create_vci_header(
+        temp_directory, fasta_file, vcf_file_inputs, strain,
+        vcf_keep, passed, quality, diploid, num_processes
+    )
 
     for i, vcf_file in enumerate(vcf_file_inputs):
         tb_file = pysam.TabixFile(vcf_file.file_name)
@@ -483,19 +550,26 @@ def process(vcf_files, fasta_file, output_file, strain, vcf_keep=False, passed=F
                     samples = elems[9:]
                     samples = dict(zip(samples, (x for x in range(len(samples)))))
                     vcf_file_inputs[i].sample_index = samples[strain]
-                except KeyError as ke:
-                    valid_strains = ", ".join(samples)
-                    raise G2GVCFError(f"Unknown strain '{strain}', valid strains are: {valid_strains}")
+                except KeyError:
+                    elems = h.split("\t")
+                    valid_strains = ", ".join(elems[9:])
+                    raise G2GVCFError(
+                        f"Unknown strain '{strain}', "
+                        f"valid strains are: {valid_strains}"
+                    )
 
         for seq_id in tb_file.contigs:
             processed_seq_ids[seq_id] = False
 
     tmp_processed_seq_ids = OrderedDict()
+
     for k in g2g_utils.natsorted(processed_seq_ids.keys()):
         tmp_processed_seq_ids[k] = False
+
     processed_seq_ids = tmp_processed_seq_ids
 
     all_merge_info = []
+    pool = None
 
     try:
         for c in processed_seq_ids:
@@ -512,13 +586,23 @@ def process(vcf_files, fasta_file, output_file, strain, vcf_keep=False, passed=F
             merge_info.debug_level = debug_level
 
             if diploid:
-                merge_info.output_file_left = g2g_utils.gen_file_name(f"chr{c}.left", output_dir=temp_directory, extension="vci", append_time=False)
-                merge_info.output_file_right = g2g_utils.gen_file_name(f"chr{c}.right", output_dir=temp_directory, extension="vci", append_time=False)
+                merge_info.output_file_left = g2g_utils.gen_file_name(
+                    f"chr{c}.left", output_dir=temp_directory,
+                    extension="vci", append_time=False
+                )
+
+                merge_info.output_file_right = g2g_utils.gen_file_name(
+                    f"chr{c}.right", output_dir=temp_directory,
+                    extension="vci", append_time=False
+                )
 
                 g2g_utils.delete_file(merge_info.output_file_left)
                 g2g_utils.delete_file(merge_info.output_file_right)
             else:
-                merge_info.output_file_left = g2g_utils.gen_file_name(f"chr{c}.right", output_dir=temp_directory, extension="vci", append_time=False)
+                merge_info.output_file_left = g2g_utils.gen_file_name(
+                    f"chr{c}.right", output_dir=temp_directory,
+                    extension="vci", append_time=False
+                )
 
                 g2g_utils.delete_file(merge_info.output_file_left)
 
@@ -535,10 +619,6 @@ def process(vcf_files, fasta_file, output_file, strain, vcf_keep=False, passed=F
         for r in results:
             total += r["line_numbers"]
 
-        # show stats
-
-        #TODO: make sure stats are good and show statistics
-
         logger.debug("Combining temp files...")
         logger.info("Finalizing VCI file...")
 
@@ -551,7 +631,10 @@ def process(vcf_files, fasta_file, output_file, strain, vcf_keep=False, passed=F
             g2g_utils.concatenate_files(files, output_file, True)
 
             if bgzip:
-                g2g_utils.bgzip_and_index_file(output_file, output_file + ".gz", delete_original=True, file_format="vcf")
+                g2g_utils.bgzip_and_index_file(
+                    output_file, f"{output_file}.gz",
+                    delete_original=True, file_format="vcf"
+                )
         else:
             for mi in all_merge_info:
                 files.append(mi.output_file_left)
@@ -559,10 +642,10 @@ def process(vcf_files, fasta_file, output_file, strain, vcf_keep=False, passed=F
             g2g_utils.concatenate_files(files, output_file, True)
 
             if bgzip:
-                g2g_utils.bgzip_and_index_file(output_file, output_file + ".gz", delete_original=True, file_format="vcf")
-
-#        if vcf_keep:
-#            vcf_discard_file.close()
+                g2g_utils.bgzip_and_index_file(
+                    output_file, output_file + ".gz",
+                    delete_original=True, file_format="vcf"
+                )
 
         # TODO: make sure stats are good and show statistics
         logger.warn("Parsed {0:,} total lines".format(total))
@@ -573,7 +656,7 @@ def process(vcf_files, fasta_file, output_file, strain, vcf_keep=False, passed=F
         pool.terminate()
         raise G2GError("Execution halted")
     except Exception as e:
-        g2g_utils._show_error()
+        g2g_utils.show_error()
         raise G2GError("Execution halted unknown error")
     finally:
         g2g_utils.delete_dir(temp_directory)

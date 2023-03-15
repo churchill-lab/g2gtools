@@ -117,7 +117,7 @@ def command_convert(raw_args, prog=None):
         elif file_format in ["GTF"]:
             gtf.convert_gtf_file(vci_file=args.vci, input_file=args.input, output_file=args.output, reverse=args.reverse, debug_level=args.debug)
         elif file_format in ["BED"]:
-            bed.convert_bed_file(vci_file=args.vci, input_file=args.input, output_file=args.output, reverse=args.reverse, debug_level=args.debug)
+            bed.convert_bed_file(vci_file=args.vci, input_file=args.input, bed_file_out=args.output, reverse=args.reverse, debug_level=args.debug)
         elif file_format in ["GFF"]:
             # added ** to include GFF parsing
             # it will still use the same module "gtf" but different function convert_gff_file
@@ -733,7 +733,7 @@ def command_fastaformat(raw_args, prog=None):
 
     Optional Parameters:
         -l, --length <line_length>       The length of the line, defaults to 60
-        -o, --output <output_file>       Output fasta file
+        -o, --output <bed_file_out>       Output fasta file
         -s, --seqids <seqids>            Comma separated list of seqids
 
     Help Parameters:

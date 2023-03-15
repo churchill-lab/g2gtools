@@ -6,12 +6,14 @@
 # standard library imports
 from collections import namedtuple
 import os
+import pathlib
 import re
 
 # 3rd party library imports
 import pysam
 
 # local library imports
+from . import __version__ as g2g_version
 from . import g2g
 from . import g2g_utils
 from . import vci
@@ -92,37 +94,64 @@ CIGAR_C2N = {
 Cigar = namedtuple("Cigar", ["code", "length", "start", "end"])
 
 
-def convert_bam_file(vci_file, file_in, file_out, reverse=False, debug_level=0):
+def open_alignment_file(file_name: str) -> pysam.AlignmentFile:
     """
-    Convert genome coordinates (in BAM/SAM format) between assemblies.  These coordinates
-    are stored in the :class:`.vci.VCIFile` object.
+    Open a pysam.AlignmentFile based upon the type of file it is.
 
-    :param vci_file: vci file used for conversion
-    :type vci_file: :class:`.vci.VCIFile`
-    :param str file_in: the input SAM or BAM file
-    :type file_in: string
-    :param file_out: the output SAM or file
-    :type file_out: string
-    :param reverse: reverse direction of original chain file
-    :type reverse: boolean
+    Args:
+        file_name: Name of the file to open.
+
+    Returns:
+        An AlignmentFile.
+    """
+    # function to return the file extension
+    file_extension = pathlib.Path(file_name).suffix
+    print("File Extension: ", file_extension)
+
+    alignment_file = None
+
+    if file_extension.lower() == ".bam":
+        alignment_file = pysam.AlignmentFile(file_name, "rb")
+    elif file_extension.lower() == ".sam":
+        alignment_file = pysam.AlignmentFile(file_name, "r")
+    elif file_extension.lower() == ".cram":
+        alignment_file = pysam.AlignmentFile(file_name, "rc")
+
+    return alignment_file
+
+
+def convert_bcsam_file(
+        vci_file: str | vci.VCIFile,
+        bcsam_file_name_in: str,
+        bcsam_file_name_out: str,
+        reverse: bool | None = False,
+        debug_level: int | None = 0
+) -> None:
+    """
+    Convert genome coordinates (in BAM/CRAM/SAM format) between assemblies.
+
+    Args
+        vci_file: Name of the VCI file or a VCIFile object.
+        bcsam_file_name_in: Input BAM/CRAM/SAM file to convert.
+        bcsam_file_name_out: Name of output BAM/CRAM/SAM file.
+        reverse: True to process VCI in reverse.
+        debug_level: Debug level (0=WARN,1=INFO,2+=DEBUG).
     """
     logger = g2g.get_logger(debug_level)
 
-    if file_out is None:
-        raise G2GBAMError("Conversion of BAM/SAM file needs output file")
+    if bcsam_file_name_out is None:
+        raise G2GBAMError("Conversion of BAM/CRAM/SAM file needs output file")
 
     if not isinstance(vci_file, vci.VCIFile):
         vci_file = g2g_utils.check_file(vci_file)
 
-    if not isinstance(file_in, pysam.Samfile):
-        file_in = g2g_utils.check_file(file_in)
-
-    output_file_name = g2g_utils.check_file(file_out, "w")
-    unmapped_file_name = f"{output_file_name}.unmapped"
+    bcsam_file_name_in = g2g_utils.check_file(bcsam_file_name_in)
+    bcsam_file_name_out = g2g_utils.check_file(bcsam_file_name_out, "w")
+    unmapped_file_name = f"{bcsam_file_name_out}.unmapped"
 
     logger.warn(f"VCI FILE: {vci_file}")
-    logger.warn(f"INPUT FILE: {file_in}")
-    logger.warn(f"OUTPUT FILE: {output_file_name}")
+    logger.warn(f"INPUT BAM/CRAM/SAM FILE: {bcsam_file_name_in}")
+    logger.warn(f"OUTPUT BAM/CRAM/SAM FILE: {bcsam_file_name_out}")
     logger.warn(f"UNMAPPED FILE: {unmapped_file_name}")
 
     if not isinstance(vci_file, vci.VCIFile):
@@ -131,19 +160,11 @@ def convert_bam_file(vci_file, file_in, file_out, reverse=False, debug_level=0):
         vci_file.parse(reverse=reverse)
         logger.info("VCI file parsed")
 
-    if not isinstance(file_in, pysam.Samfile):
-        try:
-            sam_file = pysam.Samfile(file_in, "rb")
-            if len(sam_file.header) == 0:
-                raise G2GBAMError("BAM File has no header information")
-        except:
-            sam_file = pysam.Samfile(file_in, "r")
-            if len(sam_file.header) == 0:
-                raise G2GBAMError("SAM File has no header information")
+    alignment_file_in = open_alignment_file(bcsam_file_name_in)
 
     logger.info("Converting BAM file")
 
-    new_header = sam_file.header.to_dict()
+    new_header = alignment_file_in.header.to_dict()
 
     # replace 'HD'
     new_header["HD"] = {"VN": 1.0, "SO": "coordinate"}
@@ -151,36 +172,34 @@ def convert_bam_file(vci_file, file_in, file_out, reverse=False, debug_level=0):
     # replace SQ
     tmp = []
     name_to_id = {}
-    id = 0
 
     for ref_name in vci_file.contigs:
         tmp.append({"LN": vci_file.contigs[ref_name], "SN": ref_name})
-        name_to_id[ref_name] = sam_file.get_tid(ref_name)
-        id += 1
+        name_to_id[ref_name] = alignment_file_in.get_tid(ref_name)
 
     new_header["SQ"] = tmp
 
     if "PG" not in new_header:
         new_header["PG"] = []
 
-    new_header["PG"].append({"ID": "g2gtools", "VN": g2g_utils.__version__})
+    new_header["PG"].append({"ID": "g2gtools", "VN": g2g_version})
 
     if "CO" not in new_header:
         new_header["CO"] = []
 
-    new_header["CO"].append(f"Original file: {file_in}")
+    new_header["CO"].append(f"Original file: {bcsam_file_name_in}")
     new_header["CO"].append(f"VCI File: {vci_file.filename}")
 
-    dir, temp_file_name = os.path.split(file_out)
+    dir, temp_file_name = os.path.split(bcsam_file_name_out)
     parts = temp_file_name.split(".")
     ext = parts[-1]
 
     if ext.lower() == "bam":
-        new_file = pysam.Samfile(file_out, "wb", header=new_header)
-        new_file_unmapped = pysam.Samfile(unmapped_file_name, "wb", template=sam_file)
+        new_file = pysam.AlignmentFile(bcsam_file_name_out, "wb", header=new_header)
+        new_file_unmapped = pysam.AlignmentFile(unmapped_file_name, "wb", template=alignment_file_in)
     elif ext.lower() == "sam":
-        new_file = pysam.Samfile(file_out, "wh", header=new_header)
-        new_file_unmapped = pysam.Samfile(unmapped_file_name, "wh", template=sam_file)
+        new_file = pysam.Samfile(bcsam_file_name_out, "wh", header=new_header)
+        new_file_unmapped = pysam.AlignmentFile(unmapped_file_name, "wh", template=alignment_file_in)
     else:
         raise G2GBAMError("Unable to create new file based upon file extension")
 
@@ -222,10 +241,10 @@ def convert_bam_file(vci_file, file_in, file_out, reverse=False, debug_level=0):
 
                 logger.info(f"Processed {total:,} reads, {status_success:,} successful, {status_failed:,} failed")
 
-            alignment = next(sam_file)
+            alignment = next(alignment_file_in)
 
             alignment_new = pysam.AlignedRead()
-            read_chr = sam_file.getrname(alignment.tid)
+            read_chr = alignment_file_in.getrname(alignment.tid)
 
             # READ ONLY
 
@@ -270,6 +289,10 @@ def convert_bam_file(vci_file, file_in, file_out, reverse=False, debug_level=0):
 
             # qual                  read sequence base qualities, including soft clipped bases
             # tags                  the tags in the AUX field
+
+            # NOTE: Some tool require TLEN to be set.
+            # `samtools fixmate` will correct TLEN if needed.
+            # tlen = (read2_start + cigar bases) - read1_start (positive for R1 and negative for R2)
             # tlen                  insert size
 
             total += 1
@@ -360,22 +383,28 @@ def convert_bam_file(vci_file, file_in, file_out, reverse=False, debug_level=0):
                     alignment_new.flag |= FLAG_REVERSE
                 if alignment.mate_is_reverse:
                     alignment_new.flag |= FLAG_MREVERSE
+                if alignment.is_proper_pair:
+                    alignment_new.flag |= FLAG_PROPER_PAIR
 
-                read1_chr = sam_file.getrname(alignment.tid)
+                read1_chr = alignment_file_in.getrname(alignment.tid)
                 read1_start = alignment.pos
                 read1_end = alignment.aend
                 read1_strand = "-" if alignment.is_reverse else "+"
-                read1_mappings = vci_file.find_mappings(read1_chr, read1_start, read1_end) #, read1_strand)
+                read1_mappings = vci_file.find_mappings(
+                    read1_chr, read1_start, read1_end
+                )
 
                 if alignment.mate_is_unmapped:
                     alignment_new.flag |= FLAG_MUNMAP
                 else:
-                    read2_chr = sam_file.getrname(alignment.rnext)
+                    read2_chr = alignment_file_in.getrname(alignment.rnext)
                     read2_start = alignment.pnext
                     read2_end = read2_start + 1
                     read2_strand = "-" if alignment.mate_is_reverse else "+"
                     try:
-                        read2_mappings = vci_file.find_mappings(read2_chr, read2_start, read2_end) #, read2_strand)
+                        read2_mappings = vci_file.find_mappings(
+                            read2_chr, read2_start, read2_end
+                        )
                     except:
                         read2_mappings = None
 
@@ -569,7 +598,7 @@ def convert_bam_file(vci_file, file_in, file_out, reverse=False, debug_level=0):
 #    8	    X	    sequence mismatch
 #
 
-def cigarlist_to_cigarstring(cigar_list):
+def cigarlist_to_cigarstring(cigar_list: list[tuple(int, int)]) -> str:
     """
     Convert a list of tuples into a cigar string.
 
@@ -580,11 +609,14 @@ def cigarlist_to_cigarstring(cigar_list):
         =>                10M1I75M2D20M
 
 
-    :param cigar_list: a list of tuples (code, length)
-    :type cigar_list: list
-    :return: the cigar string
-    :rtype: string
-    :raises: :class:`.G2GCigarFormatError` on invalid cigar string
+    Args:
+        cigar_list: A list of tuples where each tuple is a (code, length)
+
+    Returns:
+        The cigar string.
+
+    Raises:
+        G2GCigarFormatError: On invalid cigar string.
     """
     cigar = ""
     if isinstance(cigar_list, Cigar):
@@ -1095,10 +1127,16 @@ def convert_cigar(cigar, chromosome, vci_file, sequence, strand='+', position=0,
         if c.code in [CIGAR_M, CIGAR_I, CIGAR_S, CIGAR_E, CIGAR_X]:
             cigar_seq_length += c.length
 
-    if cigar_seq_length != len(sequence):
-        logger.debug("CIGAR SEQ LENGTH={0} != SEQ_LEN={1}".format(cigar_seq_length, len(sequence)))
-        # not equal according to chain file format, add the clipping length
-        simple_cigar.append((CIGAR_s, len(sequence) - cigar_seq_length))
+    try:
+        if cigar_seq_length != len(sequence):
+            logger.debug(
+                f"CIGAR SEQ LENGTH={cigar_seq_length} != SEQ_LEN={len(sequence)}"
+            )
+            # not equal according to chain file format, add the clipping length
+            simple_cigar.append((CIGAR_s, len(sequence) - cigar_seq_length))
+    except TypeError:
+        # avoids: TypeError: object of type 'NoneType' has no len()
+        pass
 
     if old_cigar != cigar_to_string(simple_cigar):
         logger.debug("old cigar != new cigar")

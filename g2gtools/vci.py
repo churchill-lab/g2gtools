@@ -307,7 +307,7 @@ class VCIFile:
             self.valid = True
             self.mapping_tree = mapping_tree
         except Exception as e:
-            g2g_utils._show_error()
+            g2g_utils.show_error()
 
         #LOG.info("Parsing complete: {0}".format(g2g_utils.format_time(start, time.time())))
 
@@ -315,17 +315,32 @@ class VCIFile:
         if contig not in self.mapping_tree:
             self.mapping_tree[contig] = tree
 
-    def intersect_regions(self, chr1, start1, end1, chr2, start2, end2):
+    def intersect_regions(
+            self,
+            chr1: str,
+            start1: int,
+            end1: int,
+            chr2: str,
+            start2: int,
+            end2: int
+    ) -> tuple[str, int, int] | None:
         """
-        Return the intersection of two regions
+        Return the intersection of two regions.
 
-        :param chr1: chromosome 1
-        :param start1: start position 1
-        :param end1: end position 1
-        :param chr2: chromosome 2
-        :param start2: start position 2
-        :param end2: end position 2
-        :return: the intersection of the coordinated
+        Args:
+            chr1: First chromosome.
+            start1: First start position.
+            end1: First end position.
+            chr2: Second chromosome.
+            start2: Second start position.
+            end2: Second end position.
+
+        Returns:
+            The intersecting region as a tuple of chromosome, start, end or
+            None if the regions do not overlap.
+            
+        Raises:
+            G2GRegionError: If the region is invalid.
         """
 
         if chr1 != chr2:
@@ -363,43 +378,54 @@ class VCIFile:
 
         return None
 
-    def find_mappings(self, chromosome, start, end):
+    def find_mappings(
+            self,
+            chromosome: str,
+            start: int,
+            end: int
+    ) -> list[IntervalMapping] | None:
         """
-        Find mapping from source to target
+        Find mapping from source to target.
 
-        :param chromosome: chromosome
-        :param start: start position
-        :param end: end position
-        :param strand: strand
-        :return: list of IntervalMappings
+        Args:
+            chromosome: The chromosome.
+            start: The start position.
+            end: The end position.
+
+        Returns:
+            A list on IntervalMappings or None if none are found.
         """
         mappings = []
 
         if chromosome not in self.mapping_tree:
             # LOG.debug(f"Chromosome {chromosome} not found in mapping tree")
-            # LOG.debug(f"Available chromosomes are: {list(self.mapping_tree.keys())}")
+            # LOG.debug(f"Chromosomes: {list(self.mapping_tree.keys())}")
             return None
-        # else:
-        #LOG.debug(f"Chromosome {chromosome}, in mapping tree")
 
         all_intervals = self.mapping_tree[chromosome].find(start, end)
 
         if len(all_intervals) == 0:
-            #LOG.debug("No intervals found")
+            # logging.debug("No intervals found")
             return None
         else:
             for interval in all_intervals:
-                #LOG.debug("Interval {0}={1}".format(len(mappings), interval))
-                chromosome, real_start, real_end = self.intersect_regions(chromosome, start, end,
-                                                                          chromosome, interval.start, interval.end)
+                # logging.debug(f"Interval {len(mappings)}={interval}")
+                chromosome, real_start, real_end = self.intersect_regions(
+                    chromosome, start, end,
+                    chromosome, interval.start, interval.end
+                )
                 offset = abs(real_start - interval.start)
                 size = abs(real_end - real_start)
                 i_start = interval.value[1] + offset
-                mappings.append(IntervalMapping(chromosome, real_start, real_end, interval.value.inserted,
-                                                interval.value.chr, i_start, i_start + size, interval.value.deleted,
-                                                interval.value.shared, interval.value.pos))
-
-                #LOG.debug("Mapping {0}={1}".format(len(mappings)-1, mappings[-1]))
+                mappings.append(
+                    IntervalMapping(
+                        chromosome, real_start, real_end,
+                        interval.value.inserted,interval.value.chr,
+                        i_start, i_start + size, interval.value.deleted,
+                        interval.value.shared, interval.value.pos
+                    )
+                )
+                # logging.debug(f"Mapping {len(mappings)-1}={mappings[-1]}")
 
         return mappings
 

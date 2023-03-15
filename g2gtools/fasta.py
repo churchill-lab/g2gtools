@@ -22,15 +22,13 @@ from . import gtf_db
 from . import g2g
 from . import g2g_utils
 
-LOG = g2g.get_logger()
-
 
 def filter_fai(line):
     if line.startswith("[fai"):
         return True
 
 
-REGEX_FASTA_HEADER = re.compile(">(\S*)\s*(.*)")
+REGEX_FASTA_HEADER = re.compile(r">(\S*)\s*(.*)")
 FASTA_HEADER_FIELDS = ["id", "description"]
 FastaHeader = collections.namedtuple("FastaHeader", FASTA_HEADER_FIELDS)
 
@@ -67,50 +65,59 @@ class FastaFile(object):
 
     def fetch_list(self, reference=None, start=None, end=None, region=None):
         _start = 0 if start < 0 else start
-        return list(self._fasta_file.fetch(reference=reference, start=_start, end=end, region=region))
+        return list(self._fasta_file.fetch(
+            reference=reference, start=_start, end=end, region=region
+        ))
 
     def __getattr__(self, name):
-            return getattr(self._fasta_file, name)
+        return getattr(self._fasta_file, name)
 
 
 class FAIEntry(object):
-    def __init__(self, idx=None, length=0, offset=-1, line_length=None, line_length_bytes=None):
+    def __init__(
+            self,
+            idx: str | None = None,
+            length: int | None = 0,
+            offset: int | None = -1,
+            line_len: int | None = None,
+            line_len_bytes: int | None = None
+    ):
         """
-        Initialize a `.fasta.FAIEntry` object.
+        Initialize a FAIEntry object.
 
-        :param idx: index of fasta sequence
-        :type idx: string
-        :param length: length of fasta sequence
-        :type length: int
-        :param offset: offset in file
-        :type offset: int
-        :param line_length: line length
-        :type line_length: int
-        :param line_length_bytes: line length + newline
-        :type line_length_bytes: int
-        :return: `.fasta.FAIEntry`
+        Args:
+            idx: The index.
+            length: The length.
+            offset: The entry offset.
+            line_len: The length of the line.
+            line_len_bytes: The length of the line in bytes.
         """
         self.idx = idx
         self.length = length
         self.offset = offset
-        self.line_length = line_length
-        self.line_length_bytes = line_length_bytes
+        self.line_len = line_len
+        self.line_len_bytes = line_len_bytes
 
     def __str__(self):
-        return f"{self.idx}\t{self.length}\t{self.offset}\t{self.line_length}\t{self.line_length_bytes}"
+        return (
+            f"{self.idx}\t{self.length}\t{self.offset}\t"
+            f"{self.line_len}\t{self.line_len_bytes}"
+        )
 
 
 class FAI(object):
-    def __init__(self, fasta_filename):
+    def __init__(self, fasta_file_name: str):
         """
         Initialize a `.fasta.FAI` file, an index into the Fasta file.
 
-        :param file_name: the name of the Fasta file
-        :type file_name: string
-        :return: an initialized `.fasta.FAI` object
+        Args:
+            fasta_file_name: The name of the Fasta file.
+
+        Returns:
+            The initialized FAI object.
         """
-        self.fasta_file = fasta_filename
-        self.fai_file = f"{fasta_filename}.fai"
+        self.fasta_file = fasta_file_name
+        self.fai_file = f"{fasta_file_name}.fai"
         self.records = collections.OrderedDict()
 
         if os.path.exists(self.fai_file):
@@ -142,23 +149,26 @@ class FAI(object):
         with open(self.fai_file) as index:
             for line in index:
                 line = line.strip()
-                idx, length, offset, line_length, line_length_bytes = line.split("\t")
+                idx, length, offset, line_len, line_len_bytes = line.split("\t")
                 if idx in self.records:
                     raise ValueError(f"A duplicate entry was found: {idx}")
                 else:
-                    self.records[idx] = FAIEntry(idx, int(length), int(offset), int(line_length), int(line_length_bytes))
+                    self.records[idx] = FAIEntry(
+                        idx, int(length), int(offset), int(line_len),
+                        int(line_len_bytes)
+                    )
 
-    def get_pos(self, seq_id, start, end):
+    def get_pos(self, seq_id, start, end) -> tuple[int, int, int]:
         """
         Get the byte positions of the fasta file using the specified location
 
-        :param seq_id: chromosome to use
-        :type seq_id: string
-        :param start: starting position
-        :type start: int
-        :param end: ending position
-        :type end: int
-        :return: the starting byte, ending byte, and byte length
+        Args:
+            seq_id: The sequence identifier.
+            start: The start position.
+            end: The end position.
+
+        Returns:
+            A tuple of starting byte, ending byte, and byte length.
         """
         chrom = self.records[seq_id]
 
@@ -167,7 +177,8 @@ class FAI(object):
         fai_entry_line_length = chrom.line_length
         fai_entry_line_length_bytes = chrom.line_length_bytes
         seq_len = end - start
-        line_ratio = fai_entry_line_length * (fai_entry_line_length_bytes - fai_entry_line_length)
+        fai_diff = (fai_entry_line_length_bytes - fai_entry_line_length)
+        line_ratio = fai_entry_line_length * fai_diff
         newlines_total = int(fai_entry_length / line_ratio)
         newlines_before = 0
 
@@ -189,37 +200,44 @@ class FAI(object):
             print(str(self.records[record]))
 
 
-def extract(fasta_input, locations, output=None, reverse=False, complement=False, raw=False, debug_level=0):
+def extract(
+        fasta_file: str | FastaFile,
+        locations: g2g.Region | list[g2g.Region],
+        output_file_name: str | None = None,
+        reverse: bool | None = False,
+        complement: bool | None = False,
+        raw: bool | None = False,
+        debug_level: int | None = 0
+):
     """
+    Extract the Fasta sequences.
 
-    :param fasta_input: the name of the Fasta file
-    :type fasta_input: string
-    :param locations: list of `.g2g_utils.Region` objects
-    :type locations: list
-    :param output: name of output file, None for sys.stdout
-    :type output: string
-    :param reverse: reverse the extracted sequence
-    :type reverse: boolean
-    :param complement: complement the extracted sequence
-    :type complement: boolean
-    :param raw: for just the sequence to be output, no fasta line
-    :type raw: boolean
+    Args:
+        fasta_file: Either the name of the Fasta file or a FastaFile object.
+        locations: Either a list of Regions or just a Region.
+        output_file_name: Name of output file, None for sys.stdout.
+        reverse: True to reverse the extracted sequence.
+        complement: True to complement the extracted sequence.
+        raw: True for just the sequence to be output, no fasta line.
+        debug_level: Debug level (0=WARN,1=INFO,2+=DEBUG).
+
+    Raises:
+        G2GRegionError: When a Region is not correct.
     """
-
     start_time = time.time()
     logger = g2g.get_logger(debug_level)
 
-    if isinstance(fasta_input, pysam.FastaFile):
-        fasta = fasta_input
+    if isinstance(fasta_file, pysam.FastaFile):
+        fasta = fasta_file
     else:
-        fasta_input = g2g_utils.check_file(fasta_input)
+        fasta_input = g2g_utils.check_file(fasta_file)
         fasta = pysam.FastaFile(fasta_input)
 
     logger.warn(f"FASTA FILE: {fasta.filename}")
 
-    if output:
-        output = g2g_utils.check_file(output, "w")
-        fasta_out = open(output, "w")
+    if output_file_name:
+        output_file_name = g2g_utils.check_file(output_file_name, "w")
+        fasta_out = open(output_file_name, "w")
     else:
         fasta_out = sys.stdout
 
@@ -230,12 +248,16 @@ def extract(fasta_input, locations, output=None, reverse=False, complement=False
         for location in locations:
             logger.debug(f"LOCATION: {location}")
             if not isinstance(location, g2g.Region):
-                raise G2GRegionError(f"Found: {location}, which is not a Region")
+                raise G2GRegionError(
+                    f"Found: {location}, which is not a Region"
+                )
 
             if location.seq_id not in fasta.references:
                 continue
 
-            sequence = fasta.fetch(location.seq_id, location.start, location.end)
+            sequence = fasta.fetch(
+                location.seq_id, location.start, location.end
+            )
 
             if location.strand == "+":
                 if reverse and not complement:
@@ -256,20 +278,23 @@ def extract(fasta_input, locations, output=None, reverse=False, complement=False
                 end = location.end
                 len_seq = len(sequence)
 
-                # if someone requests something to long, just truncate the length
+                # if someone requests something to long, just truncate
+                # the length
                 if len_seq < end:
                     end = len_seq + start - 1
 
-                fasta_id = f">{location.seq_id}:{start}-{end}\n"
+                fasta_id = f">{location.seq_id}:{start}-{end}"
                 logger.debug(f"Fasta ID: {fasta_id}")
                 logger.debug(f"{sequence[:10]}...{sequence[-10:]}")
 
                 if location.name:
-                    fasta_id = f">{location.name} {location.seq_id}:{start}-{end}\n"
-                    logger.debug("Location name specified, Fasta ID: {}".format(fasta_id))
+                    fasta_id = (
+                        f">{location.name} "
+                        f"{location.seq_id}:{start}-{end}"
+                    )
+                    logger.debug(f"Location name used, Fasta ID: {fasta_id}")
 
-                fasta_out.write(fasta_id)
-
+                fasta_out.write(f"{fasta_id}\n")
                 g2g_utils.write_sequence(sequence, fasta_out)
 
     except G2GRegionError as e:
@@ -280,30 +305,46 @@ def extract(fasta_input, locations, output=None, reverse=False, complement=False
         raise e
 
     fasta_out.close()
-
     fmt_time = g2g_utils.format_time(start_time, time.time())
     logger.warn(f"Execution complete: {fmt_time}")
 
 
-def extract_id(fasta_input, identifier, output=None, reverse=False, complement=False, raw=False, debug_level=0):
+def extract_id(
+        fasta_file: str | FastaFile,
+        identifier: str,
+        output_file_name: str | None = None,
+        reverse: bool | None = False,
+        complement: bool | None = False,
+        raw: bool | None = False,
+        debug_level: int | None = 0
+):
     """
+    Extract the Fasta sequences.
+
+    Args:
+        fasta_file: Either the name of the Fasta file or a FastaFile object.
+        identifier: An identifier.
+        output_file_name: Name of output file, None for sys.stdout.
+        reverse: True to reverse the extracted sequence.
+        complement: True to complement the extracted sequence.
+        raw: True for just the sequence to be output, no fasta line.
+        debug_level: Debug level (0=WARN,1=INFO,2+=DEBUG).
     """
     logger = g2g.get_logger(debug_level)
-    logger.info("Execution start")
 
     start_time = time.time()
 
-    if isinstance(fasta_input, pysam.FastaFile):
-        fasta = fasta_input
+    if isinstance(fasta_file, pysam.FastaFile):
+        fasta = fasta_file
     else:
-        fasta_input = g2g_utils.check_file(fasta_input)
-        fasta = pysam.FastaFile(fasta_input)
+        fasta_file = g2g_utils.check_file(fasta_file)
+        fasta = pysam.FastaFile(fasta_file)
 
-    logger.debug(f"FASTA FILE: {fasta.filename}")
+    logger.warn(f"FASTA FILE: {fasta.filename}")
 
-    if output:
-        output = g2g_utils.check_file(output, "w")
-        fasta_out = open(output, "w")
+    if output_file_name:
+        output_file_name = g2g_utils.check_file(output_file_name, "w")
+        fasta_out = open(output_file_name, "w")
     else:
         fasta_out = sys.stdout
 
@@ -335,14 +376,20 @@ def extract_id(fasta_input, identifier, output=None, reverse=False, complement=F
         raise e
 
     fasta_out.close()
+    fmt_time = g2g_utils.format_time(start_time, time.time())
+    logger.warn(f"Execution complete: {fmt_time}")
 
-    logger.info("Execution complete: {0}".format(g2g_utils.format_time(start_time, time.time())))
 
+def diff_files(file_name_1: str, file_name_2: str) -> None:
+    """
+    Print the number of differences in the 2 files.
 
-def diff_files(file1, file2):
-
-    fasta_1 = pysam.FastaFile(file1)
-    fasta_2 = pysam.FastaFile(file2)
+    Args:
+        file_name_1: The first Fasta file name.
+        file_name_2: The second Fasta file name.
+    """
+    fasta_1 = pysam.FastaFile(file_name_1)
+    fasta_2 = pysam.FastaFile(file_name_2)
 
     fa_equal = {}
     fa_diff = {}
@@ -363,27 +410,33 @@ def diff_files(file1, file2):
         print(seq)
 
 
-def diff_sequence(sequence1, sequence2):
+def diff_sequence(sequence_1: str, sequence_2: str) -> None:
     """
+    Compare two sequences.
 
-    cases=[('afrykanerskojęzyczny', 'afrykanerskojęzycznym'),
-           ('afrykanerskojęzyczni', 'nieafrykanerskojęzyczni'),
-           ('afrykanerskojęzycznym', 'afrykanerskojęzyczny'),
-           ('nieafrykanerskojęzyczni', 'afrykanerskojęzyczni'),
-           ('nieafrynerskojęzyczni', 'afrykanerskojzyczni'),
-           ('abcdefg','xac')]
+    Example:
+        cases=[('afrykanerskojęzyczny', 'afrykanerskojęzycznym'),
+               ('afrykanerskojęzyczni', 'nieafrykanerskojęzyczni'),
+               ('afrykanerskojęzycznym', 'afrykanerskojęzyczny'),
+               ('nieafrykanerskojęzyczni', 'afrykanerskojęzyczni'),
+               ('nieafrynerskojęzyczni', 'afrykanerskojzyczni'),
+               ('abcdefg','xac')]
 
-    for a,b in cases:
-        print('{} => {}'.format(a,b))
-        for i,s in enumerate(difflib.ndiff(a, b)):
-            if s[0]==' ': continue
-            elif s[0]=='-':
-                print(u'Delete "{}" from position {}'.format(s[-1],i))
-            elif s[0]=='+':
-                print(u'Add "{}" to position {}'.format(s[-1],i))
-        print()
+        for a,b in cases:
+            print('{} => {}'.format(a,b))
+            for i,s in enumerate(difflib.ndiff(a, b)):
+                if s[0]==' ': continue
+                elif s[0]=='-':
+                    print(u'Delete "{}" from position {}'.format(s[-1],i))
+                elif s[0]=='+':
+                    print(u'Add "{}" to position {}'.format(s[-1],i))
+            print()
+
+    Args:
+        sequence_1: The first sequence.
+        sequence_2: The second sequence.
     """
-    for i, s in enumerate(difflib.ndiff(sequence1, sequence2)):
+    for i, s in enumerate(difflib.ndiff(sequence_1, sequence_2)):
         print(i, s)
 
         if s[0] == " ":
@@ -395,109 +448,77 @@ def diff_sequence(sequence1, sequence2):
     print()
 
 
-def compare_files(file_1, file_2, enid):
-    f1 = pysam.FastaFile(file_1)
-    f2 = pysam.FastaFile(file_2)
-
-    fa_equal = {}
-    fa_diff = {}
-
-    c = 0
-
-    if enid:
-        pass
-    else:
-        for ensembl_id in f1:
-            seq_1 = f1[ensembl_id]
-            seq_2 = f2[ensembl_id]
-            if len(str(seq_1)) == len(str(seq_2)):
-                fa_equal[ensembl_id] = {
-                    "seq_1": str(seq_1),
-                    "seq_2": str(seq_2)
-                }
-            else:
-                fa_diff[ensembl_id] = {
-                    "seq_1": str(seq_1),
-                    "seq_2": str(seq_2)
-                }
-                if abs(len(str(seq_1)) - len(str(seq_2))) > 30:
-                    print(ensembl_id)
-
-    print(f"# EQUAL: {len(fa_equal)}")
-    print(f"# DIFF: {len(fa_diff)}")
-
-
-def get_pos(fai, chromosome, start, end):
+def get_pos(fai: FAI, chrom: str, start: int, end: int) -> tuple[int, int, int]:
     """
     Get the byte positions of the fasta file using the specified location
 
-    :param fasta_index: fasta index file used for sequence retrieval
-    :type fasta_index: :class:`.fasta.FAI`
-    :param chromosome: chromosome to use
-    :type chromosome: string
-    :param start: starting position
-    :type start: int
-    :param end: ending position
-    :type end: int
-    :return: a tuple of starting byte, ending byte, and byte length
+    Args:
+        fai: The FAI object (Fasta file index).
+        chrom: The chromosome.
+        start: The start position.
+        end: The end position.
+
+    Returns:
+        A tuple of starting byte, ending byte, and byte length.
     """
-    chrom = fai.records[chromosome]
+    chrom = fai.records[chrom]
     fai_entry_length = chrom.length
     fai_entry_offset = chrom.offset
     fai_entry_line_length = chrom.line_length
     fai_entry_line_length_bytes = chrom.line_length_bytes
     seq_len = end - start
-    line_ratio = fai_entry_line_length * (fai_entry_line_length_bytes - fai_entry_line_length)
+    fai_diff = (fai_entry_line_length_bytes - fai_entry_line_length)
+    line_ratio = fai_entry_line_length * fai_diff
     newlines_total = int(fai_entry_length / line_ratio)
     newlines_before = 0
+
     if start > 0:
         newlines_before = int(start / line_ratio)
+
     newlines_to_end = int(end / line_ratio)
     byte_len_seq = newlines_to_end - newlines_before + seq_len
     byte_start = fai_entry_offset + newlines_before + start
     byte_end = fai_entry_offset + newlines_total + fai_entry_length
+
     return byte_start, byte_end, byte_len_seq
 
 
-def parse_fasta_header(fasta_header):
+def reformat(
+        fasta_file_name: str,
+        output_file_name: str,
+        length: int | None = 60,
+        debug_level: int | None = 0):
     """
+    Reformat a Fasta file to specified maximum line length.
 
-    :param fasta_header:
-    :return:
+    Args:
+        fasta_file_name: The name of the Fasta file.
+        output_file_name: Name of the output file or None for stdout.
+        length: Maximum line length.
+        debug_level: Debug level (0=WARN,1=INFO,2+=DEBUG).
     """
-    if not fasta_header:
-        return None
-
-    match = REGEX_FASTA_HEADER.match(fasta_header.strip())
-
-    if match:
-        groups = match.groups()
-        return FastaHeader(groups[0], groups[1] if groups[1] else None)
-
-    return None
-
-
-def reformat(fasta_input, output_file, length=60, debug_level=0):
-    fasta_input = g2g_utils.check_file(fasta_input)
+    fasta_file_name = g2g_utils.check_file(fasta_file_name)
     output = sys.stdout
     logger = g2g.get_logger(debug_level)
 
-    if output_file:
-        output_file = g2g_utils.check_file(output_file, "w")
+    if output_file_name:
+        output_file = g2g_utils.check_file(output_file_name, "w")
         output = open(output_file, "w")
 
-    with open(fasta_input, "r") as input:
+    with open(fasta_file_name, "r") as fasta_fd:
         new_sequence = StringIO()
         new_header = ">UNKNOWN"
 
-        for line in input:
+        for line in fasta_fd:
             line = line.strip()
 
             if line[0] == ">":
                 if len(new_sequence.getvalue()) > 0:
                     output.write(new_header)
                     output.write("\n")
-                    g2g_utils.write_sequence(new_sequence.getvalue(), output, length)
+                    g2g_utils.write_sequence(
+                        new_sequence.getvalue(), output, length
+                    )
 
                     logger.info(f"Reformatting {new_header}")
 
@@ -511,21 +532,36 @@ def reformat(fasta_input, output_file, length=60, debug_level=0):
         output.write("\n")
         g2g_utils.write_sequence(new_sequence.getvalue(), output, length)
 
-
     output.close()
 
 
-def fasta_extract_transcripts(fasta_file, database_file, output, raw=False, debug_level=0):
+def fasta_extract_transcripts(
+        fasta_file: str | FastaFile,
+        database_file_name: str,
+        output: str | None,
+        raw: bool | None = False,
+        debug_level: int | None = 0
+) -> None:
+    """
+    Extract the transcripts sequences from the fasta_file given the database.
+
+    Args:
+        fasta_file: Either the name of the Fasta file or a FastaFile object.
+        database_file_name: Name of the database file.
+        output: Name of the output file or None for stdout.
+        raw: True to omit Fasta sequence name and/or info.
+        debug_level: Debug level (0=WARN,1=INFO,2+=DEBUG).
+    """
     start = time.time()
     logger = g2g.get_logger(debug_level)
+
     if isinstance(fasta_file, FastaFile):
         fasta = fasta_file
     else:
         fasta_file = g2g_utils.check_file(fasta_file)
         fasta = FastaFile(fasta_file)
 
-    database_file = g2g_utils.check_file(database_file)
-
+    database_file_name = g2g_utils.check_file(database_file_name)
     fasta_out = sys.stdout
 
     if output:
@@ -533,17 +569,19 @@ def fasta_extract_transcripts(fasta_file, database_file, output, raw=False, debu
         fasta_out = open(output, "w")
 
     logger.warn(f"FASTA FILE: {fasta.filename}")
-    logger.warn(f"DATABASE FILE: {database_file}")
+    logger.warn(f"DATABASE FILE: {database_file_name}")
     logger.warn(f"OUTPUT FILE: {fasta_out.name}")
 
     try:
-        transcripts = gtf_db.get_transcripts_simple(database_file)
+        transcripts = gtf_db.get_transcripts_simple(database_file_name)
 
         for i, transcript in enumerate(transcripts):
             logger.debug(f"Transcript={transcript}")
 
             if transcript.seqid not in fasta.references:
-                logger.debug("skipping, transcript seqid not in fasta references")
+                logger.debug(
+                    "Skipping, transcript seqid not in fasta references"
+                )
                 logger.debug(f"{transcript.seqid} not in {fasta.references}")
                 continue
 
@@ -558,10 +596,14 @@ def fasta_extract_transcripts(fasta_file, database_file, output, raw=False, debu
                 if transcript.strand == 1:
                     new_sequence.write(partial_seq_str)
                 else:
-                    partial_seq_str = str(g2g_utils.reverse_complement_sequence(partial_seq))
+                    partial_seq_str = \
+                        str(g2g_utils.reverse_complement_sequence(partial_seq))
                     new_sequence.write(partial_seq_str)
 
-                logger.debug(f"{exon.seqid}:{exon.start}-{exon.end} (Length: {len(partial_seq)})\n{partial_seq_str}")
+                logger.debug(
+                    f"{exon.seqid}:{exon.start}-{exon.end} "
+                    f"(Length: {len(partial_seq)})\n{partial_seq_str}"
+                )
                 locations.append(f"{exon.seqid}:{exon.start}-{exon.end}")
 
             if raw:
@@ -587,7 +629,23 @@ def fasta_extract_transcripts(fasta_file, database_file, output, raw=False, debu
     logger.warn(f"Execution complete: {fmt_time}")
 
 
-def fasta_extract_exons(fasta_file, database_file, output, raw=False, debug_level=0):
+def fasta_extract_exons(
+        fasta_file: str | FastaFile,
+        database_file_name: str,
+        output: str | None,
+        raw: bool | None = False,
+        debug_level: int | None = 0
+) -> None:
+    """
+    Extract the exons sequences from the fasta_file given the database.
+
+    Args:
+        fasta_file: Either the name of the Fasta file or a FastaFile object.
+        database_file_name: Name of the database file.
+        output: Name of the output file or None for stdout.
+        raw: True to omit Fasta sequence name and/or info.
+        debug_level: Debug level (0=WARN,1=INFO,2+=DEBUG).
+    """
     start = time.time()
     logger = g2g.get_logger(debug_level)
 
@@ -597,8 +655,7 @@ def fasta_extract_exons(fasta_file, database_file, output, raw=False, debug_leve
         fasta_file = g2g_utils.check_file(fasta_file)
         fasta = FastaFile(fasta_file)
 
-    database_file = g2g_utils.check_file(database_file)
-
+    database_file_name = g2g_utils.check_file(database_file_name)
     fasta_out = sys.stdout
 
     if output:
@@ -606,11 +663,11 @@ def fasta_extract_exons(fasta_file, database_file, output, raw=False, debug_leve
         fasta_out = open(output, "w")
 
     logger.warn(f"FASTA FILE: {fasta.filename}")
-    logger.warn(f"DATABASE FILE: {database_file}")
+    logger.warn(f"DATABASE FILE: {database_file_name}")
     logger.warn(f"OUTPUT FILE: {fasta_out.name}")
 
     try:
-        transcripts = gtf_db.get_transcripts_simple(database_file)
+        transcripts = gtf_db.get_transcripts_simple(database_file_name)
         for i, transcript in enumerate(transcripts):
 
             if transcript.seqid not in fasta.references:
@@ -623,14 +680,21 @@ def fasta_extract_exons(fasta_file, database_file, output, raw=False, debug_leve
                 partial_seq_str = partial_seq
 
                 if transcript.strand == -1:
-                    partial_seq_str = str(g2g_utils.reverse_complement_sequence(partial_seq))
+                    rev_seq = g2g_utils.reverse_complement_sequence(partial_seq)
+                    partial_seq_str = str(rev_seq)
 
-                logger.debug(f"{exon.seqid}:{exon.start}-{exon.end} (Length: {len(partial_seq)})\n{partial_seq_str}")
+                logger.debug(
+                    f"{exon.seqid}:{exon.start}-{exon.end} "
+                    f"(Length: {len(partial_seq)})\n{partial_seq_str}"
+                )
 
                 if raw:
                     fasta_out.write(partial_seq_str)
                 else:
-                    fasta_id = f">{exon.ensembl_id} {exon.seqid}:{exon.start}-{exon.end}\n"
+                    fasta_id = (
+                        f">{exon.ensembl_id} "
+                        f"{exon.seqid}:{exon.start}-{exon.end}\n"
+                    )
                     fasta_out.write(fasta_id)
 
                     for line in g2g_utils.wrap_sequence(partial_seq_str):
@@ -644,5 +708,5 @@ def fasta_extract_exons(fasta_file, database_file, output, raw=False, debug_leve
         logger.info(e.msg.rstrip())
         raise e
 
-    logger.warn("Execution complete: {0}".format(g2g_utils.format_time(start, time.time())))
-
+    fmt_time = g2g_utils.format_time(start, time.time())
+    logger.warn(f"Execution complete: {fmt_time}")

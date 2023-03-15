@@ -27,7 +27,7 @@ class TestG2gtools(unittest.TestCase):
         # self.output_dir = os.path.join(self.dir_parent, "test_example1")
         #
         # os.mkdir(self.output_dir)
-        # self.output_file = os.path.join(self.output_dir, "example1.out.sam")
+        # self.bed_file_out = os.path.join(self.output_dir, "example1.out.sam")
         pass
 
     def test_example1(self):
@@ -42,12 +42,12 @@ class TestG2gtools(unittest.TestCase):
         # except chain.ChainFileException, cfe:
         #     print cfe
         #
-        # bamsam.convert_bam_file(chain=chain_file, infile=self.input_file, outfile=self.output_file)
+        # bamsam.convert_bam_file(chain=chain_file, infile=self.input_file, outfile=self.bed_file_out)
         #
         # try:
-        #     sam_file_out = pysam.Samfile(self.output_file, 'rb')
+        #     sam_file_out = pysam.Samfile(self.bed_file_out, 'rb')
         # except:
-        #     sam_file_out = pysam.Samfile(self.output_file, 'r')
+        #     sam_file_out = pysam.Samfile(self.bed_file_out, 'r')
         #
         # try:
         #     while 1:
