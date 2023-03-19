@@ -253,5 +253,3 @@ def parse_region(location_str, base=0, name=None):
     # LOG.debug(f"parse_region returning: region = {region}")
 
     return region
-
-

@@ -435,7 +435,7 @@ class Exon(GTFObject):
 
 def location_to_sql(
         location: g2g.Region,
-        use_strand: bool | None = False,
+        use_strand: bool = False,
         overlap: bool | None = True
 ) -> tuple[str, dict]:
     """
@@ -765,7 +765,7 @@ def get_transcripts_simple(
 
             transcripts[r["transcript_id"]].exons[r["ensembl_id"]] = exon
 
-            # A small snippet from gtftodb (sqlite file) for the gene
+            # A small snippet from gtf2db (sqlite file) for the gene
             # that has only one exon
             #
             # gene_id       transcript_id       ensembl_id

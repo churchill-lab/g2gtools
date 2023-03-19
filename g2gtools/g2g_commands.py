@@ -6,7 +6,7 @@ import sys
 # none
 
 # local library imports
-from . import bsam
+from . import bcsam
 from . import bed
 from . import exceptions
 from . import fasta
@@ -204,7 +204,7 @@ def command_vcf2vci(raw_args, prog=None):
         g2g.exit("No VCF file was specified.", parser)
 
     if not args.output:
-        g2g.exit("No output VCF file was specified.", parser)
+        g2g.exit("No output VCI file was specified.", parser)
 
     if not args.strain:
         g2g.exit("No strain was specified.", parser)
@@ -885,7 +885,7 @@ def command_vciquery(raw_args, prog=None):
     parser.add_argument("-r", "--region", dest="region", metavar="chr1:100000-200000")
 
     # optional
-    parser.add_argument("-f", "--fasta", dest="fasta", metavar="Fasta_file")
+    # None
 
     # debugging and help
     parser.add_argument("-h", "--help", dest="help", action="store_true")
@@ -904,7 +904,7 @@ def command_vciquery(raw_args, prog=None):
 
     try:
         region = g2g.parse_region(args.region, 1)
-        vci.vci_query(args.vci, region, args.fasta, debug_level=args.debug)
+        vci.vci_query(args.vci, region, debug_level=args.debug)
     except KeyboardInterrupt as ki:
         g2g.exit(ki, parser)
     except exceptions.G2GValueError as e:

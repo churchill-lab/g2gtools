@@ -5,6 +5,7 @@
 # standard library imports
 from collections import namedtuple
 from collections import OrderedDict
+from typing import Iterator
 import sys
 
 # 3rd party library imports
@@ -46,21 +47,25 @@ class GTF(object):
 
     Supports transparent gzip decompression.
     """
-    def __init__(self, file_name):
-        if not file_name:
-            raise G2GGTFError("A filename must be supplied")
+    def __init__(self, file_name: str):
+        """
+        Instantiate a GTF object.
 
-        self.file_name = file_name
-        self.current_line = None
-        self.current_record = None
-        self.reader = iter(g2g_utils.open_resource(file_name))
+        Args:
+            file_name: The name of the GTF file.
+        """
+        self.file_name: str = file_name
+        self.current_line: str = ''
+        self.current_record: GTFRecord | None = None
+        self.reader: Iterator = iter(g2g_utils.open_resource(file_name))
 
     def __iter__(self):
         return self
 
     def __next__(self):
         self.current_line = g2g_utils.s(self.reader.__next__())
-        while self.current_line.startswith("#") or self.current_line.startswith("!"):
+        while self.current_line.startswith("#") or \
+                self.current_line.startswith("!"):
             self.current_line = g2g_utils.s(self.reader.__next__())
 
         self.current_record = parse_gtf_line(self.current_line)
@@ -68,9 +73,15 @@ class GTF(object):
         return self.current_record
 
 
-def attributes_to_odict(attributes):
+def attributes_to_odict(attributes: str) -> OrderedDict[str, str]:
     """
-    Parse the GTF attribute column and return a dict
+    Parse the GTF attribute column and return a dictionary.
+
+    Args:
+        attributes: A string of attributes.
+
+    Returns:
+        A dictionary of attributes.
     """
     if attributes == ".":
         return OrderedDict()
@@ -91,9 +102,15 @@ def attributes_to_odict(attributes):
     return ret
 
 
-def odict_to_attributes(attributes):
+def odict_to_attributes(attributes: dict[str, str]) -> str:
     """
-    Parse the GTF attribute column and return a dict
+    Parse the GTF attribute dictionary and return a string.
+
+    Args:
+        attributes: A dictionary of GTF attributes.
+
+    Returns:
+        A string representation.
     """
     if attributes:
         atts = []
@@ -105,13 +122,15 @@ def odict_to_attributes(attributes):
     return "."
 
 
-def parse_gtf_line(line):  # works for both gtf and gff files
+def parse_gtf_line(line: str) -> GTFRecord:
     """
-    Parse the GTF line.
+    Parse the GTF/GFF line.
 
-    :param line: a line from GTF file
-    :type line: str
-    :return:
+    Args:
+        line: A line from GTF file.
+
+    Returns:
+        A GTFRecord.
     """
     elem = line.strip().split("\t")
 
@@ -215,7 +234,9 @@ def convert_gtf_file(
 
         for lr in left_right:
             seq_id = f"{record.seqid}{lr}"
-            mappings = vci_file.find_mappings(seq_id, record.start - 1, record.end)
+            mappings = vci_file.find_mappings(
+                seq_id, record.start - 1, record.end
+            )
 
             # unmapped
             if mappings is None:
@@ -230,7 +251,9 @@ def convert_gtf_file(
             start = mappings[0].to_start + 1
             end = mappings[-1].to_end
 
-            logger.debug(f"({record.start-1}, {record.end}) => ({start}, {end})")
+            logger.debug(
+                f"({record.start-1}, {record.end}) => ({start}, {end})"
+            )
 
             elem = gtf_file.current_line.rstrip().split("\t")
             elem[0] = seq_id
@@ -382,11 +405,16 @@ def convert_gff_file(
     logger.warn("GFF file converted")
 
 
-def attributes_to_odict_gff(attributes):
+def attributes_to_odict_gff(attributes: str) -> OrderedDict[str, str]:
     """
-    Parse the GFF attribute column and return a dict
-    """
+    Parse the GFF attribute column and return a dict.
 
+    Args:
+        attributes: The string of attributes.
+
+    Returns:
+        A dictionary of attributes.
+    """
     if attributes == ".":
         return OrderedDict()
 
@@ -402,9 +430,15 @@ def attributes_to_odict_gff(attributes):
     return ret_gff
 
 
-def odict_to_attributes_gff(attributes):
+def odict_to_attributes_gff(attributes: dict[str, str]) -> str:
     """
-    Parse the GFF attribute column and return a dict
+    Assemble the GFF attributes into a string.
+
+    Args:
+        attributes: A dictionary of attributes.
+
+    Returns:
+        A string version of the GFF attributes.
     """
     if attributes:
         atts = []

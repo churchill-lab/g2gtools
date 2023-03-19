@@ -6,6 +6,7 @@
 
 # standard library imports
 from collections import namedtuple
+from typing import IO
 import re
 
 # 3rd party library imports
@@ -13,7 +14,7 @@ import re
 
 # local library imports
 from .exceptions import G2GVCFError
-from . import g2g
+from .exceptions import G2GValueError
 from . import g2g_utils
 
 VCF_FIELDS = [
@@ -31,38 +32,56 @@ GTData = namedtuple("GTData", GT_DATA_FIELDS)
 GENOTYPE_UNPHASED = "/"
 GENOTYPE_PHASED = "|"
 
-REGEX_ALT = re.compile("(^[A|C|G|T]+)")
+REGEX_ALT = re.compile(r"(^[A|C|G|T]+)")
 
 
 class VCFFile(object):
     """
     Simple VCF object for parsing VCF files
     """
-    def __init__(self, file_name):
-        if not file_name:
-            raise G2GVCFError("A filename must be supplied")
+    def __init__(self, file_name: str):
+        """
+        Encapsulate VCF file information.
 
-        self.file_name = file_name
+        Args:
+            file_name: The name of the VCF file.
+        """
+        self.file_name: str = file_name
         self.samples = None
-        self.current_line = None
-        self.current_record = None
-        self.reader = g2g_utils.open_resource(file_name)
-        self._parse_header()
+        self.current_line: str | None = None
+        self.current_record: VCFRecord | None = None
+        self.reader: IO = g2g_utils.open_resource(file_name)
+        self.parse_header()
 
-    def _parse_header(self):
-        self.current_line = self.reader.next()
+    def parse_header(self):
+        """
+        Parse the VCF file header.
+
+        Raises:
+            G2GVCFError: When the VCF file isn't formatted correctly.
+        """
+        self.current_line = next(self.reader)
 
         while self.current_line.startswith("##"):
-            self.current_line = self.reader.next()
+            self.current_line = next(self.reader)
 
         if self.current_line.startswith("#"):
-            elems = self.current_line.strip().split("\t")
-            samples = elems[9:]
+            elem = self.current_line.strip().split("\t")
+            samples = elem[9:]
             self.samples = dict(zip(samples, (x for x in range(len(samples)))))
         else:
             raise G2GVCFError("Improperly formatted VCF file")
 
-    def parse_gt(self, sample):
+    def parse_gt(self, sample: str):
+        """
+        Parse the GT field from the VCF record.
+
+        Args:
+            sample: The sample identifier.
+
+        Returns:
+            Parsed GT data into a GTData object.
+        """
         if sample is None:
             raise G2GVCFError("Sample must contain a value")
 
@@ -70,38 +89,57 @@ class VCFFile(object):
         return parse_gt(self.current_record, sample_index)
 
     def __iter__(self):
+        """
+        Iterable.
+        """
         return self
 
     def next(self):
-        self.current_line = self.reader.next()
+        """
+        Explicitly call next on the reader.
+
+        Returns:
+            A VCFRecord.
+        """
+        self.current_line = next(self.reader)
 
         while self.current_line.startswith("#"):
-            self.current_line = self.reader.next()
+            self.current_line = next(self.reader)
 
         self.current_record = parse_vcf_line(self.current_line)
 
         return self.current_record
 
-    def get_sample_index(self, sample):
-        if sample is None:
-            raise G2GVCFError("Sample must contain a value")
+    def get_sample_index(self, sample: str) -> int:
+        """
+        Get the sample index.
 
+        Args:
+            sample: The sample string.
+
+        Returns:
+            The index of the sample in the VCF file.
+
+        Raises:
+            G2GVCFError: When the sample doesn't exist.
+        """
         if sample in self.samples:
             return self.samples[sample]
-
-        parse_vcf_line()
 
         raise G2GVCFError(f"Unknown sample: '{sample}'")
 
 
-def parse_vcf_line(line):
+def parse_vcf_line(line: str | None) -> VCFRecord | None:
     """
     Parse a line in the VCF file.
 
-    :param line: a line from the VCF file
-    :type line: str
-    :return: :class:`.vcf.VCFRecord`
+    Args:
+        line: A line (record) from the VCF file.
+
+    Returns:
+        A VCFRecord object or None if line cannot be parsed.
     """
+    elem = None
 
     if isinstance(line, str):
         if line.startswith("#"):
@@ -140,15 +178,20 @@ def parse_vcf_line(line):
     )
 
 
-def parse_gt(vcf_record, sample_index):
+def parse_gt(vcf_record: VCFRecord, sample_index: int) -> GTData:
     """
-    Parse the GT field within the VCF line.
+    Parse the GT field from the VCF record.
 
-    :param vcf_record: the VCF record
-    :type vcf_record: :class:`.vcf.VCFRecord`
-    :param sample_index: the strain or sample index
-    :type sample_index: int
-    :return: :class:`.vcf.GTData`
+    Args:
+        vcf_record: The current VCF record containing the GT data.
+        sample_index:  The index of the sample.
+
+    Returns:
+        Parsed GT data into a GTData object.
+
+    Raises:
+        G2GVCFError: When an improper VCF field.
+        ValueError: When an improper field in the VCF file is bad.
     """
     if sample_index is None:
         raise G2GVCFError("Sample index must contain a value")
@@ -159,10 +202,11 @@ def parse_gt(vcf_record, sample_index):
     left = None
     right = None
     phase = None
+    gt_left = None
+    gt_right = None
 
     # check for to see if ALT is <CN*> or something not ACGT
     if vcf_record.alt.find("<") == -1 and sample_data != ".":
-    # if sample_data != ".":
         gt_index = vcf_record.format.split(":").index("GT")
         fi_index = vcf_record.format.split(":").index("FI")
 
@@ -204,34 +248,37 @@ def parse_gt(vcf_record, sample_index):
                     right = None
                     gt_right = None
 
-        except ValueError as ve:
-            # LOG.debug(ve)
+        except ValueError:
             pass
-        except IndexError as ie:
-            # LOG.debug(ie)
+        except IndexError:
             pass
         try:
             fi = sample_data.split(":")[fi_index]
-        except ValueError as ve:
-            # LOG.debug(ve)
+        except ValueError:
             pass
-        except IndexError as ie:
-            # LOG.debug(ie)
+        except IndexError:
             pass
 
-    is_snp = len(vcf_record.REF) == 1 == (len(left) if left else 0) == (len(right) if right else 0)
+    is_snp = len(vcf_record.ref) == 1 == (len(left) if left else 0) == (len(right) if right else 0)
     return GTData(
-        vcf_record.REF, left, right, gt, fi, phase, gt_left, gt_right, is_snp
+        vcf_record.ref, left, right, gt, fi, phase, gt_left, gt_right, is_snp
     )
 
 
-def parse_gt_tuple(vcf_record, sample_index):
+def parse_gt_tuple(vcf_record: VCFRecord, sample_index: int) -> GTData:
     """
     Parse the GT field within the VCF line.
-    """
-    if sample_index is None:
-        raise G2GVCFError("Sample index must contain a value")
 
+    Args:
+        vcf_record: The VCF record object.
+        sample_index: The index of the sample.
+
+    Returns:
+        The GT data parsed into a GTData object.
+
+    Raises:
+        G2GValueError: When we cannot parse the GT field.
+    """
     sample_data = vcf_record[sample_index]
     gt = None
     fi = None
@@ -260,7 +307,7 @@ def parse_gt_tuple(vcf_record, sample_index):
                     genotypes = list(map(int, gt.split(GENOTYPE_UNPHASED)))
                     phase = GENOTYPE_UNPHASED
                 else:
-                    raise ValueError(f"Unknown phase in GT, {gt}")
+                    raise G2GValueError(f"Unknown phase in GT, {gt}")
 
                 # assuming no triploids for now
                 if genotypes[0] == 0:
@@ -277,7 +324,7 @@ def parse_gt_tuple(vcf_record, sample_index):
                 gt_right = genotypes[1]
 
                 # check for to see if ALT is <CN*> or something not ACGT
-                #if not REGEX_ALT.match(left) or not REGEX_ALT.match(right):
+                # if not REGEX_ALT.match(left) or not REGEX_ALT.match(right):
                 #    LOG.error("VFC2VCI CN FOUND")
                 #    gt = None
                 #    fi = None
@@ -287,21 +334,23 @@ def parse_gt_tuple(vcf_record, sample_index):
                 #    gt_left = None
                 #    gt_right = None
 
-        except ValueError as ve:
+        except ValueError:
             # LOG.debug(ve)
             pass
-        except IndexError as ie:
+        except IndexError:
             # LOG.debug(ie)
             pass
         try:
             if fi_index:
                 fi = sample_data.split(":")[fi_index]
-        except ValueError as ve:
+        except ValueError:
             # LOG.debug(ve)
             pass
-        except IndexError as ie:
+        except IndexError:
             # LOG.debug(ie)
             pass
 
     is_snp = len(vcf_record.ref) == 1 == (len(left) if left else 0) == (len(right) if right else 0)
-    return GTData(vcf_record.ref, left, right, gt, fi, phase, gt_left, gt_right, is_snp)
+    return GTData(
+        vcf_record.ref, left, right, gt, fi, phase, gt_left, gt_right, is_snp
+    )

@@ -174,8 +174,8 @@ class FAI(object):
 
         fai_entry_length = chrom.length
         fai_entry_offset = chrom.offset
-        fai_entry_line_length = chrom.line_length
-        fai_entry_line_length_bytes = chrom.line_length_bytes
+        fai_entry_line_length = chrom.line_len
+        fai_entry_line_length_bytes = chrom.line_len_bytes
         seq_len = end - start
         fai_diff = (fai_entry_line_length_bytes - fai_entry_line_length)
         line_ratio = fai_entry_line_length * fai_diff
@@ -464,8 +464,8 @@ def get_pos(fai: FAI, chrom: str, start: int, end: int) -> tuple[int, int, int]:
     chrom = fai.records[chrom]
     fai_entry_length = chrom.length
     fai_entry_offset = chrom.offset
-    fai_entry_line_length = chrom.line_length
-    fai_entry_line_length_bytes = chrom.line_length_bytes
+    fai_entry_line_length = chrom.line_len
+    fai_entry_line_length_bytes = chrom.line_len_bytes
     seq_len = end - start
     fai_diff = (fai_entry_line_length_bytes - fai_entry_line_length)
     line_ratio = fai_entry_line_length * fai_diff

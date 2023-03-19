@@ -27,10 +27,7 @@ class BED(object):
 
     Supports transparent gzip decompression.
     """
-    def __init__(self, file_name):
-        if not file_name:
-            raise G2GBedError("A file_name must be supplied")
-
+    def __init__(self, file_name: str):
         self.file_name: str = file_name
         self.current_line: str | None = None
         self.current_line_is_bed: bool = False
@@ -40,10 +37,18 @@ class BED(object):
         self.current_line_no: int = 0
 
     def __iter__(self):
+        """
+        Iteration.
+        """
         return self
 
     def __next__(self):
+        """
+        Iteration.
 
+        Raises:
+            G2GBedError: When there is an improperly formatted BED file.
+        """
         self.current_line = g2g_utils.s(self.reader.__next__())
         self.current_line_no += 1
 
@@ -97,8 +102,8 @@ def convert_bed_file(
         vci_file: str | VCIFile,
         bed_file_name_in: str,
         bed_file_name_out: str | None = None,
-        reverse: bool | None = False,
-        debug_level: int | None = 0
+        reverse: bool = False,
+        debug_level: int = 0
 ) -> None:
     """
     Convert BED coordinates.

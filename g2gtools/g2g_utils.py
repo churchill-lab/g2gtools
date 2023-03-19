@@ -4,7 +4,11 @@
 
 # standard library imports
 from itertools import zip_longest
+from os import PathLike
 from subprocess import Popen
+from typing import Any
+from typing import IO
+from typing import Iterator
 import bz2
 import gzip
 import os
@@ -21,25 +25,33 @@ import urllib
 from natsort import natsorted as _natsorted
 import pysam
 
+import g2gtools.g2g
 # local library imports
 from .exceptions import G2GValueError
 
 
-REGEX_LOCATION = re.compile("(\w*)\s*(-|:)?\s*(\d+)\s*(MB|M|K|)?\s*(-|:|)?\s*(\d+|)\s*(MB|M|K|)?", re.IGNORECASE)
+REGEX_LOCATION = re.compile(r"(\w*)\s*(-|:)?\s*(\d+)\s*(MB|M|K|)?\s*(-|:|)?\s*(\d+|)\s*(MB|M|K|)?", re.IGNORECASE)
 REGEX_LOCATION_CHR = re.compile(
-    "(CHR|)*\s*([0-9]{1,2}|X|Y|MT)\s*(-|:)?\s*(\d+)\s*(MB|M|K|)?\s*(-|:|)?\s*(\d+|)\s*(MB|M|K|)?", re.IGNORECASE)
+    r"(CHR|)*\s*([0-9]{1,2}|X|Y|MT)\s*(-|:)?\s*(\d+)\s*(MB|M|K|)?\s*(-|:|)?\s*(\d+|)\s*(MB|M|K|)?", re.IGNORECASE)
 BASES = re.compile(r"([ATGCYRSWKMBDHVNatgcyrswkmbdhvn]+)")
 
 TRANS = str.maketrans("ATGCYRSWKMBDHVNatgcyrswkmbdhvn",
                       "TACGRYSWMKVHDBNtacgryswmkvhdbn")
 
-def cmp(x, y):
-    """
-    cmp(x, y) -> integer
 
-    Return negative if x<y, zero if x==y, positive if x>y.
+def cmp(x: Any, y: Any) -> int:
+    """
+    Compare x and y.
+
+    Args:
+        x: The first value.
+        y: The second value.
+
+    Returns:
+        Negative if x<y, zero if x==y, positive if x>y.
     """
     return (x > y) - (x < y)
+
 
 def n(b, encoding="utf-8"):
     return b.decode(encoding)
@@ -72,13 +84,19 @@ def show_error():
         tb = tb.tb_next
 
 
-def try_int(s):
+def try_int(s: Any) -> Any:
     """
     Convert to integer if possible.
+
+    Args:
+        s: The value to convert to an int.
+
+    Returns:
+        The value converted to int if possible, else the same value.
     """
     try:
         return int(s)
-    except:
+    except Exception:
         return s
 
 
@@ -86,7 +104,6 @@ def natsort_key(s):
     """
     Used internally to get a tuple by which s is sorted.
     """
-    import re
     return map(try_int, re.findall(r"(\d+|\D+)", s))
 
 
@@ -129,30 +146,39 @@ def merge_dicts(*dict_args):
     return result
 
 
-def format_time(start, end):
+def format_time(start: float, end: float) -> str:
     """
     Format length of time between start and end.
 
-    :param start: the start time
-    :param end: the end time
-    :return: a formatted string of hours, minutes, and seconds
+    Args:
+        start: The start time.
+        end: The end time.
+
+    Returns:
+        A formatted string of hours, minutes, and seconds.
     """
     hours, rem = divmod(end - start, 3600)
     minutes, seconds = divmod(rem, 60)
     return "{:0>2}:{:0>2}:{:05.2f}".format(int(hours), int(minutes), seconds)
 
 
-def parse_chromosome(chrom_file):
+def parse_chromosome(chrom_file_name: str) -> dict[str, int]:
     """
-    Parse the chromosome for length
+    Parse the chromosome file for length.
+
+    Args:
+        chrom_file_name: Name of the file to parse.
+
+    Returns:
+        A dictionary with chromosome as keys and the lengths as values.
     """
     chromosomes = {}
 
     try:
-        if not os.path.exists(chrom_file):
-            raise IOError(chrom_file)
+        if not os.path.exists(chrom_file_name):
+            raise IOError(chrom_file_name)
 
-        fd = open(chrom_file, "r")
+        fd = open(chrom_file_name, "r")
         for line in fd:
             elem = line.strip().split()
             try:
@@ -163,49 +189,91 @@ def parse_chromosome(chrom_file):
                 pass  # most likely header line
         fd.close()
     except IOError as e:
-        message = "Error parsing chromosome files: {0}".format(e.message)
+        message = f"Error parsing chromosome files: {e.message}"
         print(message)
         return {}
 
     return chromosomes
 
 
-def wrap_sequence(sequence, n=60, fillvalue=""):
-    args = [iter(sequence)] * n
-    for line in zip_longest(fillvalue=fillvalue, *args):
+def wrap_sequence(
+        sequence: str,
+        wrap_length: int = 60,
+        fill_value: str | None = ""
+) -> Iterator[str]:
+    """
+    Wrap a sequence for better output.
+
+    Args:
+        sequence: A sequence string.
+        wrap_length: How many characters before wrapping.
+        fill_value: Fill in value.
+
+    Yields:
+        Iterator of str.
+    """
+    args = [iter(sequence)] * wrap_length
+    for line in zip_longest(fillvalue=fill_value, *args):
         yield "".join(line + ("\n",))
 
 
-def write_sequence(sequence, out, n=60):
-    for i in range(0, len(sequence), n):
-        out.write(sequence[i:i + n])
+def write_sequence(
+    sequence: str,
+    out: IO,
+    wrap_length: int = 60
+):
+    """
+    Write the formatted sequence to output.
+
+    Args:
+        sequence: A sequence string.
+        out: Output to write to.
+        wrap_length: How many characters before wrapping.
+    """
+    for i in range(0, len(sequence), wrap_length):
+        out.write(sequence[i:i + wrap_length])
         out.write("\n")
 
 
-def dump_file_contents(file_name):
+def dump_file_contents(file_name: str) -> None:
+    """
+    Display the contents of the file to stdout.
+
+    Args:
+        file_name: The name of the file.
+    """
     with open(file_name, "r") as f:
         shutil.copyfileobj(f, sys.stdout)
 
 
-def reverse_sequence(sequence):
+def reverse_sequence(sequence: str) -> str:
     """
-    Return the reverse of sequence
+    Return the reverse of sequence.
 
-    :param sequence: either a string or Sequence object
-    :return: the reverse string or Sequence object
+    Args:
+        sequence: A sequence string.
+
+    Returns:
+        The reverse of the sequence string.
     """
     if isinstance(sequence, str):
         return sequence[::-1]
     else:
-        raise ValueError("Cannot complement object of {0}, expecting string or Sequence object".format(type(sequence)))
+        raise ValueError(
+            f"Cannot complement object of {type(sequence)}, "
+            "expecting string or Sequence object"
+        )
 
 
 def complement_sequence(sequence):
     """
-    Return the complement of sequence
+    Return the complement of sequence.
 
-    :param sequence: either a string or Sequence object
-    :return: the complement string or Sequence object
+    Args:
+        sequence: A sequence string.
+
+    Returns:
+        The complement of the sequence string.
     """
     val = str(sequence)
 
@@ -214,27 +282,36 @@ def complement_sequence(sequence):
     else:
         matches = re.findall(BASES, val)
         position = len(matches[0])
-        raise ValueError(f"Sequence contains non-DNA character '{val[position]}' at position {position+1:n}\n")
+        raise ValueError(
+            "Sequence contains non-DNA character "
+            f"'{val[position]}' at position {position+1:n}"
+        )
 
     if isinstance(sequence, str):
         return val
     else:
-        raise ValueError(f"Cannot complement object of {type(sequence)}, expecting string or Sequence object")
+        raise ValueError(
+            f"Cannot complement object of {type(sequence)}, "
+            "expecting string or Sequence object"
+        )
 
 
 def reverse_complement_sequence(sequence):
     """
-    Return the reverse-complement of sequence
+    Return the reverse complement of sequence string.
 
-    :param sequence: either a string or Sequence object
-    :return: the reverse-complement string or Sequence object
+    Args:
+        sequence: A sequence string.
+
+    Returns:
+        The reverse complement of the sequence string.
     """
     return reverse_sequence(complement_sequence(sequence))
 
 
 def concatenate_files(
         list_files: list[str],
-        to_file: str,
+        file_name_out: str,
         delete: bool | None = False,
         mode: str | None = "wb"
 ) -> None:
@@ -246,7 +323,7 @@ def concatenate_files(
     delete: True to delete the files after they have been concatenated.
     mode: Mode to write the concatenated file.
     """
-    with open(to_file, mode) as out:
+    with open(file_name_out, mode) as out:
         for from_file in list_files:
             with open(from_file, "rb") as f:
                 shutil.copyfileobj(f, out)
@@ -254,20 +331,20 @@ def concatenate_files(
                 delete_file(from_file)
 
 
-def delete_file(filename: str) -> None:
+def delete_file(file_name: str) -> None:
     """
     Delete the file.
 
     Args:
-        filename: Name of the file to parse.
+        file_name: Name of the file to parse.
     """
     try:
-        os.remove(filename)
+        os.remove(file_name)
     except OSError:
         pass
 
 
-def delete_index_files(filename):
+def delete_index_files(file_name: str) -> None:
     """
     Delete the file indices of the filename.
         filename.gzi
@@ -275,59 +352,69 @@ def delete_index_files(filename):
         filename.tbi
 
     Args:
-        filename: Name of the file to parse.
+        file_name: Name of the file to delete the index of.
     """
-    delete_file(f"{filename}.gzi")
-    delete_file(f"{filename}.fai")
-    delete_file(f"{filename}.tbi")
+    delete_file(f"{file_name}.gzi")
+    delete_file(f"{file_name}.fai")
+    delete_file(f"{file_name}.tbi")
 
 
-def bgzip_decompress(filename):
+def bgzip_decompress(file_name: str) -> None:
+    """
+    Decompress the file specified by file_name.
+
+    Args:
+        file_name: The file to bgzip decompress.
+    """
     # gobble the output
-    with open(os.devnull, "w") as fnull:
-        p = Popen(["bgzip", "-f", "-d", filename], stdout=fnull, stderr=fnull)
+    with open(os.devnull, "w") as null:
+        p = Popen(["bgzip", "-f", "-d", file_name], stdout=null, stderr=null)
         p.wait()
 
-    delete_index_files(filename)
+    delete_index_files(file_name)
 
 
 def bgzip_file(
-    original_file: str,
-    new_file: str,
+    file_name_in: str,
+    file_name_out: str,
     delete_original: bool | None = False,
     force: bool | None = True
 ) -> None:
     """
-    bgzip a file and index it
+    bgzip a file and index it.
 
     Args:
-        original_file: The file to compress and index.
-        new_file: Name of the new file.
+        file_name_in: The file to compress and index.
+        file_name_out: Name of the new file.
         delete_original: True to delete the original file.
         force: True to force overwrite and index.
     """
-    pysam.tabix_compress(original_file, new_file, force)
+    pysam.tabix_compress(file_name_in, file_name_out, force)
 
     if delete_original:
-        delete_file(original_file)
+        delete_file(file_name_in)
 
 
-def has_index_file(original_file, file_format=None):
+def has_index_file(file_name: str, file_format: str | None = None) -> bool:
     """
+    Check to see if the file has an index.
 
-    :param original_file:
-    :param new_file:
-    :param file_format:
-    :return:
+    Args:
+        file_name: The name of the file to check.
+        file_format: The file format ("fa", "vcf", "vci")
+
+    Returns:
+        True if the index exists, False otherwise.
     """
-
     if not file_format:
         # try to guess the file format
-        if original_file.lower().endswith(".fa") or original_file.lower().endswith(".fasta"):
+        if file_name.lower().endswith(".fa"):
             file_format = "fa"
-        elif original_file.lower().endswith(".vcf"):
+        elif file_name.lower().endswith(".fasta"):
+            file_format = "fa"
+        elif file_name.lower().endswith(".vcf"):
             file_format = "vcf"
-        elif original_file.lower().endswith(".vci"):
+        elif file_name.lower().endswith(".vci"):
             file_format = "vci"
         else:
             raise G2GValueError("Cannot determine file format")
@@ -341,13 +428,13 @@ def has_index_file(original_file, file_format=None):
     else:
         raise G2GValueError(f"Unknown file format: {file_format}")
 
-    idx_file = f"{original_file}.{ext}"
+    idx_file = f"{file_name}.{ext}"
 
     return os.path.exists(idx_file)
 
 
 def index_file(
-        original_file: str,
+        file_name: str,
         file_format: str | None = "vcf",
         overwrite: bool | None = False
 ) -> None:
@@ -355,26 +442,26 @@ def index_file(
     Parse the VCF file and create a VCI file.
 
     Args
-        original_file (str): Name of the file to index.
-        file_format (str): Format of the file (fa, vcf, vci).
-        overwrite(bool): True to overwrite existing file.
+        file_name: Name of the file to index.
+        file_format: Format of the file (fa, vcf, vci).
+        overwrite: True to overwrite existing file.
     """
-    if overwrite or not has_index_file(original_file, file_format=file_format):
+    if overwrite or not has_index_file(file_name, file_format=file_format):
         if file_format.lower() == "fa":
-            pysam.FastaFile(original_file)
+            pysam.FastaFile(file_name)
         elif file_format.lower() == "vcf":
-            pysam.tabix_index(original_file, preset="vcf", force=True)
+            pysam.tabix_index(file_name, preset="vcf", force=True)
         elif file_format.lower() == "vci":
             pysam.tabix_index(
-                original_file, seq_col=0, start_col=1, end_col=1, force=True
+                file_name, seq_col=0, start_col=1, end_col=1, force=True
             )
         else:
             raise G2GValueError(f"Unknown file format: {file_format}")
 
 
 def bgzip_and_index_file(
-        original_file: str,
-        new_file: str,
+        file_name_in: str,
+        file_name_out: str,
         delete_original: bool | None = False,
         force: bool | None = True,
         file_format: str | None = "vcf"
@@ -383,23 +470,27 @@ def bgzip_and_index_file(
     bgzip a file and index it
 
     Args:
-        original_file: The file to compress and index.
-        new_file: Name of the new file.
+        file_name_in: The file to compress and index.
+        file_name_out: Name of the new file.
         delete_original: True to delete the original file.
         force: True to force overwrite and index.
-        file_format: Format of the file so we can compress and index correctly.
+        file_format: Format of the file, so we can compress and index correctly.
     """
-    bgzip_file(original_file, new_file, delete_original, force)
-    index_file(new_file, file_format)
+    bgzip_file(file_name_in, file_name_out, delete_original, force)
+    index_file(file_name_out, file_format)
 
 
-def open_resource(resource, mode="rb"):
+def open_resource(resource, mode: str = "rb"):
     """
     Open different types of files and return the handle.
 
-    :param resource: a file located locally or on the internet.  Gzip'd and zip'd files are handled.
-    :param mode: standard file open modes
-    :return: the resource (file) handle
+    Args:
+        resource: A file located locally or on the internet.
+            Gzip'd and zip'd files are handled.
+        mode: Standard file open modes.
+
+    Returns:
+        The resource (file) handle.
     """
     if not resource:
         return None
@@ -419,16 +510,29 @@ def open_resource(resource, mode="rb"):
         return open(resource, mode)
 
 
-def create_random_string(size=6, chars=string.ascii_uppercase + string.digits):
+def create_random_string(
+        size: int = 6,
+        chars: str = string.ascii_uppercase + string.digits
+) -> str:
+    """
+    Create a random string.
+
+    Args:
+        size: The length of the string.
+        chars: The character set to use.
+
+    Returns:
+        A random string of length size.
+    """
     return "".join(random.choice(chars) for _ in range(size))
 
 
 def gen_file_name(
         name: str | None = None,
         prefix: str | None = "",
-        output_dir=".",
-        extension="log",
-        append_time=True
+        output_dir: str = ".",
+        extension: str = "log",
+        append_time: bool = True
 ) -> str:
     """
     Generate a file name.
@@ -496,6 +600,9 @@ def check_file(
 
     Returns:
         The absolute path of the file.
+
+    Raises:
+        G2GValueError: When the file doesn't exist or cannot be generated.
     """
     if mode == "r":
         if file_name and os.path.exists(file_name):
@@ -517,31 +624,69 @@ def check_file(
     raise G2GValueError(f"Unspecified mode to open file, '{mode}'")
 
 
-def create_temp_dir(name, prefix=".g2gtools_", dir=None):
+def create_temp_dir(
+        name: str,
+        prefix: str = ".g2gtools_",
+        dir: str | PathLike | None = None
+) -> str:
+    """
+    Create a temporary directory.
+
+    Args:
+        name: Name of the directory.
+        prefix: Prefix of the name.
+        dir: Directory where to create temp directory.
+
+    Returns:
+        The absolute path to the temporary directory.
+    """
     new_name = f"{prefix}{name}"
     return os.path.abspath(tempfile.mkdtemp(prefix=new_name, dir=dir))
 
 
-def get_sys_exec_root_or_drive():
+def get_sys_exec_root_or_drive() -> str:
+    """
+    Get system root directory.
+
+    Returns:
+        The path to the root dir.
+    """
     path = sys.executable
     while os.path.split(path)[1]:
         path = os.path.split(path)[0]
     return path
 
 
-def delete_dir(dir):
-    dir = os.path.abspath(dir)
-    if os.path.exists(dir):
+def delete_dir(directory: str) -> None:
+    """
+    Delete the specified directory.
+
+    Args:
+        directory: The directory to delete
+
+    Raises:
+        G2GValueError: When the directory cannot be deleted.
+    """
+    directory = os.path.abspath(directory)
+    if os.path.exists(directory):
         root = get_sys_exec_root_or_drive()
         # bad error checking, but at least it's something
-        if root == dir:
-            raise G2GValueError(f"Will not delete directory: {dir}")
+        if root == directory:
+            raise G2GValueError(f"Will not delete directory: {directory}")
         try:
-            shutil.rmtree(dir)
+            shutil.rmtree(directory)
         except Exception as e:
-            raise G2GValueError(f"Will not delete directory: {dir}")
+            raise G2GValueError(f"Will not delete directory: {directory}")
 
 
-def location_to_filestring(location):
+def location_to_filestring(location: g2gtools.g2g.Region) -> str:
+    """
+    Convert the specified Region into a string representation.
+
+    Args:
+        location: The Region object.
+
+    Returns:
+        The region as a string.
+    """
     return f"{location.seq_id}-{location.start}-{location.end}"
-
