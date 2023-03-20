@@ -96,7 +96,7 @@ def process_piece(
     logger = g2g.get_logger(fasta_transform_params.debug_level)
     logger.debug(f"params:input_region={fasta_transform_params.input_region}")
     logger.debug(f"params:input_file={fasta_transform_params.input_file}")
-    logger.debug(f"params:bed_file_out={fasta_transform_params.output_file}")
+    logger.debug(f"params:output_file={fasta_transform_params.output_file}")
     logger.debug(f"params:output_region={fasta_transform_params.output_region}")
     logger.debug(f"params:output_header={fasta_transform_params.output_header}")
     logger.debug(f"params:vci_query={fasta_transform_params.vci_query}")
@@ -518,7 +518,7 @@ def process(
         num_processes: int | None = None,
         also_patch: bool | None = False,
         debug_level: int | None = 0
-):
+) -> None:
     """
     Patch a Fasta file by replacing the bases where the SNPs are located in
     the VCI file.
@@ -528,10 +528,10 @@ def process(
         vci_file_name: Name of the VCI file or a VCIFile object.
         regions: A list of g2g.Regions to process.
         fasta_file_name_out: Name of output Fasta file.
-        bgzip: True to process VCI in reverse.
-        reverse: True to process VCI in reverse.
-        num_processes: True to process VCI in reverse.
-        also_patch: True to process VCI in reverse.
+        bgzip: True to compress and index file.
+        reverse: Reverse the insertions and deletions in VCI file.
+        num_processes: The number of processes to use.
+        also_patch: True to also patch the Fasta file.
         debug_level: Debug level (0=WARN,1=INFO,2+=DEBUG).
     """
     start = time.time()
@@ -600,6 +600,7 @@ def process(
                 logger.warn(f"Regions: {regions_str}")
 
         else:
+            logger.debug("No regions, calculating from Fasta file...")
             regions = []
             for chrom in fasta_file.references:
                 regions.append(

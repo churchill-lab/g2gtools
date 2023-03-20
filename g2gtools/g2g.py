@@ -1,4 +1,5 @@
 # standard library imports
+import argparse
 import logging
 import re
 import sys
@@ -33,7 +34,7 @@ def get_logger(level=0):
 
     if not logger.hasHandlers():
         handler = logging.StreamHandler(sys.stderr)
-        formatter = logging.Formatter("[g2gtools] %(levelname)s %(msg)s")
+        formatter = logging.Formatter("[g2gtools] %(levelname)s [%(filename)s] [%(lineno)d] %(msg)s")
         handler.setFormatter(formatter)
         logger.addHandler(handler)
 
@@ -47,15 +48,22 @@ def get_logger(level=0):
     return logger
 
 
-def exit(message="", parser=None):
+def exit(
+        message: str | None = "",
+        parser: argparse.ArgumentParser | None = None
+) -> None:
     """
     Print message, help, and exit.
 
-    :param message: The message to print
-    :param parser: the argument parser
+    Args:
+        message: The message to print.
+        parser: The argument parser.
     """
     if parser:
-        parser.error(str(message))
+        if message:
+            parser.error(message)
+        else:
+            parser.error("Unknown error specified")
     else:
         if message:
             sys.stderr.write(f"[g2gtools] Error: {message}\n")

@@ -245,19 +245,28 @@ def prepare_fasta_patch(filename_output: str) -> str:
 
 
 def process(
-        filename_fasta,
-        filename_vci,
-        regions,
-        filename_output=None,
-        bgzip=False,
-        reverse=False,
-        num_processes=None,
-        debug_level=0
+        filename_fasta: str,
+        filename_vci: str,
+        regions: list[g2g.Region] | None = None,
+        filename_output: str | None = None,
+        bgzip: bool = False,
+        reverse: bool = False,
+        num_processes: int | None = None,
+        debug_level: int = 0
 ) -> None:
     """
-    Patch a Fasta file by replacing the bases where the SNPs are located in the VCF file.
+    Patch a Fasta file by replacing the bases where the SNPs are located as
+    specified in the VCI file created from the VCF file.
 
-
+    Args:
+        filename_fasta: The name of the Fasta file.
+        filename_vci: The name of the VCI file.
+        regions: A specific list of Regions to use or None for the entire file.
+        filename_output: The of the output file.
+        bgzip: True to compress and index file.
+        reverse: Reverse the insertions and deletions in VCI file.
+        num_processes: The number of processes to use.
+        debug_level: Debug level (0=WARN,1=INFO,2+=DEBUG).
     """
     start = time.time()
     dump_fasta = False
@@ -320,6 +329,7 @@ def process(
                 logger.warn(f"Regions: {regions_str}")
 
         else:
+            logger.debug("No regions, calculating from Fasta file...")
             regions = []
             for chrom in fasta_file.references:
                 regions.append(

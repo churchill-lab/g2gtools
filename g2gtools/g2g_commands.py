@@ -19,10 +19,6 @@ from . import gtf_db
 from . import vci
 from . import vcf2vci
 
-#TODO: Ask KB about --pass, --quality  do we want here and also at the transform and patch level?
-
-#TODO: Assumption.., extract and location work on INPUT genome, but shouldn't we be able to say, I know what the position is in CAST of where I want to look... show me this sequence in the ref
-
 
 def command_convert(raw_args, prog=None):
     """
@@ -37,19 +33,17 @@ def command_convert(raw_args, prog=None):
     Optional Parameters:
         -f, --format <bam|sam|gtf|bed>   Input file format
         -o, --output <output file>       Name of output file
-        --reverse                        Reverse the direction of the conversion (Custom -> Ref)
+        --reverse                        Reverse the direction of the conversion
 
     Help Parameters:
         -h, --help                       Print the help and exit
-        -d, --debug                      Turn debugging mode on (list multiple times for more messages)
-
+        -d, --debug                      Turn debugging mode on
+                                             (set multiple times for verbose)
 
     Note:
-        If no output file is specified [-o], the converted information will be redirected
-        to standard out.
-
+        If no output file is specified [-o], the converted information will be
+        redirected to standard out.
     """
-
     if prog:
         parser = argparse.ArgumentParser(prog=prog, add_help=False)
     else:
@@ -70,14 +64,18 @@ def command_convert(raw_args, prog=None):
     parser.add_argument("-c", "--vci", dest="vci", metavar="VCI_File")
 
     # optional
-    parser.add_argument("-f", "--format", dest="format", metavar="bam|sam|gtf|bed",
-                        choices=["bam", "sam", "gtf", "bed", "gff"])  # ** added "gff"
+    parser.add_argument(
+        "-f", "--format", dest="format", metavar="bam|sam|gtf|bed",
+        choices=["bam", "sam", "gtf", "bed", "gff"]
+    )
     parser.add_argument("-o", "--output", dest="output", metavar="Output_File")
     parser.add_argument("--reverse", dest="reverse", action="store_true")
 
     # debugging and help
     parser.add_argument("-h", "--help", dest="help", action="store_true")
-    parser.add_argument("-d", "--debug", dest="debug", action="count", default=0)
+    parser.add_argument(
+        "-d", "--debug", dest="debug", action="count", default=0
+    )
 
     args = parser.parse_args(raw_args)
 
@@ -91,13 +89,14 @@ def command_convert(raw_args, prog=None):
         g2g.exit("No VCI file was specified.", parser)
 
     try:
-        file_format = None  # prolly unnecessary 
-
         if args.format:
-            file_format = args.format.upper()  # ** this prolly was a bug
+            file_format = args.format.upper()
 
-            if file_format not in ["BED", "BAM", "SAM", "GTF", "GFF"]:  # ** added "GFF"
-                raise exceptions.G2GValueError("Only BAM/SAM to BAM/SAM, GTF to GTF, or BED to BED are supported")
+            if file_format not in ["BED", "BAM", "SAM", "GTF", "GFF"]:
+                raise exceptions.G2GValueError(
+                    "Only BAM/SAM to BAM/SAM, GTF to GTF, or "
+                    "BED to BED are supported"
+                )
         else:
             # try to determine the type from the input
             file_all_caps = args.input.upper()
@@ -110,37 +109,59 @@ def command_convert(raw_args, prog=None):
             elif file_all_caps.endswith("GFF"):
                 file_format = "GFF"
             else:
-                raise exceptions.G2GValueError("File format cannot be determined, please specify.")
+                raise exceptions.G2GValueError(
+                    "File format cannot be determined, please specify."
+                )
 
         if file_format in ["BAM", "SAM"]:
-            bsam.convert_bam_file(vci_file=args.vci, file_in=args.input, file_out=args.output, reverse=args.reverse, debug_level=args.debug)
+            bcsam.convert_bcsam_file(
+                vci_file=args.vci, bcsam_file_name_in=args.input,
+                bcsam_file_name_out=args.output, reverse=args.reverse,
+                debug_level=args.debug
+            )
         elif file_format in ["GTF"]:
-            gtf.convert_gtf_file(vci_file=args.vci, input_file=args.input, output_file=args.output, reverse=args.reverse, debug_level=args.debug)
+            gtf.convert_gtf_file(
+                vci_file=args.vci, gtf_file_name_in=args.input,
+                gtf_file_name_out=args.output, reverse=args.reverse,
+                debug_level=args.debug
+            )
         elif file_format in ["BED"]:
-            bed.convert_bed_file(vci_file=args.vci, input_file=args.input, bed_file_out=args.output, reverse=args.reverse, debug_level=args.debug)
+            bed.convert_bed_file(
+                vci_file=args.vci, bed_file_name_in=args.input,
+                bed_file_name_out=args.output, reverse=args.reverse,
+                debug_level=args.debug
+            )
         elif file_format in ["GFF"]:
-            # added ** to include GFF parsing
-            # it will still use the same module "gtf" but different function convert_gff_file
-            gtf.convert_gff_file(vci_file=args.vci, input_file=args.input, output_file=args.output, reverse=args.reverse, debug_level=args.debug)
+            gtf.convert_gff_file(
+                vci_file=args.vci, gff_file_name_in=args.input,
+                gff_file_name_out=args.output, reverse=args.reverse,
+                debug_level=args.debug
+            )
         else:
-            raise exceptions.G2GValueError("Only BAM/SAM to BAM/SAM, GTF to GTF, or BED to BED are supported")
+            raise exceptions.G2GValueError(
+                "Only BAM/SAM to BAM/SAM, GTF to GTF, or "
+                "BED to BED are supported"
+            )
     except KeyboardInterrupt as ki:
-        g2g.exit(ki, parser)
-    except exceptions.G2GValueError as ve:
-        g2g.exit(ve, parser)
-    except exceptions.G2GChainFileError as cfe:
-        g2g.exit(cfe, parser)
+        g2g.exit(str(ki), parser)
+    except exceptions.KeyboardInterruptError as e:
+        g2g.exit(str(e), parser)
+    except exceptions.G2GValueError as e:
+        g2g.exit(e.msg, parser)
+    except exceptions.G2GChainFileError as e:
+        g2g.exit(e.msg, parser)
     except exceptions.G2GBAMError as e:
-        g2g.exit(e, parser)
+        g2g.exit(e.msg, parser)
     except exceptions.G2GBedError as e:
-        g2g.exit(e, parser)
+        g2g.exit(e.msg, parser)
 
 
 def command_vcf2vci(raw_args, prog=None):
     """
     Create VCI file from VCF file(s)
 
-    Usage: g2gtools vcf2vci [-i <indel VCF file>]* -s <strain> -o <output file> [options]
+    Usage: g2gtools vcf2vci [-i <indel VCF file>]* -s <strain> -o <output file>
+           [options]
 
     Required Parameters:
         -i, --vcf <vcf_file>             VCF file name
@@ -149,17 +170,20 @@ def command_vcf2vci(raw_args, prog=None):
         -o, --output <Output file>       VCI file name to create
 
     Optional Parameters:
-        -p, --num-processes <number>     The number of processes to use, defaults to the number of cores
+        -p, --num-processes <number>     The number of processes to use,
+                                             defaults to the number of cores
         --diploid                        Create diploid VCI
-        --keep                           Keep track of VCF lines that could not be converted to VCI file
-        --pass                           Use only VCF lines that have a PASS for the filter value
+        --keep                           Keep track of VCF lines that could not
+                                             be converted to VCI file
+        --pass                           Use only VCF lines that have a PASS for
+                                             the filter value
         --quality                        Filter on quality, FI=PASS
         --no-bgzip                       DO NOT compress and index output
 
     Help Parameters:
         -h, --help                       Print the help and exit
-        -d, --debug                      Turn debugging mode on (list multiple times for more messages)
-
+        -d, --debug                      Turn debugging mode on
+                                             (set multiple times for verbose)
     """
 
     if prog:
@@ -178,22 +202,31 @@ def command_vcf2vci(raw_args, prog=None):
     parser.error = print_message
 
     # required
-    parser.add_argument("-i", "--vcf", dest="vcf_files", metavar="vcf_file", action="append")
+    parser.add_argument(
+        "-i", "--vcf", dest="vcf_files", metavar="vcf_file", action="append"
+    )
     parser.add_argument("-f", "--fasta", dest="fasta_file", metavar="fasta_file")
     parser.add_argument("-s", "--strain", dest="strain", metavar="strain")
     parser.add_argument("-o", "--output", dest="output", metavar="VCI_File")
 
     # optional
-    parser.add_argument("-p", "--num-processes", type=int, dest="numprocesses", metavar="number_of_processes")
+    parser.add_argument(
+        "-p", "--num-processes", type=int, dest="numprocesses",
+        metavar="number_of_processes"
+    )
     parser.add_argument("--diploid", dest="diploid", action="store_true")
     parser.add_argument("--keep", dest="keep", action="store_true")
     parser.add_argument("--pass", dest="passed", action="store_true")
     parser.add_argument("--quality", dest="quality", action="store_true")
-    parser.add_argument("--no-bgzip", dest="nobgzip", action="store_false", default=True)
+    parser.add_argument(
+        "--no-bgzip", dest="nobgzip", action="store_false", default=True
+    )
 
     # debugging and help
     parser.add_argument("-h", "--help", dest="help", action="store_true")
-    parser.add_argument("-d", "--debug", dest="debug", action="count", default=0)
+    parser.add_argument(
+        "-d", "--debug", dest="debug", action="count", default=0
+    )
 
     args = parser.parse_args(raw_args)
 
@@ -210,42 +243,54 @@ def command_vcf2vci(raw_args, prog=None):
         g2g.exit("No strain was specified.", parser)
 
     try:
-        vcf2vci.process(args.vcf_files, args.fasta_file, args.output, args.strain, args.keep, args.passed, args.quality, args.diploid, args.numprocesses, args.nobgzip, debug_level=args.debug)
+        vcf2vci.process(
+            args.vcf_files, args.fasta_file, args.output, args.strain,
+            args.keep, args.passed, args.quality, args.diploid,
+            args.numprocesses, args.nobgzip, debug_level=args.debug
+        )
     except KeyboardInterrupt as ki:
-        g2g.exit(ki, parser)
+        g2g.exit(str(ki), parser)
+    except exceptions.KeyboardInterruptError as e:
+        g2g.exit(str(e), parser)
     except exceptions.G2GValueError as e:
-        g2g.exit(e, parser)
+        g2g.exit(e.msg, parser)
     except exceptions.G2GVCFError as e:
-        g2g.exit(e, parser)
+        g2g.exit(e.msg, parser)
 
 
 def command_fasta_extract(raw_args, prog=None):
     """
     Extract subsequence from a fasta file given a region
 
-    Usage: g2gtools extract -i <Fasta file> [-r <region> | -b <BED file> | -db <Database> | -id <seqid>] [options]
+    Usage: g2gtools extract -i <Fasta file>
+                            [-r <region> | -b <BED file> |
+                             -db <Database> | -id <seqid>] [options]
 
     Required Parameters:
-        -i, --input <Fasta file>         Fasta file to extract subsequence from, BGZIP files supported
+        -i, --input <Fasta file>         Fasta file to extract subsequence from,
+                                             BGZIP files supported
         -b, --bed <BED file>             BED file -OR-
         -id, --identifier <identifier>   Fasta identifier -OR-
         -r, --region <seqid:start-end>   Region to extract -OR-
         -db, --database <DB file>        Database file
-             --transcripts                 For use with -db, extracts transcripts (default)
-             --exons                       For use with -db, extracts exons
-             --genes                       For use with -db, extracts genes
+             --transcripts                 For use with -db, extract transcripts
+             --exons                       For use with -db, extract exons
+             --genes                       For use with -db, extract genes
 
     Optional Parameters:
-        -c, --vci <VCI file>             Input VCI file, matching input Fasta file
+        -c, --vci <VCI file>             Input VCI file, matching input Fasta
+                                             file
         -R, --vci-reverse                Reverse the direction of liftover
         --complement                     Complement the extracted sequence
         --reverse                        Reverse the extracted sequence
-        --reverse-complement             Reverse complement the extracted sequence
+        --reverse-complement             Reverse complement the extracted
+                                             sequence
         --raw                            Just shows the extracted sequence
 
     Help Parameters:
         -h, --help                       Print the help and exit
-        -d, --debug                      Turn debugging mode on (list multiple times for more messages)
+        -d, --debug                      Turn debugging mode on
+                                             (set multiple times for verbose)
 
     Note:
         Locations specified on command line are 1-based coordinates.
@@ -271,25 +316,47 @@ def command_fasta_extract(raw_args, prog=None):
     parser.add_argument("-i", "--input", dest="fasta", metavar="FASTA_File")
     parser.add_argument("-b", "--bed", dest="bed_file", metavar="BED_File")
     parser.add_argument("-id", "--identifier", dest="id", metavar="identifier")
-    parser.add_argument("-r", "--region", dest="region", metavar="chr1:100000-200000")
-    parser.add_argument("-db", "--database", dest="database", metavar="Database")
+    parser.add_argument(
+        "-r", "--region", dest="region", metavar="chr1:100000-200000"
+    )
+    parser.add_argument(
+        "-db", "--database", dest="database", metavar="Database"
+    )
 
     # optional
-    parser.add_argument("--transcripts", dest="transcripts", action="store_true", default=False)
-    parser.add_argument("--exons", dest="exons", action="store_true", default=False)
-    parser.add_argument("--genes", dest="genes", action="store_true", default=False)
+    parser.add_argument(
+        "--transcripts", dest="transcripts", action="store_true", default=False
+    )
+    parser.add_argument(
+        "--exons", dest="exons", action="store_true", default=False
+    )
+    parser.add_argument(
+        "--genes", dest="genes", action="store_true", default=False
+    )
 
     parser.add_argument("-c", "--vci", dest="vci", metavar="VCI_File")
-    parser.add_argument("-R", "--vci-reverse", dest="vci_reverse", action="store_true", default=False)
-    parser.add_argument("--complement", dest="complement", action="store_true", default=False)
-    parser.add_argument("--reverse", dest="reverse", action="store_true", default=False)
-    parser.add_argument("--reverse-complement", dest="reversecomplement", action="store_true", default=False)
+    parser.add_argument(
+        "-R", "--vci-reverse", dest="vci_reverse", action="store_true",
+        default=False
+    )
+    parser.add_argument(
+        "--complement", dest="complement", action="store_true", default=False
+    )
+    parser.add_argument(
+        "--reverse", dest="reverse", action="store_true", default=False
+    )
+    parser.add_argument(
+        "--reverse-complement", dest="reversecomplement", action="store_true",
+        default=False
+    )
 
     parser.add_argument("--raw", dest="raw", action="store_true", default=False)
 
     # debugging and help
     parser.add_argument("-h", "--help", dest="help", action="store_true")
-    parser.add_argument("-d", "--debug", dest="debug", action="count", default=0)
+    parser.add_argument(
+        "-d", "--debug", dest="debug", action="count", default=0
+    )
 
     args = parser.parse_args(raw_args)
 
@@ -305,7 +372,11 @@ def command_fasta_extract(raw_args, prog=None):
     flag_count += (1 if args.reversecomplement else 0)
 
     if flag_count > 1:
-        g2g.exit("Please specify only one of: --complement, --reverse, --reverse-complement", parser)
+        g2g.exit(
+            "Please specify only one of: --complement, --reverse, "
+            "--reverse-complement",
+            parser
+        )
 
     reverse = (args.reverse or args.reversecomplement)
     complement = (args.complement or args.reversecomplement)
@@ -318,7 +389,10 @@ def command_fasta_extract(raw_args, prog=None):
         output_count += (1 if args.exons else 0)
 
         if output_count != 1:
-            g2g.exit("Please specify one of: --exons, --genes, or --transcripts", parser)
+            g2g.exit(
+                "Please specify one of: --exons, --genes, or --transcripts",
+                parser
+            )
 
     location_count = 0
     location_count += (1 if args.region else 0)
@@ -330,7 +404,6 @@ def command_fasta_extract(raw_args, prog=None):
         g2g.exit("Please specify only one of: -r, -b, -id, or -db", parser)
 
     all_regions = []
-    transcript_info = None
 
     logger = g2g.get_logger(args.debug)
 
@@ -355,7 +428,7 @@ def command_fasta_extract(raw_args, prog=None):
             all_regions.append(region)
 
             # TEMPORARY OVERRIDE
-            #all_regions = [g2g.parse_region(args.region)]
+            # all_regions = [g2g.parse_region(args.region)]
 
         elif args.bed_file:
             # bed file
@@ -364,7 +437,12 @@ def command_fasta_extract(raw_args, prog=None):
                 if bed_file.current_line_is_bed:
                     strand = bed_rec.strand if bed_rec.strand else "+"
                     logger.debug(bed_rec)
-                    all_regions.append(g2g.Region(bed_rec.chrom, bed_rec.start, bed_rec.end, strand, bed_rec.name, 0))
+                    all_regions.append(
+                        g2g.Region(
+                            bed_rec.chrom, bed_rec.start, bed_rec.end,
+                            strand, bed_rec.name, 0
+                        )
+                    )
 
         # on the fly
         if args.vci:
@@ -372,47 +450,74 @@ def command_fasta_extract(raw_args, prog=None):
             # let's eliminate what isn't supported
 
             if fasta_file.is_diploid():
-                g2g.exit("Diploid Fasta files are not supported with -v, --vci", parser)
+                g2g.exit(
+                    "Diploid Fasta files are not supported with -v, --vci",
+                    parser
+                )
             elif args.id:
-                g2g.exit("Options -v, --vci cannot be used with --id, --identifier", parser)
+                g2g.exit(
+                    "Options -v, --vci cannot be used with --id, --identifier",
+                    parser
+                )
             elif args.database:
-                g2g.exit("Options -v, --vci cannot be used with --db, --database", parser)
+                g2g.exit(
+                    "Options -v, --vci cannot be used with --db, --database",
+                    parser
+                )
             elif flag_count >= 1:
-                g2g.exit("Options --complement, --reverse, --reversecomplement cannot be used with VCI.", parser)
-
-            #fasta_onthefly.process(filename_fasta=args.fasta, filename_vci=args.vci, regions=all_regions,
-            #                        filename_output=None, bgzip=False, reverse=args.vci_reverse, num_processes=None,
-            #                        transcript_info=transcript_info)
+                g2g.exit(
+                    "Options --complement, --reverse, --reversecomplement "
+                    "cannot be used with VCI.",
+                    parser
+                )
 
             if args.region:
                 # overridden here, fasta.extract expects 1 base
                 all_regions = [g2g.parse_region(args.region)]
 
-            fasta_transform.process(filename_fasta=args.fasta, filename_vci=args.vci, regions=all_regions,
-                                    filename_output=None, bgzip=False, reverse=args.vci_reverse, num_processes=None,
-                                    also_patch=True, debug_level=args.debug)
+            fasta_transform.process(
+                fasta_file_name_in=args.fasta, vci_file_name=args.vci,
+                regions=all_regions, fasta_file_name_out=None, bgzip=False,
+                reverse=args.vci_reverse, num_processes=None,
+                also_patch=True, debug_level=args.debug
+            )
 
         # normal extraction
         else:
             if args.id:
-                fasta.extract_id(args.fasta, args.id, output=None, reverse=reverse, complement=complement, raw=args.raw, debug_level=args.debug)
+                fasta.extract_id(
+                    args.fasta, args.id, output_file_name=None, reverse=reverse,
+                    complement=complement, raw=args.raw, debug_level=args.debug
+                )
                 return
 
             elif args.database:
                 if flag_count >= 1:
-                    g2g.exit("Options --complement, --reverse, --reversecomplement cannot be used with Database.", parser)
+                    g2g.exit(
+                        "Options --complement, --reverse, --reversecomplement "
+                        "cannot be used with Database.",
+                        parser
+                    )
 
                 if args.transcripts:
-                    fasta.fasta_extract_transcripts(fasta_file, args.database, None, raw=args.raw, debug_level=args.debug)
+                    fasta.fasta_extract_transcripts(
+                        fasta_file, args.database, None, raw=args.raw,
+                        debug_level=args.debug
+                    )
                     return
 
                 elif args.genes:
                     logger.info("Extracting genes from database...")
-                    genes = gtf_db.get_genes_simple(args.database, debug_level=args.debug)
+                    genes = gtf_db.get_genes_simple(
+                        args.database, debug_level=args.debug
+                    )
 
                     logger.debug("Genes extracted, transforming to locations")
                     for gene in genes:
-                        r = g2g.Region(gene.seqid, gene.start-1, gene.end, gene.strand, name=gene.ensembl_id, original_base=1)
+                        r = g2g.Region(
+                            gene.seqid, gene.start-1, gene.end, gene.strand,
+                            name=gene.ensembl_id, original_base=1
+                        )
                         all_regions.append(r)
 
                 elif args.exons:
@@ -421,22 +526,31 @@ def command_fasta_extract(raw_args, prog=None):
                     for i, transcript in enumerate(transcripts):
                         for ensembl_id, exon in transcript.exons.items():
                             if ensembl_id not in exon_ids:
-                                r = g2g.Region(exon.seqid, exon.start-1, exon.end, exon.strand, name=exon.ensembl_id, original_base=1)
+                                r = g2g.Region(
+                                    exon.seqid, exon.start - 1, exon.end,
+                                    exon.strand, name=exon.ensembl_id,
+                                    original_base=1
+                                )
                                 all_regions.append(r)
-                                exon_ids[ensembl_id]=1
+                                exon_ids[ensembl_id] = 1
 
-            fasta.extract(args.fasta, all_regions, output=None, reverse=reverse, complement=complement, raw=args.raw, debug_level=args.debug)
-
+            fasta.extract(
+                fasta_file=args.fasta, locations=all_regions,
+                output_file_name=None, reverse=reverse, complement=complement,
+                raw=args.raw, debug_level=args.debug
+            )
     except KeyboardInterrupt as ki:
-        g2g.exit("Handled Keyboard Interrupt")
-    except exceptions.G2GValueError as ve:
-        g2g.exit(ve.msg)
-    except exceptions.G2GBedError as be:
-        g2g.exit(be.msg)
-    except exceptions.G2GRegionError as le:
-        g2g.exit(le.msg)
-    except exceptions.G2GFastaError as fe:
-        g2g.exit(fe.msg)
+        g2g.exit(str(ki), parser)
+    except exceptions.KeyboardInterruptError as e:
+        g2g.exit(str(e), parser)
+    except exceptions.G2GValueError as e:
+        g2g.exit(e.msg, parser)
+    except exceptions.G2GBedError as e:
+        g2g.exit(e.msg, parser)
+    except exceptions.G2GRegionError as e:
+        g2g.exit(e.msg, parser)
+    except exceptions.G2GFastaError as e:
+        g2g.exit(e.msg, parser)
 
 
 def command_fasta_patch(raw_args, prog=None):
@@ -446,19 +560,23 @@ def command_fasta_patch(raw_args, prog=None):
     Usage: g2gtools patch -i <Fasta file> -c <VCI file> [options]
 
     Required Parameters:
-        -i, --input <Fasta file>         Reference fasta file to extract and patch on
+        -i, --input <Fasta file>         Reference fasta file to patch
         -c, --vci <VCI file>             VCI file
 
     Optional Parameters:
-        -p, --num-processes <number>     The number of processes to use, defaults to the number of cores
-        -o, --output <Output file>       Name of output fasta file that contains SNP-patched sequences
-        -r, --region <seqid:start-end>   Region to extract (cannot be used with -b)
-        -b, --bed <BED file>             BED file (cannot be used with -r)
-        --bgzip                          Compress and index output (can only be used with -o)
+        -p, --num-processes <number>     The number of processes to use,
+                                             defaults to the number of cores
+        -o, --output <Output file>       Name of output fasta file that contains
+                                             SNP-patched sequences
+        -r, --region <seqid:start-end>   Region to extract (don't use with -b)
+        -b, --bed <BED file>             BED file (don't use with -r)
+        --bgzip                          Compress and index output
+                                             (can only be used with -o)
 
     Help Parameters:
         -h, --help                       Print the help and exit
-        -d, --debug                      Turn debugging mode on (list multiple times for more messages)
+        -d, --debug                      Turn debugging mode on
+                                             (set multiple times for verbose)
 
     Note:
         --bgzip can be potentially slow depending on the size of the file
@@ -485,16 +603,25 @@ def command_fasta_patch(raw_args, prog=None):
     parser.add_argument("-c", "--vci", dest="vci", metavar="VCI_File")
 
     # optional
-    parser.add_argument("-p", "--num-processes", type=int, dest="numprocesses", metavar="number_of_processes")
+    parser.add_argument(
+        "-p", "--num-processes", type=int, dest="numprocesses",
+        metavar="number_of_processes"
+    )
     parser.add_argument("-o", "--output", dest="output", metavar="Output_File")
-    parser.add_argument("-r", "--region", dest="region", metavar="chr1:3000000-4000000")
+    parser.add_argument(
+        "-r", "--region", dest="region", metavar="chr1:3000000-4000000"
+    )
     parser.add_argument("-b", "--bed", dest="bed_file", metavar="BED_File")
-    parser.add_argument("--reverse", dest="reverse", action="store_true", default=False)
+    parser.add_argument(
+        "--reverse", dest="reverse", action="store_true", default=False
+    )
     parser.add_argument("--bgzip", dest="bgzip", action="store_true")
 
     # debugging and help
     parser.add_argument("-h", "--help", dest="help", action="store_true")
-    parser.add_argument("-d", "--debug", dest="debug", action="count", default=0)
+    parser.add_argument(
+        "-d", "--debug", dest="debug", action="count", default=0
+    )
 
     args = parser.parse_args(raw_args)
 
@@ -522,18 +649,28 @@ def command_fasta_patch(raw_args, prog=None):
         for bed_rec in bed_file:
             if bed_file.current_line_is_bed:
                 strand = bed_rec.strand if bed_rec.strand else "+"
-                all_locations.append(g2g.Region(bed_rec.chrom, bed_rec.start, bed_rec.end, strand, name=bed_rec.name))
+                all_locations.append(
+                    g2g.Region(
+                        bed_rec.chrom, bed_rec.start, bed_rec.end, strand,
+                        name=bed_rec.name
+                    )
+                )
 
     try:
-        fasta_patch.process(args.fasta, args.vci, all_locations, args.output, args.bgzip, args.reverse, args.numprocesses, args.debug)
-    except exceptions.KeyboardInterruptError as ki:
-        g2g.exit(ki, parser)
+        fasta_patch.process(
+            args.fasta, args.vci, all_locations, args.output, args.bgzip,
+            args.reverse, args.numprocesses, args.debug
+        )
+    except KeyboardInterrupt as ki:
+        g2g.exit(str(ki), parser)
+    except exceptions.KeyboardInterruptError as e:
+        g2g.exit(str(e), parser)
     except exceptions.G2GValueError as e:
-        g2g.exit(e, parser)
+        g2g.exit(e.msg, parser)
     except exceptions.G2GVCFError as e:
-        g2g.exit(e, parser)
+        g2g.exit(e.msg, parser)
     except exceptions.G2GError as e:
-        g2g.exit(e)
+        g2g.exit(e.msg, parser)
 
 
 def command_fasta_transform(raw_args, prog=None):
@@ -543,19 +680,22 @@ def command_fasta_transform(raw_args, prog=None):
     Usage: g2gtools transform -i <Fasta file> -c <VCI file> [options]
 
     Required Parameters:
-        -i, --input <Fasta file>         Reference fasta file to extract and transform
+        -i, --input <Fasta file>         Reference fasta file to transform
         -c, --vci <VCI file>             VCI file
 
     Optional Parameters:
-        -p, --num-processes <number>     The number of processes to use, defaults to the number of cores
+        -p, --num-processes <number>     The number of processes to use,
+                                             defaults to the number of cores
         -o, --output <Output file>       Name of output fasta file
-        -r, --region <seqid:start-end>   Region to extract (cannot be used with -b)
-        -b, --bed <BED file>             BED file (cannot be used with -r)
-        --bgzip                          Compress and index output fasta file (can only be used with -o)
+        -r, --region <seqid:start-end>   Region to extract (don't use with -b)
+        -b, --bed <BED file>             BED file (don't use with -r)
+        --bgzip                          Compress and index output
+                                             (can only be used with -o)
 
     Help Parameters:
         -h, --help                       Print the help and exit
-        -d, --debug                      Turn debugging mode on (list multiple times for more messages)
+        -d, --debug                      Turn debugging mode on
+                                             (set multiple times for verbose)
 
     Note:
         --bgzip can be potentially slow depending on the size of the file
@@ -582,16 +722,25 @@ def command_fasta_transform(raw_args, prog=None):
     parser.add_argument("-c", "--vci", dest="vci", metavar="VCI_File")
 
     # optional
-    parser.add_argument("-p", "--num-processes", type=int, dest="numprocesses", metavar="number_of_processes")
+    parser.add_argument(
+        "-p", "--num-processes", type=int, dest="numprocesses",
+        metavar="number_of_processes"
+    )
     parser.add_argument("-o", "--output", dest="output", metavar="Output_File")
-    parser.add_argument("-r", "--region", dest="region", metavar="chr1:3000000-4000000")
+    parser.add_argument(
+        "-r", "--region", dest="region", metavar="chr1:3000000-4000000"
+    )
     parser.add_argument("-b", "--bed", dest="bed_file", metavar="BED_File")
-    parser.add_argument("--reverse", dest="reverse", action="store_true", default=False)
+    parser.add_argument(
+        "--reverse", dest="reverse", action="store_true", default=False
+    )
     parser.add_argument("--bgzip", dest="bgzip", action="store_true")
 
     # debugging and help
     parser.add_argument("-h", "--help", dest="help", action="store_true")
-    parser.add_argument("-d", "--debug", dest="debug", action="count", default=0)
+    parser.add_argument(
+        "-d", "--debug", dest="debug", action="count", default=0
+    )
 
     args = parser.parse_args(raw_args)
 
@@ -620,19 +769,28 @@ def command_fasta_transform(raw_args, prog=None):
             for bed_rec in bed_file:
                 if bed_file.current_line_is_bed:
                     strand = bed_rec.strand if bed_rec.strand else "+"
-                    all_locations.append(g2g.Region(bed_rec.chrom, bed_rec.start, bed_rec.end, strand))
+                    all_locations.append(
+                        g2g.Region(
+                            bed_rec.chrom, bed_rec.start, bed_rec.end, strand
+                        )
+                    )
 
-        fasta_transform.process(args.fasta, args.vci, all_locations, args.output, args.bgzip, False, args.numprocesses, False, args.debug)
+        fasta_transform.process(
+            args.fasta, args.vci, all_locations, args.output, args.bgzip,
+            False, args.numprocesses, False, args.debug
+        )
     except KeyboardInterrupt as ki:
-        g2g.exit(ki.msg)
+        g2g.exit(str(ki), parser)
+    except exceptions.KeyboardInterruptError as e:
+        g2g.exit(str(e), parser)
     except exceptions.G2GValueError as e:
-        g2g.exit(e.msg)
+        g2g.exit(e.msg, parser)
     except exceptions.G2GRegionError as e:
-        g2g.exit("Region error")
+        g2g.exit(e.msg, parser)
     except exceptions.G2GFastaError as e:
-        g2g.exit("Fasta error")
+        g2g.exit(e.msg, parser)
     except exceptions.G2GError as e:
-        g2g.exit(e)
+        g2g.exit(e.msg, parser)
 
 
 def command_parse_region(raw_args, prog=None):
@@ -650,7 +808,8 @@ def command_parse_region(raw_args, prog=None):
 
     Help Parameters:
         -h, --help                       Print the help and exit
-        -d, --debug                      Turn debugging mode on (list multiple times for more messages)
+        -d, --debug                      Turn debugging mode on
+                                             (set multiple times for verbose)
 
     """
 
@@ -670,7 +829,9 @@ def command_parse_region(raw_args, prog=None):
     parser.error = print_message
 
     # required
-    parser.add_argument("-r", "--region", dest="region", metavar="chr1:100000-200000")
+    parser.add_argument(
+        "-r", "--region", dest="region", metavar="chr1:100000-200000"
+    )
 
     # optional
     parser.add_argument("-b", "--base", dest="base", metavar="0", default=None)
@@ -678,7 +839,9 @@ def command_parse_region(raw_args, prog=None):
 
     # debugging and help
     parser.add_argument("-h", "--help", dest="help", action="store_true")
-    parser.add_argument("-d", "--debug", dest="debug", action="count", default=0)
+    parser.add_argument(
+        "-d", "--debug", dest="debug", action="count", default=0
+    )
 
     args = parser.parse_args(raw_args)
 
@@ -711,15 +874,17 @@ def command_parse_region(raw_args, prog=None):
             logger.info(f"Display Start: {region.get_start()}")
 
     except KeyboardInterrupt as ki:
-        g2g.exit(ki.msg)
-    except exceptions.G2GValueError as ve:
-        g2g.exit(ve.msg)
-    except exceptions.G2GBedError as be:
-        g2g.exit(be.msg)
-    except exceptions.G2GRegionError as le:
-        g2g.exit(le.msg)
-    except exceptions.G2GFastaError as fe:
-        g2g.exit(fe.msg)
+        g2g.exit(str(ki), parser)
+    except exceptions.KeyboardInterruptError as e:
+        g2g.exit(str(e), parser)
+    except exceptions.G2GValueError as e:
+        g2g.exit(e.msg, parser)
+    except exceptions.G2GBedError as e:
+        g2g.exit(e.msg, parser)
+    except exceptions.G2GRegionError as e:
+        g2g.exit(e.msg, parser)
+    except exceptions.G2GFastaError as e:
+        g2g.exit(e.msg, parser)
 
 
 def command_fastaformat(raw_args, prog=None):
@@ -738,7 +903,8 @@ def command_fastaformat(raw_args, prog=None):
 
     Help Parameters:
         -h, --help                       Print the help and exit
-        -d, --debug                      Turn debugging mode on (list multiple times for more messages)
+        -d, --debug                      Turn debugging mode on
+                                             (set multiple times for verbose)
 
     """
 
@@ -761,12 +927,17 @@ def command_fastaformat(raw_args, prog=None):
     parser.add_argument("-f", "--fasta", dest="fasta", metavar="Fasta_File")
 
     # optional
-    parser.add_argument("-l", "--length", dest="line_length", metavar="line_length", default=60, type=int)
+    parser.add_argument(
+        "-l", "--length", dest="line_length", metavar="line_length",
+        default=60, type=int
+    )
     parser.add_argument("-o", "--output", dest="output", metavar="fasta_file")
 
     # debugging and help
     parser.add_argument("-h", "--help", dest="help", action="store_true")
-    parser.add_argument("-d", "--debug", dest="debug", action="count", default=0)
+    parser.add_argument(
+        "-d", "--debug", dest="debug", action="count", default=0
+    )
 
     args = parser.parse_args(raw_args)
 
@@ -777,13 +948,17 @@ def command_fastaformat(raw_args, prog=None):
         g2g.exit("No Fasta file was specified.", parser)
 
     try:
-        fasta.reformat(args.fasta, args.output, args.line_length, debug_level=args.debug)
+        fasta.reformat(
+            args.fasta, args.output, args.line_length, debug_level=args.debug
+        )
     except KeyboardInterrupt as ki:
-        g2g.exit(ki, parser)
+        g2g.exit(str(ki), parser)
+    except exceptions.KeyboardInterruptError as e:
+        g2g.exit(str(e), parser)
     except exceptions.G2GValueError as e:
-        g2g.exit(e, parser)
+        g2g.exit(e.msg, parser)
     except exceptions.G2GVCFError as e:
-        g2g.exit(e, parser)
+        g2g.exit(e.msg, parser)
 
 
 def command_gtf2db(raw_args, prog=None):
@@ -798,7 +973,8 @@ def command_gtf2db(raw_args, prog=None):
 
     Help Parameters:
         -h, --help                       Print the help and exit
-        -d, --debug                      Turn debugging mode on (list multiple times for more messages)
+        -d, --debug                      Turn debugging mode on
+                                             (set multiple times for verbose)
 
     """
 
@@ -823,7 +999,9 @@ def command_gtf2db(raw_args, prog=None):
 
     # debugging and help
     parser.add_argument("-h", "--help", dest="help", action="store_true")
-    parser.add_argument("-d", "--debug", dest="debug", action="count", default=0)
+    parser.add_argument(
+        "-d", "--debug", dest="debug", action="count", default=0
+    )
 
     args = parser.parse_args(raw_args)
 
@@ -839,11 +1017,13 @@ def command_gtf2db(raw_args, prog=None):
     try:
         gtf_db.gtf2db(args.input, args.output, args.debug)
     except KeyboardInterrupt as ki:
-        g2g.exit(ki, parser)
+        g2g.exit(str(ki), parser)
+    except exceptions.KeyboardInterruptError as e:
+        g2g.exit(str(e), parser)
     except exceptions.G2GValueError as e:
-        g2g.exit(e, parser)
+        g2g.exit(e.msg, parser)
     except exceptions.G2GError as e:
-        g2g.exit(e, parser)
+        g2g.exit(e.msg, parser)
 
 
 def command_vciquery(raw_args, prog=None):
@@ -861,7 +1041,8 @@ def command_vciquery(raw_args, prog=None):
 
     Help Parameters:
         -h, --help                       Print the help and exit
-        -d, --debug                      Turn debugging mode on (list multiple times for more messages)
+        -d, --debug                      Turn debugging mode on
+                                             (set multiple times for verbose)
 
     """
 
@@ -882,14 +1063,18 @@ def command_vciquery(raw_args, prog=None):
 
     # required
     parser.add_argument("-v", "--vci", dest="vci", metavar="VCI_file")
-    parser.add_argument("-r", "--region", dest="region", metavar="chr1:100000-200000")
+    parser.add_argument(
+        "-r", "--region", dest="region", metavar="chr1:100000-200000"
+    )
 
     # optional
     # None
 
     # debugging and help
     parser.add_argument("-h", "--help", dest="help", action="store_true")
-    parser.add_argument("-d", "--debug", dest="debug", action="count", default=0)
+    parser.add_argument(
+        "-d", "--debug", dest="debug", action="count", default=0
+    )
 
     args = parser.parse_args(raw_args)
 
@@ -906,8 +1091,10 @@ def command_vciquery(raw_args, prog=None):
         region = g2g.parse_region(args.region, 1)
         vci.vci_query(args.vci, region, debug_level=args.debug)
     except KeyboardInterrupt as ki:
-        g2g.exit(ki, parser)
+        g2g.exit(str(ki), parser)
+    except exceptions.KeyboardInterruptError as e:
+        g2g.exit(str(e), parser)
     except exceptions.G2GValueError as e:
-        g2g.exit(e, parser)
+        g2g.exit(e.msg, parser)
     except exceptions.G2GError as e:
-        g2g.exit(e, parser)
+        g2g.exit(e.msg, parser)

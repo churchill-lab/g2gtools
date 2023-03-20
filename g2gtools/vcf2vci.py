@@ -25,8 +25,12 @@ from . import vcf
 
 
 class VCFFileInformation:
-    def __init__(self, file_name: str, discard_file: str | None = None,
-                 sample_index: int | None = None):
+    def __init__(
+            self,
+            file_name: str,
+            discard_file: str | None = None,
+            sample_index: int | None = None
+    ):
         """
         Encapsulate VCI File information.
 
@@ -39,7 +43,6 @@ class VCFFileInformation:
         self.file_name: str = file_name
         self.discard_file: str = discard_file
         self.sample_index: int = sample_index
-        self.lines: int = 0
 
     def __str__(self):
         """
@@ -110,7 +113,10 @@ def walk_vcfs_together(
     nexts = []
     for reader in readers:
         try:
-            nexts.append(next(reader))
+            if reader:
+                nexts.append(next(reader))
+            else:
+                nexts.append(None)
         except StopIteration:
             nexts.append(None)
 
@@ -314,8 +320,8 @@ def process_piece(vcf2vci_params: VCF2VCIInfo) -> dict[str, Any]:
                         logger.debug("TOSSED: NO STRAIN DATA")
                         logger.debug(vcf_record)
                         stats = update_stats(stats, "NO STRAIN DATA")
-                        logger.debug(i)
-                        logger.debug(type(vcf_record))
+                        # logger.debug(i)
+                        # logger.debug(type(vcf_record))
                         discard_functions[i](vcf_record)
                         continue
 
@@ -503,6 +509,7 @@ def create_vci_header(
         temp_directory: str,
         fasta_file: str,
         vcf_input_files: list[VCFFileInformation],
+        vci_contigs: list[str],
         strain: str,
         vcf_keep: bool,
         passed: bool,
@@ -517,6 +524,7 @@ def create_vci_header(
         temp_directory: Directory to build the file.
         fasta_file: Fasta file used in VCI file creation.
         vcf_input_files: List of VCIFileInformation.
+        vci_contigs: Ordered list of contigs.
         strain: The strain used to make the file.
         vcf_keep: True to place troubling VCF lines in extra file.
         passed: True uses only VCF lines that have a PASS for the filter.
@@ -546,8 +554,10 @@ def create_vci_header(
 
         fasta_file = fasta.FastaFile(fasta_file)
 
-        for c in fasta_file.references:
-            fd.write(f"##CONTIG={c}:{fasta_file.get_reference_length(c)}\n")
+        for contig in vci_contigs:
+            fd.write(
+                f"##CONTIG={contig}:{fasta_file.get_reference_length(contig)}\n"
+            )
 
         fd.write("#CHROM\tPOS\tANCHOR\tDEL\tINS\tFRAG\n")
     return file
@@ -641,11 +651,6 @@ def process(
     temp_directory = g2g_utils.create_temp_dir("vcf2vci", dir=".")
     logger.debug(f"Temp directory: {temp_directory}")
 
-    header_file = create_vci_header(
-        temp_directory, fasta_file, vcf_file_inputs, strain,
-        vcf_keep, passed, quality, diploid, num_processes
-    )
-
     for i, vcf_file in enumerate(vcf_file_inputs):
         tb_file = pysam.TabixFile(vcf_file.file_name)
         for h in tb_file.header:
@@ -657,6 +662,7 @@ def process(
                     samples = dict(
                         zip(samples, (x for x in range(len(samples))))
                     )
+
                     vcf_file_inputs[i].sample_index = samples[strain]
                 except KeyError:
                     elem = h.split("\t")
@@ -670,11 +676,18 @@ def process(
             processed_seq_ids[seq_id] = False
 
     tmp_processed_seq_ids = OrderedDict()
+    vci_file_contigs = []
 
     for k in g2g_utils.natsorted(processed_seq_ids.keys()):
         tmp_processed_seq_ids[k] = False
+        vci_file_contigs.append(k)
 
     processed_seq_ids = tmp_processed_seq_ids
+
+    header_file = create_vci_header(
+        temp_directory, fasta_file, vcf_file_inputs, vci_file_contigs,
+        strain, vcf_keep, passed, quality, diploid, num_processes
+    )
 
     all_params = []
     pool = None
@@ -726,7 +739,7 @@ def process(
             total += r["line_numbers"]
 
         logger.debug("Combining temp files...")
-        logger.info("Finalizing VCI file...")
+        logger.warn("Finalizing VCI file...")
 
         files = [header_file]
         if diploid:
@@ -737,6 +750,7 @@ def process(
             g2g_utils.concatenate_files(files, output_file, True)
 
             if bgzip:
+                logger.warn("Compressing VCI file and indexing...")
                 g2g_utils.bgzip_and_index_file(
                     output_file, f"{output_file}.gz",
                     delete_original=True, file_format="vcf"
@@ -748,6 +762,7 @@ def process(
             g2g_utils.concatenate_files(files, output_file, True)
 
             if bgzip:
+                logger.warn("Compressing VCI file and indexing...")
                 g2g_utils.bgzip_and_index_file(
                     output_file, output_file + ".gz",
                     delete_original=True, file_format="vcf"

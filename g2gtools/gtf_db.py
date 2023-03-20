@@ -192,7 +192,7 @@ def gtf2db(
     conn = sqlite3.connect(database_file_name)
     c = conn.cursor()
 
-    logger.info("Generating tables...")
+    logger.warn("Generating tables...")
     c.execute(SQL_CREATE_GTF_TABLE)
     c.execute(SQL_CREATE_GTF_LOOKUP_TABLE)
     c.execute(SQL_CREATE_GTF_SOURCES_TABLE)
@@ -203,7 +203,7 @@ def gtf2db(
     gtf_sources = {}
     gtf_attributes = {}
 
-    logger.info("Parsing GTF file...")
+    logger.warn("Parsing GTF file...")
 
     gtf_file = gtf.GTF(gtf_file_name)
 
@@ -302,9 +302,9 @@ def gtf2db(
         c.execute(SQL_INSERT_GTF_ATTRIBUTES_TABLE, (_key, attribute))
         conn.commit()
 
-    logger.info("GTF File parsed")
+    logger.warn("GTF File parsed")
 
-    logger.info("Finalizing database...")
+    logger.warn("Finalizing database...")
 
     for sql in SQL_INDICES_GTF:
         logger.debug(sql)
@@ -326,7 +326,7 @@ def gtf2db(
         logger.debug(sql)
         c.execute(sql)
 
-    logger.info("Database created")
+    logger.warn("Database created")
 
     # close connection
     conn.close()

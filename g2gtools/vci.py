@@ -99,7 +99,7 @@ class VCIFile:
 
     def __init__(
             self,
-            file_name,
+            file_name: str,
             mode: str = "r",
             parser: pysam.libctabix.Parser | None = None,
             index: str | None = None,
@@ -121,9 +121,6 @@ class VCIFile:
             seq_ids: Override what is in the file and just use these seq ids.
             reverse: Is the file reversed.
         """
-        if not file_name:
-            raise G2GError("VCI File must have a name")
-
         self.file_name: str = file_name
         self.mapping_tree: dict[str, IntervalTree] = {}
         self.headers: dict[str, str] = {}
@@ -134,7 +131,7 @@ class VCIFile:
         self.debug_level: int = 0
 
         self.tabix_file: pysam.TabixFile = pysam.TabixFile(
-            self.filename, mode=mode, parser=parser,
+            self.file_name, mode=mode, parser=parser,
             index=index, encoding=encoding
         )
 
@@ -253,8 +250,8 @@ class VCIFile:
             _chrom = 0
             _pos = 1
             _shared = 2
-            _inserted = 3 if not reverse else 4
-            _deleted = 4 if not reverse else 3
+            _deleted = 3 if not reverse else 4
+            _inserted = 4 if not reverse else 3
             _fragment = 5
 
             contigs = self.tabix_file.contigs

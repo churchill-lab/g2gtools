@@ -3,9 +3,11 @@
 #
 
 # standard library imports
+from bz2 import BZ2File
 from collections import namedtuple
 from collections import OrderedDict
-from typing import Iterator
+from gzip import GzipFile
+from typing import TextIO
 import sys
 
 # 3rd party library imports
@@ -57,7 +59,10 @@ class GTF(object):
         self.file_name: str = file_name
         self.current_line: str = ''
         self.current_record: GTFRecord | None = None
-        self.reader: Iterator = iter(g2g_utils.open_resource(file_name))
+        # self.reader: Iterator = iter(g2g_utils.open_resource(file_name))
+        # self.reader = iter(g2g_utils.open_resource(file_name))
+        self.reader: GzipFile | TextIO | BZ2File | None = \
+            g2g_utils.open_resource(file_name)
 
     def __iter__(self):
         return self
@@ -178,7 +183,7 @@ def convert_gtf_file(
         reverse: True to process VCI in reverse.
         debug_level: Debug level (0=WARN,1=INFO,2+=DEBUG).
     """
-    logger = g2g.get_logger(debug_level) 
+    logger = g2g.get_logger(debug_level)
 
     if isinstance(vci_file, vci.VCIFile):
         logger.warn(f"VCI FILE: {vci_file.filename}")
