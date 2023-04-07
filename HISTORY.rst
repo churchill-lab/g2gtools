@@ -3,7 +3,7 @@
 History
 -------
 
-1.0.0 (03/06/2023)
+2.0.0 (04/06/2023)
 ~~~~~~~~~~~~~~~~~~
 
 * Upgraded to Python 3 (dropped Python 2)

@@ -18,14 +18,29 @@ from .exceptions import G2GValueError
 from . import g2g_utils
 
 VCF_FIELDS = [
-    "chrom", "pos", "id", "ref", "alt",
-    "qual", "filter", "info", "format", "samples"
+    "chrom",
+    "pos",
+    "id",
+    "ref",
+    "alt",
+    "qual",
+    "filter",
+    "info",
+    "format",
+    "samples",
 ]
 VCFRecord = namedtuple("VCFRecord", VCF_FIELDS)
 
 GT_DATA_FIELDS = [
-    "ref", "left", "right", "gt", "fi",
-    "phase", "gt_left", "gt_right", "is_snp"
+    "ref",
+    "left",
+    "right",
+    "gt",
+    "fi",
+    "phase",
+    "gt_left",
+    "gt_right",
+    "is_snp",
 ]
 GTData = namedtuple("GTData", GT_DATA_FIELDS)
 
@@ -39,6 +54,7 @@ class VCFFile(object):
     """
     Simple VCF object for parsing VCF files
     """
+
     def __init__(self, file_name: str):
         """
         Encapsulate VCF file information.
@@ -173,8 +189,16 @@ def parse_vcf_line(line: str | None) -> VCFRecord | None:
             fmt = None
 
     return VCFRecord(
-        elem[0], int(elem[1]), None if elem[2] == "." else elem[2], elem[3],
-        elem[4].split(","), quality, filter_field, info, fmt, elem[9:]
+        elem[0],
+        int(elem[1]),
+        None if elem[2] == "." else elem[2],
+        elem[3],
+        elem[4].split(","),
+        quality,
+        filter_field,
+        info,
+        fmt,
+        elem[9:],
     )
 
 
@@ -229,12 +253,12 @@ def parse_gt(vcf_record: VCFRecord, sample_index: int) -> GTData:
                 if genotypes[0] == 0:
                     left = vcf_record.ref
                 else:
-                    left = vcf_record.alt[genotypes[0]-1]
+                    left = vcf_record.alt[genotypes[0] - 1]
 
                 if genotypes[1] == 0:
                     right = vcf_record.ref
                 else:
-                    right = vcf_record.alt[genotypes[1]-1]
+                    right = vcf_record.alt[genotypes[1] - 1]
 
                 gt_left = genotypes[0]
                 gt_right = genotypes[1]
@@ -259,10 +283,13 @@ def parse_gt(vcf_record: VCFRecord, sample_index: int) -> GTData:
         except IndexError:
             pass
 
-    is_snp = len(vcf_record.ref) == 1 == (len(left) if left else 0) == (len(right) if right else 0)
-    return GTData(
-        vcf_record.ref, left, right, gt, fi, phase, gt_left, gt_right, is_snp
+    is_snp = (
+        len(vcf_record.ref)
+        == 1
+        == (len(left) if left else 0)
+        == (len(right) if right else 0)
     )
+    return GTData(vcf_record.ref, left, right, gt, fi, phase, gt_left, gt_right, is_snp)
 
 
 def parse_gt_tuple(vcf_record: VCFRecord, sample_index: int) -> GTData:
@@ -313,12 +340,12 @@ def parse_gt_tuple(vcf_record: VCFRecord, sample_index: int) -> GTData:
                 if genotypes[0] == 0:
                     left = vcf_record.ref
                 else:
-                    left = vcf_record.alt.split(",")[genotypes[0]-1]
+                    left = vcf_record.alt.split(",")[genotypes[0] - 1]
 
                 if genotypes[1] == 0:
                     right = vcf_record.ref
                 else:
-                    right = vcf_record.alt.split(",")[genotypes[1]-1]
+                    right = vcf_record.alt.split(",")[genotypes[1] - 1]
 
                 gt_left = genotypes[0]
                 gt_right = genotypes[1]
@@ -350,7 +377,10 @@ def parse_gt_tuple(vcf_record: VCFRecord, sample_index: int) -> GTData:
             # LOG.debug(ie)
             pass
 
-    is_snp = len(vcf_record.ref) == 1 == (len(left) if left else 0) == (len(right) if right else 0)
-    return GTData(
-        vcf_record.ref, left, right, gt, fi, phase, gt_left, gt_right, is_snp
+    is_snp = (
+        len(vcf_record.ref)
+        == 1
+        == (len(left) if left else 0)
+        == (len(right) if right else 0)
     )
+    return GTData(vcf_record.ref, left, right, gt, fi, phase, gt_left, gt_right, is_snp)

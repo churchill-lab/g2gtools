@@ -1,58 +1,42 @@
 #!/usr/bin/env python
-
-try:
-    from setuptools import setup
-except ImportError:
-    from distutils.core import setup
-
-from glob import glob
-with open('README.rst') as readme_file:
-    readme = readme_file.read()
-
-with open('HISTORY.rst') as history_file:
-    history = history_file.read().replace('.. :changelog:', '')
-
 import os
-on_rtd = os.environ.get('READTHEDOCS', None)
+from setuptools import setup, find_packages
+
+with open("README.md") as readme_file:
+    readme = readme_file.read()
 
 requirements = []
 test_requirements = []
 
-#if not on_rtd:
-    #requirements.append('future>=0.15')
-    #requirements.append('Cython')
-    #requirements.append('numpy==1.16.4')
-    #requirements.append('natsort==6.2.0')
-    #requirements.append('pysam==0.14')
-    #requirements.append('bx-python==0.8.2')
+on_rtd = os.environ.get("READTHEDOCS", None)
+
+if not on_rtd:
+    with open("requirements.txt") as requirements_file:
+        requirements_lines = requirements_file.readlines()
+        for line in requirements_lines:
+            requirements.append(line)
 
 setup(
-    name='g2gtools',
-    version='1.0.0',
+    name="g2gtools",
+    version="2.0.0",
     description="A suite of tools for the reconstruction of personal diploid genomes and better coordinate conversion",
-    long_description=readme + '\n\n' + history,
-    author='Matthew J. Vincent and Kwangbom "KB" Choi, The Jackson Laboratory',
-    author_email='kb.choi@jax.org',
-    url='http://churchill-lab.github.io/g2gtools/',
-    packages=[
-        'g2gtools',
-    ],
-    package_dir={'g2gtools':
-                 'g2gtools'},
-    scripts=glob("bin/*"),
+    long_description=readme,
+    author="Matthew J. Vincent and Kwangbom 'KB' Choi, The Jackson Laboratory",
+    author_email="matt.vincent@jax.org",
+    url="https://github.com/churchill-lab/g2gtools",
+    keywords=["g2gtools", "personal genomes", "liftover"],
+    packages=find_packages(),
+    entry_points={
+        "console_scripts": [
+            "g2gtools = g2gtools.commands:cli",
+        ]
+    },
     include_package_data=True,
     install_requires=requirements,
-    license="MIT",
-    zip_safe=False,
-    keywords=['g2gtools', 'personal genomes', 'liftover'],
     classifiers=[
-        'Development Status :: 4 - Beta',
-        'Intended Audience :: Developers',
-        'Intended Audience :: Science/Research',
-        'License :: OSI Approved :: MIT License',
-        'Natural Language :: English',
-        'Programming Language :: Python :: 3'
+        "Intended Audience :: Developers",
+        "License :: OSI Approved :: Apache Software License",
+        "Natural Language :: English",
+        "Programming Language :: Python :: 3.10",
     ],
-    test_suite='tests',
-    tests_require=test_requirements
 )

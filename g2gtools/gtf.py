@@ -20,8 +20,15 @@ from . import g2g_utils
 from . import vci
 
 gtfInfoFields = [
-    "seqid", "source", "type", "start", "end",
-    "score", "strand", "frame", "attributes"
+    "seqid",
+    "source",
+    "type",
+    "start",
+    "end",
+    "score",
+    "strand",
+    "frame",
+    "attributes",
 ]
 GTFRecord = namedtuple("GTFRecord", gtfInfoFields)
 
@@ -30,14 +37,14 @@ ATTRIBUTES_TO_ALTER = {
     "transcript_id": "transcript_id",
     "exon_id": "exon_id",
     "protein_id": "protein_id",
-    "ccds_id": "ccds_id"
+    "ccds_id": "ccds_id",
 }
 
 ATTRIBUTES_TO_ALTER_GFF = {
     "ID": "ID",
     "Parent": "Parent",
     "Name": "Name",
-    "Note": "Note"
+    "Note": "Note",
 }
 
 
@@ -49,6 +56,7 @@ class GTF(object):
 
     Supports transparent gzip decompression.
     """
+
     def __init__(self, file_name: str):
         """
         Instantiate a GTF object.
@@ -57,20 +65,20 @@ class GTF(object):
             file_name: The name of the GTF file.
         """
         self.file_name: str = file_name
-        self.current_line: str = ''
+        self.current_line: str = ""
         self.current_record: GTFRecord | None = None
         # self.reader: Iterator = iter(g2g_utils.open_resource(file_name))
         # self.reader = iter(g2g_utils.open_resource(file_name))
-        self.reader: GzipFile | TextIO | BZ2File | None = \
-            g2g_utils.open_resource(file_name)
+        self.reader: GzipFile | TextIO | BZ2File | None = g2g_utils.open_resource(
+            file_name
+        )
 
     def __iter__(self):
         return self
 
     def __next__(self):
         self.current_line = g2g_utils.s(self.reader.__next__())
-        while self.current_line.startswith("#") or \
-                self.current_line.startswith("!"):
+        while self.current_line.startswith("#") or self.current_line.startswith("!"):
             self.current_line = g2g_utils.s(self.reader.__next__())
 
         self.current_record = parse_gtf_line(self.current_line)
@@ -151,27 +159,24 @@ def parse_gtf_line(line: str) -> GTFRecord:
         "end": None if elem[4] == "." else int(elem[4]),
         "score": None if elem[5] == "." else float(elem[5]),
         "strand": None if elem[6] == "." else elem[6].replace('"', ""),
-        "frame": None if elem[7] == "." else elem[7].replace('"', '')}
+        "frame": None if elem[7] == "." else elem[7].replace('"', ""),
+    }
 
     # since GTF will contain '"' vs. GFF will contain '=' in the elem[8]
     if '"' in elem[8]:
-        data.update({
-            "attributes": attributes_to_odict(elem[8])
-        })
+        data.update({"attributes": attributes_to_odict(elem[8])})
     elif "=" in elem[8]:
-        data.update({
-            "attributes": attributes_to_odict_gff(elem[8])
-        })
+        data.update({"attributes": attributes_to_odict_gff(elem[8])})
 
     return GTFRecord(**data)
 
 
 def convert_gtf_file(
-        vci_file: str | vci.VCIFile,
-        gtf_file_name_in: str,
-        gtf_file_name_out: str | None = None,
-        reverse: bool | None = False,
-        debug_level: int | None = 0
+    vci_file: str | vci.VCIFile,
+    gtf_file_name_in: str,
+    gtf_file_name_out: str | None = None,
+    reverse: bool | None = False,
+    debug_level: int | None = 0,
 ) -> None:
     """
     Convert GTF file.
@@ -239,9 +244,7 @@ def convert_gtf_file(
 
         for lr in left_right:
             seq_id = f"{record.seqid}{lr}"
-            mappings = vci_file.find_mappings(
-                seq_id, record.start - 1, record.end
-            )
+            mappings = vci_file.find_mappings(seq_id, record.start - 1, record.end)
 
             # unmapped
             if mappings is None:
@@ -256,9 +259,7 @@ def convert_gtf_file(
             start = mappings[0].to_start + 1
             end = mappings[-1].to_end
 
-            logger.debug(
-                f"({record.start-1}, {record.end}) => ({start}, {end})"
-            )
+            logger.debug(f"({record.start - 1}, {record.end}) => ({start}, {end})")
 
             elem = gtf_file.current_line.rstrip().split("\t")
             elem[0] = seq_id
@@ -283,18 +284,16 @@ def convert_gtf_file(
     if gtf_unmapped_file:
         gtf_unmapped_file.close()
 
-    logger.warn(
-        f"Generated {success:,} records from the original {total:,} records"
-    )
+    logger.warn(f"Generated {success:,} records from the original {total:,} records")
     logger.warn("GTF file converted")
 
 
 def convert_gff_file(
-        vci_file: str | vci.VCIFile,
-        gff_file_name_in: str,
-        gff_file_name_out: str | None = None,
-        reverse: bool | None = False,
-        debug_level: int | None = 0
+    vci_file: str | vci.VCIFile,
+    gff_file_name_in: str,
+    gff_file_name_out: str | None = None,
+    reverse: bool | None = False,
+    debug_level: int | None = 0,
 ) -> None:
     """
     Convert GFF file.
@@ -358,13 +357,11 @@ def convert_gff_file(
         total += 1
 
         if total % 100000 == 0:
-            logger.info(F"Processed {total:,} lines")
+            logger.info(f"Processed {total:,} lines")
 
         for lr in left_right:
             seq_id = f"{record.seqid}{lr}"
-            mappings = vci_file.find_mappings(
-                seq_id, record.start - 1, record.end
-            )
+            mappings = vci_file.find_mappings(seq_id, record.start - 1, record.end)
 
             # unmapped
             if mappings is None:
@@ -404,9 +401,7 @@ def convert_gff_file(
     if gff_unmapped_file:
         gff_unmapped_file.close()
 
-    logger.warn(
-        f"Generated {success:,} records from the original {total:,} records"
-    )
+    logger.warn(f"Generated {success:,} records from the original {total:,} records")
     logger.warn("GFF file converted")
 
 

@@ -1,11 +1,10 @@
-#
-# A way to combine vcf files
-#
+"""
+A way to combine vcf files into a more succinct format.
+"""
 
 # standard library imports
 from collections import OrderedDict
 from typing import Any
-# from typing import Generator
 import multiprocessing
 import os
 import time
@@ -14,22 +13,22 @@ import time
 import pysam
 
 # local library imports
-from .exceptions import G2GError
-from .exceptions import G2GValueError
-from .exceptions import G2GVCFError
-from .exceptions import KeyboardInterruptError
-from . import fasta
-from . import g2g
-from . import g2g_utils
-from . import vcf
+from g2gtools.exceptions import G2GError
+from g2gtools.exceptions import G2GValueError
+from g2gtools.exceptions import G2GVCFError
+from g2gtools.exceptions import KeyboardInterruptError
+import g2gtools.fasta as fasta
+import g2gtools.g2g as g2g
+import g2gtools.g2g_utils as g2g_utils
+import g2gtools.vcf as vcf
 
 
 class VCFFileInformation:
     def __init__(
-            self,
-            file_name: str,
-            discard_file: str | None = None,
-            sample_index: int | None = None
+        self,
+        file_name: str,
+        discard_file: str | None = None,
+        sample_index: int | None = None,
     ):
         """
         Encapsulate VCI File information.
@@ -81,8 +80,8 @@ class VCF2VCIInfo(object):
 #: Any
 # -> Generator[list[pysam.libctabixproxies.TupleProxy | None]]:
 def walk_vcfs_together(
-        readers,
-        **kwargs,
+    readers,
+    **kwargs,
 ):
     """
     Simultaneously iterate over two or more VCF readers. For each genomic
@@ -107,6 +106,7 @@ def walk_vcfs_together(
     if "vcf_record_sort_key" in kwargs:
         get_key = kwargs["vcf_record_sort_key"]
     else:
+
         def get_key(r):
             return r.contig, r.pos
 
@@ -125,9 +125,7 @@ def walk_vcfs_together(
         next_idx_to_k = dict(
             (i, get_key(r)) for i, r in enumerate(nexts) if r is not None
         )
-        keys_with_prev_contig = [
-            k for k in next_idx_to_k.values() if k[0] == min_k[0]
-        ]
+        keys_with_prev_contig = [k for k in next_idx_to_k.values() if k[0] == min_k[0]]
 
         if any(keys_with_prev_contig):
             min_k = min(keys_with_prev_contig)
@@ -168,7 +166,7 @@ def update_stats(stats: dict[str, int], reason: str) -> dict[str, int]:
 
 def process_piece(vcf2vci_params: VCF2VCIInfo) -> dict[str, Any]:
     """
-    Process this "piece" of the VCF file.
+    Process this 'piece' of the VCF file.
 
     Args:
         vcf2vci_params: The parameters dictating what piece to process.
@@ -246,7 +244,7 @@ def process_piece(vcf2vci_params: VCF2VCIInfo) -> dict[str, Any]:
                     if vcf2vci_params.passed and "PASS" not in vcf_record.filter:
                         discard_functions[i](vcf_record)
 
-                    # logger.debug("Processing SNP {}".format(vcf_record))
+                    # logger.debug('Processing SNP {}'.format(vcf_record))
                     n += 1
 
                     if vcf2vci_params.quality and gt.fi == "0":
@@ -278,16 +276,16 @@ def process_piece(vcf2vci_params: VCF2VCIInfo) -> dict[str, Any]:
                             if gt.gt_left == gt.gt_right and gt.gt_left != 0:
                                 # ignore heterozygotes 0/1, 1/0,
                                 #     only process 0/0 and 1/1
-                                # logger.debug("ACCEPTED")
+                                # logger.debug('ACCEPTED')
                                 # logger.debug(
-                                #     f"pos {vcf_snp.pos} : "
-                                #     f"ref {vcf_snp.ref}, "
-                                #     f"left {gt.left},
-                                #     f"right {gt.right}"
+                                #     f'pos {vcf_snp.pos} : '
+                                #     f'ref {vcf_snp.ref}, '
+                                #     f'left {gt.left},
+                                #     f'right {gt.right}'
                                 # )
                                 output_file_left.write(
                                     f"{vcf2vci_params.chromosome}\t"
-                                    f"{vcf_record.pos +1 }\t"
+                                    f"{vcf_record.pos + 1}\t"
                                     ".\t"
                                     f"{vcf_record.ref}\t"
                                     f"{gt.left}\t"
@@ -305,7 +303,6 @@ def process_piece(vcf2vci_params: VCF2VCIInfo) -> dict[str, Any]:
                         continue
 
                     elif vcf2vci_params.quality and gt.fi == "0":
-
                         # FI : Whether a sample was a Pass(1) or
                         #      fail (0) based on FILTER values
 
@@ -316,7 +313,6 @@ def process_piece(vcf2vci_params: VCF2VCIInfo) -> dict[str, Any]:
                         continue
 
                     elif gt.left is None and gt.right is None:
-
                         logger.debug("TOSSED: NO STRAIN DATA")
                         logger.debug(vcf_record)
                         stats = update_stats(stats, "NO STRAIN DATA")
@@ -337,17 +333,17 @@ def process_piece(vcf2vci_params: VCF2VCIInfo) -> dict[str, Any]:
                     # START L AND R, ONLY R IF DIPLOID
 
                     for l_or_r in mi:
-                        # logger.debug("******************")
+                        # logger.debug('******************')
                         # logger.debug(l_or_r)
                         if l_or_r == "L":
-                            # logger.debug("->LEFT")
+                            # logger.debug('->LEFT')
                             lr_out = "_L" if vcf2vci_params.diploid else ""
                             alt_seq = str(gt.left)
                             stats = vcf2vci_params.stats_left
                             output_file = output_file_left
                             prev_next_ref_pos = vcf2vci_params.prev_next_ref_pos_left
                         else:
-                            # logger.debug("->RIGHT")
+                            # logger.debug('->RIGHT')
                             lr_out = "_R" if vcf2vci_params.diploid else ""
                             alt_seq = str(gt.right)
                             stats = vcf2vci_params.stats_right
@@ -368,8 +364,8 @@ def process_piece(vcf2vci_params: VCF2VCIInfo) -> dict[str, Any]:
                         s = vcf_record[vcf2vci_params.vcf_files[i].sample_index]
                         logger.debug(f"SAMPLE: {s}")
                         logger.debug(
-                            f"REF='{gt.ref}', ALT_L='{gt.left}', "
-                            f"ALT_R='{gt.right}', POS={vcf_record.pos}"
+                            f'REF="{gt.ref}", ALT_L="{gt.left}", '
+                            f'ALT_R="{gt.right}", POS={vcf_record.pos}'
                         )
 
                         position = vcf_record.pos + 1
@@ -434,7 +430,7 @@ def process_piece(vcf2vci_params: VCF2VCIInfo) -> dict[str, Any]:
 
                         # fix any 0 length
                         if fragment_size < 0:
-                            # logger.debug(f"TOSSED: FRAGMENT: {vcf_record}")
+                            # logger.debug(f'TOSSED: FRAGMENT: {vcf_record}')
 
                             stats = update_stats(stats, "FRAGMENT SIZE < 0")
                             discard_functions[i](vcf_record)
@@ -488,7 +484,7 @@ def process_piece(vcf2vci_params: VCF2VCIInfo) -> dict[str, Any]:
         "chrom": vcf2vci_params.chromosome,
         "stats": stats,
         "vcf2vci_params": vcf2vci_params,
-        "line_numbers": line_numbers
+        "line_numbers": line_numbers,
     }
 
 
@@ -506,16 +502,16 @@ def wrapper(args):
 
 
 def create_vci_header(
-        temp_directory: str,
-        fasta_file: str,
-        vcf_input_files: list[VCFFileInformation],
-        vci_contigs: list[str],
-        strain: str,
-        vcf_keep: bool,
-        passed: bool,
-        quality: bool,
-        diploid: bool,
-        num_processes: int
+    temp_directory: str,
+    fasta_file: str,
+    vcf_input_files: list[VCFFileInformation],
+    vci_contigs: list[str],
+    strain: str,
+    vcf_keep: bool,
+    passed: bool,
+    quality: bool,
+    diploid: bool,
+    num_processes: int,
 ) -> str:
     """
     Create a VCI file header that contains meta information about the VCI file.
@@ -555,26 +551,24 @@ def create_vci_header(
         fasta_file = fasta.FastaFile(fasta_file)
 
         for contig in vci_contigs:
-            fd.write(
-                f"##CONTIG={contig}:{fasta_file.get_reference_length(contig)}\n"
-            )
+            fd.write(f"##CONTIG={contig}:{fasta_file.get_reference_length(contig)}\n")
 
         fd.write("#CHROM\tPOS\tANCHOR\tDEL\tINS\tFRAG\n")
     return file
 
 
 def process(
-        vcf_files: list[str],
-        fasta_file: str,
-        output_file: str,
-        strain: str,
-        vcf_keep: bool = False,
-        passed: bool = False,
-        quality: bool = False,
-        diploid: bool = False,
-        num_processes: int | None = None,
-        bgzip: bool = False,
-        debug_level: int = 0
+    vcf_files: list[str],
+    fasta_file: str,
+    output_file: str,
+    strain: str,
+    vcf_keep: bool = False,
+    passed: bool = False,
+    quality: bool = False,
+    diploid: bool = False,
+    num_processes: int | None = None,
+    bgzip: bool = False,
+    debug_level: int = 0,
 ) -> None:
     """
     Parse the VCF file and create a VCI file.
@@ -606,21 +600,16 @@ def process(
             vcf_file = g2g_utils.check_file(file_name)
             logger.warn(f"VCF file: {vcf_file}")
             logger.debug("Checking for index file, creating if needed...")
-            g2g_utils.index_file(
-                file_name=vcf_file, file_format="vcf", overwrite=False
-            )
+            g2g_utils.index_file(file_name=vcf_file, file_format="vcf", overwrite=False)
 
             vcf_discard_file = None
             if vcf_keep:
                 vcf_discard_file = os.path.join(
-                    output_file_dir,
-                    f"{os.path.basename(output_file)}.errors.vcf"
+                    output_file_dir, f"{os.path.basename(output_file)}.errors.vcf"
                 )
                 logger.warn(f"VCF indel discard file: {vcf_discard_file}")
 
-            vcf_file_inputs.append(
-                VCFFileInformation(vcf_file, vcf_discard_file)
-            )
+            vcf_file_inputs.append(VCFFileInformation(vcf_file, vcf_discard_file))
 
     if len(vcf_file_inputs) == 0:
         raise G2GValueError("No VCF files.")
@@ -659,16 +648,14 @@ def process(
                 try:
                     elem = h.split("\t")
                     samples = elem[9:]
-                    samples = dict(
-                        zip(samples, (x for x in range(len(samples))))
-                    )
+                    samples = dict(zip(samples, (x for x in range(len(samples)))))
 
                     vcf_file_inputs[i].sample_index = samples[strain]
                 except KeyError:
                     elem = h.split("\t")
                     valid_strains = ", ".join(elem[9:])
                     raise G2GVCFError(
-                        f"Unknown strain '{strain}', "
+                        f'Unknown strain "{strain}", '
                         f"valid strains are: {valid_strains}"
                     )
 
@@ -685,8 +672,16 @@ def process(
     processed_seq_ids = tmp_processed_seq_ids
 
     header_file = create_vci_header(
-        temp_directory, fasta_file, vcf_file_inputs, vci_file_contigs,
-        strain, vcf_keep, passed, quality, diploid, num_processes
+        temp_directory,
+        fasta_file,
+        vcf_file_inputs,
+        vci_file_contigs,
+        strain,
+        vcf_keep,
+        passed,
+        quality,
+        diploid,
+        num_processes,
     )
 
     all_params = []
@@ -706,21 +701,27 @@ def process(
 
             if diploid:
                 params.output_file_left = g2g_utils.gen_file_name(
-                    f"chr{c}.left", output_dir=temp_directory,
-                    extension="vci", append_time=False
+                    f"chr{c}.left",
+                    output_dir=temp_directory,
+                    extension="vci",
+                    append_time=False,
                 )
 
                 params.output_file_right = g2g_utils.gen_file_name(
-                    f"chr{c}.right", output_dir=temp_directory,
-                    extension="vci", append_time=False
+                    f"chr{c}.right",
+                    output_dir=temp_directory,
+                    extension="vci",
+                    append_time=False,
                 )
 
                 g2g_utils.delete_file(params.output_file_left)
                 g2g_utils.delete_file(params.output_file_right)
             else:
                 params.output_file_left = g2g_utils.gen_file_name(
-                    f"chr{c}.right", output_dir=temp_directory,
-                    extension="vci", append_time=False
+                    f"chr{c}.right",
+                    output_dir=temp_directory,
+                    extension="vci",
+                    append_time=False,
                 )
 
                 g2g_utils.delete_file(params.output_file_left)
@@ -752,8 +753,10 @@ def process(
             if bgzip:
                 logger.warn("Compressing VCI file and indexing...")
                 g2g_utils.bgzip_and_index_file(
-                    output_file, f"{output_file}.gz",
-                    delete_original=True, file_format="vcf"
+                    output_file,
+                    f"{output_file}.gz",
+                    delete_original=True,
+                    file_format="vcf",
                 )
         else:
             for mi in all_params:
@@ -764,11 +767,13 @@ def process(
             if bgzip:
                 logger.warn("Compressing VCI file and indexing...")
                 g2g_utils.bgzip_and_index_file(
-                    output_file, output_file + ".gz",
-                    delete_original=True, file_format="vcf"
+                    output_file,
+                    output_file + ".gz",
+                    delete_original=True,
+                    file_format="vcf",
                 )
 
-        logger.warn("Parsed {0:,} total lines".format(total))
+        logger.warn(f"Parsed {total:,} total lines")
     except KeyboardInterruptError:
         pool.terminate()
         raise G2GError("Keyboard quit consumed")

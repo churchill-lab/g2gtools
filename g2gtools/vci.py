@@ -7,21 +7,26 @@ import pysam
 from bx.intervals.intersection import Interval, IntervalTree
 
 # local library imports
-from .exceptions import G2GError
-from .exceptions import G2GRegionError
-from . import g2g
-from . import g2g_utils
+from g2gtools.exceptions import G2GError
+from g2gtools.exceptions import G2GRegionError
+import g2gtools.g2g as g2g
+import g2gtools.g2g_utils as g2g_utils
 
 
-InfoFields = [
-    "chr", "start", "end", "shared", "inserted", "deleted", "pos"
-]
+InfoFields = ["chr", "start", "end", "shared", "inserted", "deleted", "pos"]
 IntervalInfo = collections.namedtuple("IntervalInfo", InfoFields)
 
 MappingFields = [
-    "from_chr", "from_start", "from_end", "from_seq",
-    "to_chr", "to_start", "to_end", "to_seq",
-    "same_bases", "vcf_pos"
+    "from_chr",
+    "from_start",
+    "from_end",
+    "from_seq",
+    "to_chr",
+    "to_start",
+    "to_end",
+    "to_seq",
+    "same_bases",
+    "vcf_pos",
 ]
 IntervalMapping = collections.namedtuple("IntervalMapping", MappingFields)
 
@@ -43,12 +48,7 @@ IntervalMapping = collections.namedtuple("IntervalMapping", MappingFields)
 
 
 def intersect_regions(
-        chr1: str,
-        start1: int,
-        end1: int,
-        chr2: str,
-        start2: int,
-        end2: int
+    chr1: str, start1: int, end1: int, chr2: str, start2: int, end2: int
 ) -> tuple[str, int, int] | None:
     """
     Return the intersection of two regions.
@@ -85,6 +85,7 @@ class VCIFile:
     """
     Encapsulate a VCI (Variant Call Information) File
     """
+
     HEADERS = [
         "CREATION_TIME",
         "INDEL_VCF",
@@ -94,18 +95,18 @@ class VCIFile:
         "FILTER_PASSED",
         "FILTER_QUALITY",
         "DIPLOID",
-        "PROCESSES"
+        "PROCESSES",
     ]
 
     def __init__(
-            self,
-            file_name: str,
-            mode: str = "r",
-            parser: pysam.libctabix.Parser | None = None,
-            index: str | None = None,
-            encoding: str = "ascii",
-            seq_ids: list[str] | None = None,
-            reverse: bool = False
+        self,
+        file_name: str,
+        mode: str = "r",
+        parser: pysam.libctabix.Parser | None = None,
+        index: str | None = None,
+        encoding: str = "ascii",
+        seq_ids: list[str] | None = None,
+        reverse: bool = False,
     ):
         """
         Initialize VCI File.
@@ -131,13 +132,10 @@ class VCIFile:
         self.debug_level: int = 0
 
         self.tabix_file: pysam.TabixFile = pysam.TabixFile(
-            self.file_name, mode=mode, parser=parser,
-            index=index, encoding=encoding
+            self.file_name, mode=mode, parser=parser, index=index, encoding=encoding
         )
 
-        g2g_utils.index_file(
-            file_name=file_name, file_format="vci", overwrite=False
-        )
+        g2g_utils.index_file(file_name=file_name, file_format="vci", overwrite=False)
 
         self.parse_header()
 
@@ -154,13 +152,13 @@ class VCIFile:
         return getattr(self.tabix_file, name)
 
     def fetch(
-            self,
-            reference: str | None = None,
-            start: int | None = None,
-            end: int | None = None,
-            region: str | None = None,
-            parser: pysam.libctabix.Parser | None = None,
-            multiple_iterators: bool | None = False
+        self,
+        reference: str | None = None,
+        start: int | None = None,
+        end: int | None = None,
+        region: str | None = None,
+        parser: pysam.libctabix.Parser | None = None,
+        multiple_iterators: bool | None = False,
     ) -> pysam.libctabix.TabixIterator:
         """
         Fetch reads in the specified region or reference. Without a contig or
@@ -263,7 +261,7 @@ class VCIFile:
             for contig in contigs:
                 # contig_start_time = time.time()
 
-                # logger.info(f"Parsing VCI, contig: {contig}")
+                # logger.info(f'Parsing VCI, contig: {contig}')
                 num_lines_chrom = 0
                 num_lines_processed = 0
 
@@ -276,9 +274,7 @@ class VCIFile:
                 iterator = None
 
                 try:
-                    iterator = self.tabix_file.fetch(
-                        contig, parser=pysam.asTuple()
-                    )
+                    iterator = self.tabix_file.fetch(contig, parser=pysam.asTuple())
                 except Exception:
                     pass
 
@@ -298,19 +294,6 @@ class VCIFile:
                     if rec[2] == ".":
                         continue
 
-                    """
-                    #CHROM  POS     ANCHOR  INS     DEL     FRAG
-                    1       3051585 .       T       G       .
-                    1       3070010 G       .       A       3070010
-                    1       3070011 .       T       A       .
-                    1       3070014 .       C       A       .
-                    1       3070117 .       G       T       .
-                    1       3070278 .       A       G       .
-                    1       3070316 .       G       T       .
-                    1       3070432 .       T       G       .
-                    1       3073344 A       .       G       3334
-                    """
-
                     if rec[_inserted] == ".":
                         inserted_bases = 0
                     else:
@@ -323,19 +306,19 @@ class VCIFile:
 
                     fragment = int(rec[_fragment])
 
-                    # logging.debug(f"pos_from={pos_from}, pos_to={pos_to}")
+                    # logging.debug(f'pos_from={pos_from}, pos_to={pos_to}')
                     # logging.debug(
-                    #     f"Inserting interval {pos_from} - {pos_from+fragment}"
+                    #     f'Inserting interval {pos_from} - {pos_from+fragment}'
                     #  )
-                    # "chr", "start", "end", "shared", "inserted", "deleted", "pos"
+                    # 'chr', 'start', 'end', 'shared', 'inserted', 'deleted', 'pos'
                     info = IntervalInfo(
-                        contig,              # chr
-                        pos_to,              # start
-                        pos_to + fragment,   # end
-                        rec[_shared],        # shared
-                        rec[_inserted],      # inserted
-                        rec[_deleted],       # deleted
-                        rec[_pos]            # pos
+                        contig,  # chr
+                        pos_to,  # start
+                        pos_to + fragment,  # end
+                        rec[_shared],  # shared
+                        rec[_inserted],  # inserted
+                        rec[_deleted],  # deleted
+                        rec[_pos],  # pos
                     )
                     interval = Interval(pos_from, pos_from + fragment, info)
 
@@ -343,8 +326,8 @@ class VCIFile:
 
                     mapping_tree[contig].insert_interval(interval)
 
-                    pos_from += (fragment + deleted_bases)
-                    pos_to += (fragment + inserted_bases)
+                    pos_from += fragment + deleted_bases
+                    pos_to += fragment + inserted_bases
                     num_lines_processed += 1
                     total_num_lines_processed += 1
 
@@ -353,23 +336,21 @@ class VCIFile:
                         contig,  # chr
                         pos_to,  # start
                         pos_to + (self.contigs[contig[:-2]] - pos_from),  # end
-                        None,    # shared
-                        None,    # inserted
-                        None,    # deleted
-                        None     # pos
+                        None,  # shared
+                        None,  # inserted
+                        None,  # deleted
+                        None,  # pos
                     )
-                    interval = Interval(
-                        pos_from, self.contigs[contig[:-2]], info
-                    )
+                    interval = Interval(pos_from, self.contigs[contig[:-2]], info)
                 else:
                     info = IntervalInfo(
                         contig,  # chr
                         pos_to,  # start
                         pos_to + (self.contigs[contig] - pos_from),  # end
-                        None,    # shared
-                        None,    # inserted
-                        None,    # deleted
-                        None     # pos
+                        None,  # shared
+                        None,  # inserted
+                        None,  # deleted
+                        None,  # pos
                     )
                     interval = Interval(pos_from, self.contigs[contig], info)
 
@@ -379,8 +360,8 @@ class VCIFile:
                 #     contig_start_time, time.time()
                 # )
                 # logging.debug(
-                #     f"Parsed {num_lines_processed:,} "
-                #     f"lines for contig {contig} in {elapsed_time}"
+                #     f'Parsed {num_lines_processed:,} '
+                #     f'lines for contig {contig} in {elapsed_time}'
                 # )
 
             self.valid = True
@@ -389,7 +370,7 @@ class VCIFile:
             g2g_utils.show_error()
 
         # fmt_time = g2g_utils.format_time(start, time.time())
-        # logging.info("Parsing complete: {fmt_time}")
+        # logging.info('Parsing complete: {fmt_time}')
 
     def add_to_tree(self, contig: str, tree: IntervalTree) -> None:
         """
@@ -403,10 +384,7 @@ class VCIFile:
             self.mapping_tree[contig] = tree
 
     def find_mappings(
-            self,
-            chromosome: str,
-            start: int,
-            end: int
+        self, chromosome: str, start: int, end: int
     ) -> list[IntervalMapping] | None:
         """
         Find mapping from source to target.
@@ -422,43 +400,49 @@ class VCIFile:
         mappings = []
 
         if chromosome not in self.mapping_tree:
-            # logging.debug(f"Chromosome {chromosome} not in mapping tree")
-            # logging.debug(f"Chromosomes: {list(self.mapping_tree.keys())}")
+            # logging.debug(f'Chromosome {chromosome} not in mapping tree')
+            # logging.debug(f'Chromosomes: {list(self.mapping_tree.keys())}')
             return None
 
         all_intervals = self.mapping_tree[chromosome].find(start, end)
 
         if len(all_intervals) == 0:
-            # logging.debug("No intervals found")
+            # logging.debug('No intervals found')
             return None
         else:
             for interval in all_intervals:
-                # logging.debug(f"Interval {len(mappings)}={interval}")
+                # logging.debug(f'Interval {len(mappings)} = {interval}')
                 chromosome, real_start, real_end = intersect_regions(
-                    chromosome, start, end,
-                    chromosome, interval.start, interval.end
+                    chromosome, start, end, chromosome, interval.start, interval.end
                 )
                 offset = abs(real_start - interval.start)
                 size = abs(real_end - real_start)
                 i_start = interval.value[1] + offset
+
+                # 'from_chr', 'from_start', 'from_end', 'from_seq',
+                # 'to_chr', 'to_start', 'to_end', 'to_seq',
+                # 'same_bases', 'vcf_pos'
+
                 mappings.append(
                     IntervalMapping(
-                        chromosome, real_start, real_end,
-                        interval.value.inserted, interval.value.chr,
-                        i_start, i_start + size, interval.value.deleted,
-                        interval.value.shared, interval.value.pos
+                        chromosome,
+                        real_start,
+                        real_end,
+                        interval.value.inserted,
+                        interval.value.chr,
+                        i_start,
+                        i_start + size,
+                        interval.value.deleted,
+                        interval.value.shared,
+                        interval.value.pos,
                     )
                 )
-                # logging.debug(f"Mapping {len(mappings)-1}={mappings[-1]}")
+                # logging.debug(f'Mapping {len(mappings)-1}={mappings[-1]}')
 
         return mappings
 
 
-def vci_query(
-        vci_file_name_in: str,
-        region: g2g.Region,
-        debug_level: int = 0
-) -> None:
+def vci_query(vci_file_name_in: str, region: g2g.Region, debug_level: int = 0) -> None:
     """
     Query the VCI file and output the matching records.
 
@@ -486,13 +470,10 @@ def vci_query(
     start_pos = mappings[0].to_start
     end_pos = mappings[-1].to_end
 
-    logger.debug(
-        f"Converted Region: {region.seq_id}:{start_pos+1}-{end_pos + 1}"
-    )
+    logger.debug(f"Converted Region: {region.seq_id}:{start_pos+1}-{end_pos + 1}")
 
     for line in vci_f.fetch(
-            reference=region.seq_id, start=start_pos,
-            end=end_pos, parser=pysam.asTuple()
+        reference=region.seq_id, start=start_pos, end=end_pos, parser=pysam.asTuple()
     ):
         print(str(line))
 

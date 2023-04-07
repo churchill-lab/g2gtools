@@ -8,10 +8,16 @@ import sys
 # none
 
 # local library imports
-from .exceptions import G2GRegionError
+from g2gtools.exceptions import G2GRegionError
 
-REGEX_REGION = re.compile("(\w*)\s*(-|:)?\s*(\d+)\s*(MB|M|K|)?\s*(-|:|)?\s*(\d+|)\s*(MB|M|K|)?", re.IGNORECASE)
-REGEX_REGION_CHR = re.compile("(CHR|)*\s*([0-9]{1,2}|X|Y|MT)\s*(-|:)?\s*(\d+)\s*(MB|M|K|)?\s*(-|:|)?\s*(\d+|)\s*(MB|M|K|)?", re.IGNORECASE)
+REGEX_REGION = re.compile(
+    r"(\w*)\s*(-|:)?\s*(\d+)\s*(MB|M|K|)?\s*(-|:|)?\s*(\d+|)\s*(MB|M|K|)?",
+    re.IGNORECASE,
+)
+REGEX_REGION_CHR = re.compile(
+    r"(CHR|)*\s*([0-9]{1,2}|X|Y|MT)\s*(-|:)?\s*(\d+)\s*(MB|M|K|)?\s*(-|:|)?\s*(\d+|)\s*(MB|M|K|)?",
+    re.IGNORECASE,
+)
 
 #
 #
@@ -34,7 +40,9 @@ def get_logger(level=0):
 
     if not logger.hasHandlers():
         handler = logging.StreamHandler(sys.stderr)
-        formatter = logging.Formatter("[g2gtools] %(levelname)s [%(filename)s] [%(lineno)d] %(msg)s")
+        formatter = logging.Formatter(
+            "[g2gtools] %(levelname)s [%(filename)s] [%(lineno)d] %(msg)s"
+        )
         handler.setFormatter(formatter)
         logger.addHandler(handler)
 
@@ -49,8 +57,7 @@ def get_logger(level=0):
 
 
 def exit(
-        message: str | None = "",
-        parser: argparse.ArgumentParser | None = None
+    message: str | None = "", parser: argparse.ArgumentParser | None = None
 ) -> None:
     """
     Print message, help, and exit.
@@ -70,6 +77,7 @@ def exit(
 
     sys.exit(1)
 
+
 #
 #
 # Region
@@ -78,10 +86,11 @@ def exit(
 
 
 class Region(object):
-    """
+    """ """
 
-    """
-    def __init__(self, seq_id, start=None, end=None, strand="+", name=None, original_base=0):
+    def __init__(
+        self, seq_id, start=None, end=None, strand="+", name=None, original_base=0
+    ):
         if start:
             end = end if end else start + 1
         self.seq_id = seq_id
@@ -106,7 +115,9 @@ class Region(object):
             elif value in ("-", "-1", -1):
                 self._strand = "-"
             else:
-                raise G2GRegionError(f"Illegal value for strand {value}, must be +, -, 1, -1")
+                raise G2GRegionError(
+                    f"Illegal value for strand {value}, must be +, -, 1, -1"
+                )
 
     @property
     def start(self):
@@ -116,7 +127,9 @@ class Region(object):
     def start(self, value):
         if value is not None:
             if value < 0:
-                raise G2GRegionError(f"Illegal value for start {value}, start must be >= 0")
+                raise G2GRegionError(
+                    f"Illegal value for start {value}, start must be >= 0"
+                )
             self._start = value
 
     def get_start(self):
@@ -132,7 +145,9 @@ class Region(object):
     def end(self, value):
         if value is not None:
             if self.start and value <= self.start:
-                raise G2GRegionError(f"Illegal value for end {value}, end must be >= start {self.start}")
+                raise G2GRegionError(
+                    f"Illegal value for end {value}, end must be >= start {self.start}"
+                )
 
             self._end = value
         else:
@@ -147,7 +162,9 @@ class Region(object):
                 return f"{self.seq_id}:{self.start + 1}-{self.end} ({self.strand})"
         else:
             if self.name:
-                return f"{self.name} {self.seq_id}:{self.start}-{self.end} ({self.strand})"
+                return (
+                    f"{self.name} {self.seq_id}:{self.start}-{self.end} ({self.strand})"
+                )
             else:
                 return f"{self.seq_id}:{self.start}-{self.end} ({self.strand})"
 
@@ -171,7 +188,7 @@ def get_multiplier(factor):
     """
     Convert the factor into a number.
 
-    :param factor: the string "mb", "m", or "k"
+    :param factor: the string 'mb', 'm', or 'k'
     :return: 10000000, 1000000, 1000 or 1
     """
     if factor.lower() == "mb":
@@ -254,10 +271,10 @@ def parse_region(location_str, base=0, name=None):
     else:
         end = end_base * get_multiplier(end_mult)
 
-    # LOG.debug(f"identifier={identifier}, start={start}, end={end}, base={base}, name={name}")
+    # LOG.debug(f'identifier={identifier}, start={start}, end={end}, base={base}, name={name}')
 
     region = Region(identifier, start, end, "+", original_base=base, name=name)
 
-    # LOG.debug(f"parse_region returning: region = {region}")
+    # LOG.debug(f'parse_region returning: region = {region}')
 
     return region

@@ -26,17 +26,24 @@ from natsort import natsorted as _natsorted
 import pysam
 
 import g2gtools.g2g
+
 # local library imports
 from .exceptions import G2GValueError
 
 
-REGEX_LOCATION = re.compile(r"(\w*)\s*(-|:)?\s*(\d+)\s*(MB|M|K|)?\s*(-|:|)?\s*(\d+|)\s*(MB|M|K|)?", re.IGNORECASE)
+REGEX_LOCATION = re.compile(
+    r"(\w*)\s*(-|:)?\s*(\d+)\s*(MB|M|K|)?\s*(-|:|)?\s*(\d+|)\s*(MB|M|K|)?",
+    re.IGNORECASE,
+)
 REGEX_LOCATION_CHR = re.compile(
-    r"(CHR|)*\s*([0-9]{1,2}|X|Y|MT)\s*(-|:)?\s*(\d+)\s*(MB|M|K|)?\s*(-|:|)?\s*(\d+|)\s*(MB|M|K|)?", re.IGNORECASE)
+    r"(CHR|)*\s*([0-9]{1,2}|X|Y|MT)\s*(-|:)?\s*(\d+)\s*(MB|M|K|)?\s*(-|:|)?\s*(\d+|)\s*(MB|M|K|)?",
+    re.IGNORECASE,
+)
 BASES = re.compile(r"([ATGCYRSWKMBDHVNatgcyrswkmbdhvn]+)")
 
-TRANS = str.maketrans("ATGCYRSWKMBDHVNatgcyrswkmbdhvn",
-                      "TACGRYSWMKVHDBNtacgryswmkvhdbn")
+TRANS = str.maketrans(
+    "ATGCYRSWKMBDHVNatgcyrswkmbdhvn", "TACGRYSWMKVHDBNtacgryswmkvhdbn"
+)
 
 
 def cmp(x: Any, y: Any) -> int:
@@ -197,9 +204,7 @@ def parse_chromosome(chrom_file_name: str) -> dict[str, int]:
 
 
 def wrap_sequence(
-        sequence: str,
-        wrap_length: int = 60,
-        fill_value: str | None = ""
+    sequence: str, wrap_length: int = 60, fill_value: str | None = ""
 ) -> Iterator[str]:
     """
     Wrap a sequence for better output.
@@ -217,11 +222,7 @@ def wrap_sequence(
         yield "".join(line + ("\n",))
 
 
-def write_sequence(
-    sequence: str,
-    out: IO,
-    wrap_length: int = 60
-):
+def write_sequence(sequence: str, out: IO, wrap_length: int = 60):
     """
     Write the formatted sequence to output.
 
@@ -231,7 +232,7 @@ def write_sequence(
         wrap_length: How many characters before wrapping.
     """
     for i in range(0, len(sequence), wrap_length):
-        out.write(sequence[i:i + wrap_length])
+        out.write(sequence[i : i + wrap_length])
         out.write("\n")
 
 
@@ -310,10 +311,10 @@ def reverse_complement_sequence(sequence):
 
 
 def concatenate_files(
-        list_files: list[str],
-        file_name_out: str,
-        delete: bool | None = False,
-        mode: str | None = "wb"
+    list_files: list[str],
+    file_name_out: str,
+    delete: bool | None = False,
+    mode: str | None = "wb",
 ) -> None:
     """
     Concatenate the files in the order they are listed.
@@ -378,7 +379,7 @@ def bgzip_file(
     file_name_in: str,
     file_name_out: str,
     delete_original: bool | None = False,
-    force: bool | None = True
+    force: bool | None = True,
 ) -> None:
     """
     bgzip a file and index it.
@@ -434,9 +435,7 @@ def has_index_file(file_name: str, file_format: str | None = None) -> bool:
 
 
 def index_file(
-        file_name: str,
-        file_format: str | None = "vcf",
-        overwrite: bool | None = False
+    file_name: str, file_format: str | None = "vcf", overwrite: bool | None = False
 ) -> None:
     """
     Parse the VCF file and create a VCI file.
@@ -452,19 +451,17 @@ def index_file(
         elif file_format.lower() == "vcf":
             pysam.tabix_index(file_name, preset="vcf", force=True)
         elif file_format.lower() == "vci":
-            pysam.tabix_index(
-                file_name, seq_col=0, start_col=1, end_col=1, force=True
-            )
+            pysam.tabix_index(file_name, seq_col=0, start_col=1, end_col=1, force=True)
         else:
             raise G2GValueError(f"Unknown file format: {file_format}")
 
 
 def bgzip_and_index_file(
-        file_name_in: str,
-        file_name_out: str,
-        delete_original: bool | None = False,
-        force: bool | None = True,
-        file_format: str | None = "vcf"
+    file_name_in: str,
+    file_name_out: str,
+    delete_original: bool | None = False,
+    force: bool | None = True,
+    file_format: str | None = "vcf",
 ) -> None:
     """
     bgzip a file and index it
@@ -511,8 +508,7 @@ def open_resource(resource, mode: str = "rb"):
 
 
 def create_random_string(
-        size: int = 6,
-        chars: str = string.ascii_uppercase + string.digits
+    size: int = 6, chars: str = string.ascii_uppercase + string.digits
 ) -> str:
     """
     Create a random string.
@@ -528,11 +524,11 @@ def create_random_string(
 
 
 def gen_file_name(
-        name: str | None = None,
-        prefix: str | None = "",
-        output_dir: str = ".",
-        extension: str = "log",
-        append_time: bool = True
+    name: str | None = None,
+    prefix: str | None = "",
+    output_dir: str = ".",
+    extension: str = "log",
+    append_time: bool = True,
 ) -> str:
     """
     Generate a file name.
@@ -587,10 +583,7 @@ def get_dir_and_file(filename):
     return os.path.split(abspath)
 
 
-def check_file(
-        file_name: str,
-        mode: str | None = "r"
-) -> str:
+def check_file(file_name: str, mode: str | None = "r") -> str:
     """
     Check if file_name exists and accessible for reading or writing.
 
@@ -625,9 +618,7 @@ def check_file(
 
 
 def create_temp_dir(
-        name: str,
-        prefix: str = ".g2gtools_",
-        dir: str | PathLike | None = None
+    name: str, prefix: str = ".g2gtools_", dir: str | PathLike | None = None
 ) -> str:
     """
     Create a temporary directory.

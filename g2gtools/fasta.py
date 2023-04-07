@@ -1,7 +1,6 @@
-#
-# Collection of functions related to FASTA files
-#
-
+"""
+Collection of functions related to FASTA files.
+"""
 # standard library imports
 from io import StringIO
 import collections
@@ -15,12 +14,12 @@ import time
 import pysam
 
 # local library imports
-from .exceptions import G2GFastaError
-from .exceptions import G2GRegionError
-from .exceptions import G2GValueError
-from . import gtf_db
-from . import g2g
-from . import g2g_utils
+from g2gtools.exceptions import G2GFastaError
+from g2gtools.exceptions import G2GRegionError
+from g2gtools.exceptions import G2GValueError
+import g2gtools.gtf_db as gtf_db
+import g2gtools.g2g as g2g
+import g2gtools.g2g_utils as g2g_utils
 
 
 def filter_fai(line):
@@ -39,6 +38,7 @@ class FastaFile(object):
 
     Delegation used with `pysam.FastaFile`
     """
+
     def __init__(self, filename):
         self.filename = filename
         self._fasta_file = None
@@ -65,9 +65,11 @@ class FastaFile(object):
 
     def fetch_list(self, reference=None, start=None, end=None, region=None):
         _start = 0 if start < 0 else start
-        return list(self._fasta_file.fetch(
-            reference=reference, start=_start, end=end, region=region
-        ))
+        return list(
+            self._fasta_file.fetch(
+                reference=reference, start=_start, end=end, region=region
+            )
+        )
 
     def __getattr__(self, name):
         return getattr(self._fasta_file, name)
@@ -75,12 +77,12 @@ class FastaFile(object):
 
 class FAIEntry(object):
     def __init__(
-            self,
-            idx: str | None = None,
-            length: int | None = 0,
-            offset: int | None = -1,
-            line_len: int | None = None,
-            line_len_bytes: int | None = None
+        self,
+        idx: str | None = None,
+        length: int | None = 0,
+        offset: int | None = -1,
+        line_len: int | None = None,
+        line_len_bytes: int | None = None,
     ):
         """
         Initialize a FAIEntry object.
@@ -123,7 +125,7 @@ class FAI(object):
         if os.path.exists(self.fai_file):
             self.read()
         else:
-            self.fai_file = "f{fasta_filename}.gz.fai"
+            self.fai_file = f"{fasta_file_name}.gz.fai"
             if os.path.exists(self.fai_file):
                 self.read()
             else:
@@ -136,14 +138,14 @@ class FAI(object):
 
             return self.records[entry]
         except KeyError:
-            raise G2GFastaError("{entry} not in {self.fai_file}.")
+            raise G2GFastaError(f"{entry} not in {self.fai_file}.")
 
     def __iter__(self):
         for keys in self.records:
             yield keys
 
     def __repr__(self):
-        return f"{self.__class__}('{self.fai_file}')"
+        return f'{self.__class__}("{self.fai_file}")'
 
     def read(self):
         with open(self.fai_file) as index:
@@ -154,8 +156,11 @@ class FAI(object):
                     raise ValueError(f"A duplicate entry was found: {idx}")
                 else:
                     self.records[idx] = FAIEntry(
-                        idx, int(length), int(offset), int(line_len),
-                        int(line_len_bytes)
+                        idx,
+                        int(length),
+                        int(offset),
+                        int(line_len),
+                        int(line_len_bytes),
                     )
 
     def get_pos(self, seq_id, start, end) -> tuple[int, int, int]:
@@ -177,7 +182,7 @@ class FAI(object):
         fai_entry_line_length = chrom.line_len
         fai_entry_line_length_bytes = chrom.line_len_bytes
         seq_len = end - start
-        fai_diff = (fai_entry_line_length_bytes - fai_entry_line_length)
+        fai_diff = fai_entry_line_length_bytes - fai_entry_line_length
         line_ratio = fai_entry_line_length * fai_diff
         newlines_total = int(fai_entry_length / line_ratio)
         newlines_before = 0
@@ -201,13 +206,13 @@ class FAI(object):
 
 
 def extract(
-        fasta_file: str | FastaFile,
-        locations: g2g.Region | list[g2g.Region],
-        output_file_name: str | None = None,
-        reverse: bool | None = False,
-        complement: bool | None = False,
-        raw: bool | None = False,
-        debug_level: int | None = 0
+    fasta_file: str | FastaFile,
+    locations: g2g.Region | list[g2g.Region],
+    output_file_name: str | None = None,
+    reverse: bool | None = False,
+    complement: bool | None = False,
+    raw: bool | None = False,
+    debug_level: int | None = 0,
 ):
     """
     Extract the Fasta sequences.
@@ -248,16 +253,12 @@ def extract(
         for location in locations:
             logger.debug(f"LOCATION: {location}")
             if not isinstance(location, g2g.Region):
-                raise G2GRegionError(
-                    f"Found: {location}, which is not a Region"
-                )
+                raise G2GRegionError(f"Found: {location}, which is not a Region")
 
             if location.seq_id not in fasta.references:
                 continue
 
-            sequence = fasta.fetch(
-                location.seq_id, location.start, location.end
-            )
+            sequence = fasta.fetch(location.seq_id, location.start, location.end)
 
             if location.strand == "+":
                 if reverse and not complement:
@@ -288,10 +289,7 @@ def extract(
                 logger.debug(f"{sequence[:10]}...{sequence[-10:]}")
 
                 if location.name:
-                    fasta_id = (
-                        f">{location.name} "
-                        f"{location.seq_id}:{start}-{end}"
-                    )
+                    fasta_id = f">{location.name} " f"{location.seq_id}:{start}-{end}"
                     logger.debug(f"Location name used, Fasta ID: {fasta_id}")
 
                 fasta_out.write(f"{fasta_id}\n")
@@ -310,13 +308,13 @@ def extract(
 
 
 def extract_id(
-        fasta_file: str | FastaFile,
-        identifier: str,
-        output_file_name: str | None = None,
-        reverse: bool | None = False,
-        complement: bool | None = False,
-        raw: bool | None = False,
-        debug_level: int | None = 0
+    fasta_file: str | FastaFile,
+    identifier: str,
+    output_file_name: str | None = None,
+    reverse: bool | None = False,
+    complement: bool | None = False,
+    raw: bool | None = False,
+    debug_level: int | None = 0,
 ):
     """
     Extract the Fasta sequences.
@@ -396,15 +394,15 @@ def diff_files(file_name_1: str, file_name_2: str) -> None:
 
     for seq_id1 in fasta_1.references:
         if seq_id1 in fasta_2.references:
-            print("Comparing {}".format(seq_id1))
+            print(f"Comparing {seq_id1}")
 
             if fasta_1.fetch(seq_id1) == fasta_2.fetch(seq_id1):
                 fa_equal[seq_id1] = seq_id1
             else:
                 fa_diff[seq_id1] = seq_id1
 
-    print("# EQUAL: {0}".format(len(fa_equal)))
-    print("# DIFF: {0}".format(len(fa_diff)))
+    print(f"# EQUAL: {len(fa_equal)}")
+    print(f"# DIFF: {len(fa_diff)}")
 
     for seq in fa_diff:
         print(seq)
@@ -442,9 +440,9 @@ def diff_sequence(sequence_1: str, sequence_2: str) -> None:
         if s[0] == " ":
             continue
         elif s[0] == "-":
-            print(u"Delete '{}' from position {}".format(s[-1], i))
-        elif s[0] == '+':
-            print(u"Add '{}' to position {}".format(s[-1], i))
+            print(f'Delete "{s[-1]}" from position {i}')
+        elif s[0] == "+":
+            print(f'Add "{s[-1]}" to position {i}')
     print()
 
 
@@ -467,7 +465,7 @@ def get_pos(fai: FAI, chrom: str, start: int, end: int) -> tuple[int, int, int]:
     fai_entry_line_length = chrom.line_len
     fai_entry_line_length_bytes = chrom.line_len_bytes
     seq_len = end - start
-    fai_diff = (fai_entry_line_length_bytes - fai_entry_line_length)
+    fai_diff = fai_entry_line_length_bytes - fai_entry_line_length
     line_ratio = fai_entry_line_length * fai_diff
     newlines_total = int(fai_entry_length / line_ratio)
     newlines_before = 0
@@ -484,10 +482,11 @@ def get_pos(fai: FAI, chrom: str, start: int, end: int) -> tuple[int, int, int]:
 
 
 def reformat(
-        fasta_file_name: str,
-        output_file_name: str,
-        length: int | None = 60,
-        debug_level: int | None = 0):
+    fasta_file_name: str,
+    output_file_name: str = None,
+    length: int | None = 60,
+    debug_level: int | None = 0,
+):
     """
     Reformat a Fasta file to specified maximum line length.
 
@@ -516,9 +515,7 @@ def reformat(
                 if len(new_sequence.getvalue()) > 0:
                     output.write(new_header)
                     output.write("\n")
-                    g2g_utils.write_sequence(
-                        new_sequence.getvalue(), output, length
-                    )
+                    g2g_utils.write_sequence(new_sequence.getvalue(), output, length)
 
                     logger.info(f"Reformatting {new_header}")
 
@@ -536,11 +533,11 @@ def reformat(
 
 
 def fasta_extract_transcripts(
-        fasta_file: str | FastaFile,
-        database_file_name: str,
-        output: str | None,
-        raw: bool | None = False,
-        debug_level: int | None = 0
+    fasta_file: str | FastaFile,
+    database_file_name: str,
+    output: str | None,
+    raw: bool | None = False,
+    debug_level: int | None = 0,
 ) -> None:
     """
     Extract the transcripts sequences from the fasta_file given the database.
@@ -579,9 +576,7 @@ def fasta_extract_transcripts(
             logger.debug(f"Transcript={transcript}")
 
             if transcript.seqid not in fasta.references:
-                logger.debug(
-                    "Skipping, transcript seqid not in fasta references"
-                )
+                logger.debug("Skipping, transcript seqid not in fasta references")
                 logger.debug(f"{transcript.seqid} not in {fasta.references}")
                 continue
 
@@ -590,14 +585,15 @@ def fasta_extract_transcripts(
             for ensembl_id, exon in transcript.exons.items():
                 logger.debug(f"Exon ID={ensembl_id};{exon}")
 
-                partial_seq = fasta.fetch(exon.seqid, exon.start-1, exon.end)
+                partial_seq = fasta.fetch(exon.seqid, exon.start - 1, exon.end)
                 partial_seq_str = str(partial_seq)
 
                 if transcript.strand == 1:
                     new_sequence.write(partial_seq_str)
                 else:
-                    partial_seq_str = \
-                        str(g2g_utils.reverse_complement_sequence(partial_seq))
+                    partial_seq_str = str(
+                        g2g_utils.reverse_complement_sequence(partial_seq)
+                    )
                     new_sequence.write(partial_seq_str)
 
                 logger.debug(
@@ -630,11 +626,11 @@ def fasta_extract_transcripts(
 
 
 def fasta_extract_exons(
-        fasta_file: str | FastaFile,
-        database_file_name: str,
-        output: str | None,
-        raw: bool | None = False,
-        debug_level: int | None = 0
+    fasta_file: str | FastaFile,
+    database_file_name: str,
+    output: str | None,
+    raw: bool | None = False,
+    debug_level: int | None = 0,
 ) -> None:
     """
     Extract the exons sequences from the fasta_file given the database.
@@ -669,14 +665,13 @@ def fasta_extract_exons(
     try:
         transcripts = gtf_db.get_transcripts_simple(database_file_name)
         for i, transcript in enumerate(transcripts):
-
             if transcript.seqid not in fasta.references:
                 continue
 
             for ensembl_id, exon in transcript.exons.items():
                 logger.debug(f"Exon={exon}")
 
-                partial_seq = fasta.fetch(exon.seqid, exon.start-1, exon.end)
+                partial_seq = fasta.fetch(exon.seqid, exon.start - 1, exon.end)
                 partial_seq_str = partial_seq
 
                 if transcript.strand == -1:
@@ -692,8 +687,7 @@ def fasta_extract_exons(
                     fasta_out.write(partial_seq_str)
                 else:
                     fasta_id = (
-                        f">{exon.ensembl_id} "
-                        f"{exon.seqid}:{exon.start}-{exon.end}\n"
+                        f">{exon.ensembl_id} " f"{exon.seqid}:{exon.start}-{exon.end}\n"
                     )
                     fasta_out.write(fasta_id)
 

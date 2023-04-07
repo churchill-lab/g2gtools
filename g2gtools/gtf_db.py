@@ -102,13 +102,13 @@ SQL_INDICES_GTF = [
     "CREATE INDEX idx_gtf_score ON gtf(score ASC)",
     "CREATE INDEX idx_gtf_source_key ON gtf(source_key ASC)",
     "CREATE INDEX idx_gtf_type_key ON gtf(type_key ASC)",
-    "CREATE INDEX idx_gtf_frame ON gtf(frame ASC)"
+    "CREATE INDEX idx_gtf_frame ON gtf(frame ASC)",
 ]
 
 SQL_INDICES_GTF_LOOKUP = [
     "CREATE INDEX idx_gtf_gtf_key ON gtf_lookup(gtf_key ASC)",
     "CREATE INDEX idx_gtf_lookup_attr_key ON gtf_lookup(attribute_key ASC)",
-    "CREATE INDEX idx_gtf_lookup_value ON gtf_lookup(value ASC)"
+    "CREATE INDEX idx_gtf_lookup_value ON gtf_lookup(value ASC)",
 ]
 
 SQL_INDICES_GTF_TYPES = [
@@ -166,9 +166,7 @@ SQL_TRANSCRIPTS_SIMPLE_ORDER_BY = " ORDER BY g._key "
 
 
 def gtf2db(
-        gtf_file_name: str,
-        database_file_name: str,
-        debug_level: int | None = 0
+    gtf_file_name: str, database_file_name: str, debug_level: int | None = 0
 ) -> None:
     """
     Convert a GTF file into SQLite
@@ -181,8 +179,8 @@ def gtf2db(
     start = time.time()
     logger = g2g.get_logger(debug_level)
 
-    gtf_file_name = g2g_utils.check_file(gtf_file_name, 'r')
-    database_file_name = g2g_utils.check_file(database_file_name, 'w')
+    gtf_file_name = g2g_utils.check_file(gtf_file_name, "r")
+    database_file_name = g2g_utils.check_file(database_file_name, "w")
 
     g2g_utils.delete_file(database_file_name)
 
@@ -235,7 +233,7 @@ def gtf2db(
         gene_id = record.attributes["gene_id"]
 
         if prev_gene_id != gene_id:
-            logger.debug("-"*80)
+            logger.debug("-" * 80)
             prev_gene_id = gene_id
 
         if "transcript_id" in record.attributes:
@@ -261,15 +259,25 @@ def gtf2db(
 
         c.execute(
             SQL_INSERT_GTF_TABLE,
-            (gene_id, transcript_id, ensembl_id, record.seqid,
-             record.start, record.end, strand, record.score,
-             _source_key, _type_key, record.frame)
+            (
+                gene_id,
+                transcript_id,
+                ensembl_id,
+                record.seqid,
+                record.start,
+                record.end,
+                strand,
+                record.score,
+                _source_key,
+                _type_key,
+                record.frame,
+            ),
         )
 
         gtf_key = c.lastrowid
         logger.debug(f"gtf_key={gtf_key}")
 
-        for (attribute, value) in record.attributes.items():
+        for attribute, value in record.attributes.items():
             if attribute not in ["gene_id", "transcript_id", "exon_id"]:
                 if attribute not in gtf_attributes:
                     _attribute_key = len(gtf_attributes.keys())
@@ -277,28 +285,23 @@ def gtf2db(
                 else:
                     _attribute_key = gtf_attributes[attribute]
 
-                logger.debug(
-                    f"inserting {gtf_key}, {_attribute_key}, {value}"
-                )
-                c.execute(
-                    SQL_INSERT_GTF_LOOKUP_TABLE,
-                    (gtf_key, _attribute_key, value)
-                )
+                logger.debug(f"inserting {gtf_key}, {_attribute_key}, {value}")
+                c.execute(SQL_INSERT_GTF_LOOKUP_TABLE, (gtf_key, _attribute_key, value))
 
         counter += 1
 
     # save (commit) the changes
     conn.commit()
 
-    for (source, _key) in gtf_sources.items():
+    for source, _key in gtf_sources.items():
         c.execute(SQL_INSERT_GTF_SOURCES_TABLE, (_key, source))
         conn.commit()
 
-    for (_type, _key) in gtf_types.items():
+    for _type, _key in gtf_types.items():
         c.execute(SQL_INSERT_GTF_TYPES_TABLE, (_key, _type))
         conn.commit()
 
-    for (attribute, _key) in gtf_attributes.items():
+    for attribute, _key in gtf_attributes.items():
         c.execute(SQL_INSERT_GTF_ATTRIBUTES_TABLE, (_key, attribute))
         conn.commit()
 
@@ -337,12 +340,12 @@ def gtf2db(
 
 class GTFObject(object):
     def __init__(
-            self,
-            ensembl_id: str | None = None,
-            seqid: str | None = None,
-            start: int | None = None,
-            end: int | None = None,
-            strand: str | None = None,
+        self,
+        ensembl_id: str | None = None,
+        seqid: str | None = None,
+        start: int | None = None,
+        end: int | None = None,
+        strand: str | None = None,
     ):
         self.ensembl_id = ensembl_id
         self.seqid = seqid
@@ -356,12 +359,12 @@ class GTFObject(object):
 
 class Gene(GTFObject):
     def __init__(
-            self,
-            ensembl_id: str | None = None,
-            seqid: str | None = None,
-            start: int | None = None,
-            end: int | None = None,
-            strand: str | None = None
+        self,
+        ensembl_id: str | None = None,
+        seqid: str | None = None,
+        start: int | None = None,
+        end: int | None = None,
+        strand: str | None = None,
     ):
         GTFObject.__init__(self, ensembl_id, seqid, start, end, strand)
         self.transcripts = OrderedDict()
@@ -375,12 +378,12 @@ class Gene(GTFObject):
 
 class Transcript(GTFObject):
     def __init__(
-            self,
-            ensembl_id: str | None = None,
-            seqid: str | None = None,
-            start: int | None = None,
-            end: int | None = None,
-            strand: str | None = None
+        self,
+        ensembl_id: str | None = None,
+        seqid: str | None = None,
+        start: int | None = None,
+        end: int | None = None,
+        strand: str | None = None,
     ):
         GTFObject.__init__(self, ensembl_id, seqid, start, end, strand)
         self.gene_ids = OrderedDict()
@@ -395,12 +398,12 @@ class Transcript(GTFObject):
 
 class Exon(GTFObject):
     def __init__(
-            self,
-            ensembl_id: str | None = None,
-            seqid: str | None = None,
-            start: int | None = None,
-            end: int | None = None,
-            strand: str | None = None
+        self,
+        ensembl_id: str | None = None,
+        seqid: str | None = None,
+        start: int | None = None,
+        end: int | None = None,
+        strand: str | None = None,
     ):
         GTFObject.__init__(self, ensembl_id, seqid, start, end, strand)
         self.gene_id = None
@@ -434,9 +437,7 @@ class Exon(GTFObject):
 
 
 def location_to_sql(
-        location: g2g.Region,
-        use_strand: bool = False,
-        overlap: bool | None = True
+    location: g2g.Region, use_strand: bool = False, overlap: bool | None = True
 ) -> tuple[str, dict]:
     """
     Utility function to convert a Region into a SQL condition.
@@ -454,9 +455,7 @@ def location_to_sql(
 
     if location:
         sql = " AND g.seqid = :seqid "
-        sql_parameters = {
-            "seqid": location.seq_id
-        }
+        sql_parameters = {"seqid": location.seq_id}
 
         if overlap:
             if location.start and not location.end:
@@ -524,10 +523,7 @@ def get_gene(database_file_name: str, ensembl_id: str) -> dict[str, Gene]:
         if gtf_type == "gene":
             gene = genes.get(
                 _key,
-                Gene(
-                    r["ensembl_id"], r["seqid"],
-                    r["start"], r["end"], r["strand"]
-                )
+                Gene(r["ensembl_id"], r["seqid"], r["start"], r["end"], r["strand"]),
             )
 
             if attribute == "gene_name":
@@ -541,9 +537,8 @@ def get_gene(database_file_name: str, ensembl_id: str) -> dict[str, Gene]:
             transcript = transcripts.get(
                 _key,
                 Transcript(
-                    r["ensembl_id"], r["seqid"], r["start"],
-                    r["end"], r["strand"]
-                )
+                    r["ensembl_id"], r["seqid"], r["start"], r["end"], r["strand"]
+                ),
             )
             transcript.gene_ids[r["gene_id"]] = r["gene_id"]
 
@@ -557,10 +552,7 @@ def get_gene(database_file_name: str, ensembl_id: str) -> dict[str, Gene]:
         elif gtf_type == "exon":
             exon = exons.get(
                 _key,
-                Exon(
-                    r["ensembl_id"], r["seqid"], r["start"],
-                    r["end"], r["strand"]
-                )
+                Exon(r["ensembl_id"], r["seqid"], r["start"], r["end"], r["strand"]),
             )
             exon.gene_ids = r["gene_id"]
             exon.transcript_ids[r["transcript_id"]] = r["transcript_id"]
@@ -571,7 +563,9 @@ def get_gene(database_file_name: str, ensembl_id: str) -> dict[str, Gene]:
             exons[_key] = exon
 
     genes = {gene.ensembl_id: gene for i, gene in genes.items()}
-    transcripts = {transcript.ensembl_id: transcript for i, transcript in transcripts.items()}
+    transcripts = {
+        transcript.ensembl_id: transcript for i, transcript in transcripts.items()
+    }
 
     for _id, exon in exons.items():
         for _tid in exon.transcript_ids:
@@ -588,10 +582,10 @@ def get_gene(database_file_name: str, ensembl_id: str) -> dict[str, Gene]:
 
 
 def get_genes_ids(
-        database_file_name: str,
-        location: g2g.Region,
-        use_strand: bool | None = False,
-        overlap: bool | None = True
+    database_file_name: str,
+    location: g2g.Region,
+    use_strand: bool | None = False,
+    overlap: bool | None = True,
 ) -> list[str]:
     """
     Get ensembl ids for genes.
@@ -628,10 +622,10 @@ def get_genes_ids(
 
 
 def get_genes(
-        database_file_name: str,
-        location: g2g.Region,
-        use_strand: bool | None = False,
-        overlap: bool | None = True
+    database_file_name: str,
+    location: g2g.Region,
+    use_strand: bool | None = False,
+    overlap: bool | None = True,
 ) -> dict[str, Gene]:
     """
     Get Gene objects.
@@ -655,11 +649,11 @@ def get_genes(
 
 
 def get_genes_simple(
-        database_file_name: str,
-        location: g2g.Region | None = None,
-        use_strand: bool | None = False,
-        overlap: bool | None = True,
-        debug_level: int | None = 0
+    database_file_name: str,
+    location: g2g.Region | None = None,
+    use_strand: bool | None = False,
+    overlap: bool | None = True,
+    debug_level: int | None = 0,
 ) -> list[Gene]:
     """
     Get Gene objects.
@@ -702,8 +696,7 @@ def get_genes_simple(
 
 
 def get_transcripts_simple(
-        database_file_name: str,
-        debug_level: int | None = 0
+    database_file_name: str, debug_level: int | None = 0
 ) -> list[Transcript]:
     """
     Get all the transcripts from the database.
@@ -745,19 +738,19 @@ def get_transcripts_simple(
                 # logger.debug(f"Adding transcript {r["transcript_id"]}")
 
                 transcripts[r["transcript_id"]] = Transcript(
-                    r["ensembl_id"], r["seqid"], r["start"], r["end"],
-                    r["strand"]
+                    r["ensembl_id"], r["seqid"], r["start"], r["end"], r["strand"]
                 )
 
-        elif r["transcript_id"] is not None and r["ensembl_id"] is not None \
-                and (r["gene_id"] != r["ensembl_id"]):
+        elif (
+            r["transcript_id"] is not None
+            and r["ensembl_id"] is not None
+            and (r["gene_id"] != r["ensembl_id"])
+        ):
             # exon
             # logger.debug("ADDING exon")
             # logger.debug(f"{r['ensembl_id']}:{r['exon_number']}")
 
-            exon = Exon(
-                r["ensembl_id"], r["seqid"], r["start"], r["end"], r["strand"]
-            )
+            exon = Exon(r["ensembl_id"], r["seqid"], r["start"], r["end"], r["strand"])
 
             exon.gene_id = r["gene_id"]
             exon.transcript_ids[r["transcript_id"]] = r["transcript_id"]
@@ -786,8 +779,7 @@ def get_transcripts_simple(
                 # logger.debug(f"Adding transcript {r["transcript_id"]}"))
 
                 transcripts[r["transcript_id"]] = Transcript(
-                    r["transcript_id"], r["seqid"], r["start"], r["end"],
-                    r["strand"]
+                    r["transcript_id"], r["seqid"], r["start"], r["end"], r["strand"]
                 )
         else:
             # logger.debug("gene")
