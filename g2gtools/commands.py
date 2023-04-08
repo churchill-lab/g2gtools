@@ -1,5 +1,5 @@
 # standard library imports
-import sys
+# none
 
 # 3rd party library imports
 import click
@@ -16,10 +16,10 @@ import g2gtools.g2g as g2g
 import g2gtools.g2g_utils as g2g_utils
 import g2gtools.gtf as gtf
 import g2gtools.gtf_db as gtf_db
-import g2gtools.vci as vci
+import g2gtools.vci as g2g_vci
 import g2gtools.vcf2vci as vcf2vci
 
-logo_text = """
+logo_text = r"""
 
         ___       _              _
        |__ \     | |            | |
@@ -32,12 +32,12 @@ logo_text = """
 
 """
 
+
 @click.group()
 @click.pass_context
 def cli(ctx):
     # ensure that ctx.obj exists and is a dict
     ctx.ensure_object(dict)
-    # ctx.obj['verbose'] = verbose
 
 
 # #############################################################################
@@ -49,30 +49,36 @@ def cli(ctx):
 @click.pass_context
 @click.option(
     "-i",
-    "--input",
+    "--input-file",
     help="Input file to convert to new coordinates",
     required=True,
-    type=click.Path(exists=True, dir_okay=False, readable=True, resolve_path=True)
+    type=click.Path(
+        exists=True, dir_okay=False, readable=True, resolve_path=True
+    )
 )
 @click.option(
     "-c",
     "--vci",
     help="VCI file",
     required=True,
-    type=click.Path(exists=True, dir_okay=False, readable=True, resolve_path=True)
+    type=click.Path(
+        exists=True, dir_okay=False, readable=True, resolve_path=True
+    )
 )
 @click.option(
     "-f",
-    "--format",
+    "--file-format",
     help="Input file format",
     required=True,
     type=click.Choice(["BAM", "SAM", "GTF", "BED"], case_sensitive=False)
 )
 @click.option(
     "-o",
-    "--output",
+    "--output-file",
     help="Name of output file",
-    type=click.Path(exists=False, dir_okay=False, writable=True, resolve_path=True)
+    type=click.Path(
+        exists=False, dir_okay=False, writable=True, resolve_path=True
+    )
 )
 @click.option(
     "-r",
@@ -82,40 +88,40 @@ def cli(ctx):
     is_flag=True
 )
 @click.option("-v", "--verbose", count=True, help="verbose output")
-def convert(ctx, input, vci, format, output, reverse, verbose):
+def convert(ctx, input_file, vci, file_format, output_file, reverse, verbose):
     """
     Convert coordinates of BAM|SAM|GTF|GFF|BED files
     """
     try:
-        if format in ["BAM", "SAM"]:
+        if file_format in ["BAM", "SAM"]:
             bcsam.convert_bcsam_file(
                 vci_file=vci,
-                bcsam_file_name_in=input,
-                bcsam_file_name_out=output,
+                bcsam_file_name_in=input_file,
+                bcsam_file_name_out=output_file,
                 reverse=reverse,
                 debug_level=verbose
             )
-        elif format in ["GTF"]:
+        elif file_format in ["GTF"]:
             gtf.convert_gtf_file(
                 vci_file=vci,
-                gtf_file_name_in=input,
-                gtf_file_name_out=output,
+                gtf_file_name_in=input_file,
+                gtf_file_name_out=output_file,
                 reverse=reverse,
                 debug_level=verbose
             )
-        elif format in ["BED"]:
+        elif file_format in ["BED"]:
             g2g_bed.convert_bed_file(
                 vci_file=vci,
-                bed_file_name_in=input,
-                bed_file_name_out=output,
+                bed_file_name_in=input_file,
+                bed_file_name_out=output_file,
                 reverse=reverse,
                 debug_level=verbose,
             )
-        elif format in ["GFF"]:
+        elif file_format in ["GFF"]:
             gtf.convert_gff_file(
                 vci_file=vci,
-                gff_file_name_in=input,
-                gff_file_name_out=output,
+                gff_file_name_in=input_file,
+                gff_file_name_out=output_file,
                 reverse=reverse,
                 debug_level=verbose,
             )
@@ -148,14 +154,18 @@ def convert(ctx, input, vci, format, output, reverse, verbose):
     multiple=True,
     help="VCF file name",
     required=True,
-    type=click.Path(exists=True, dir_okay=False, readable=True, resolve_path=True)
+    type=click.Path(
+        exists=True, dir_okay=False, readable=True, resolve_path=True
+    )
 )
 @click.option(
     "-f",
     "--fasta",
     help="Fasta file matching VCF information",
     required=True,
-    type=click.Path(exists=True, dir_okay=False, readable=True, resolve_path=True)
+    type=click.Path(
+        exists=True, dir_okay=False, readable=True, resolve_path=True
+    )
 )
 @click.option(
     "-s",
@@ -169,7 +179,9 @@ def convert(ctx, input, vci, format, output, reverse, verbose):
     "--output",
     help="VCI file name to create",
     required=True,
-    type=click.Path(exists=False, dir_okay=False, writable=True, resolve_path=True)
+    type=click.Path(
+        exists=False, dir_okay=False, writable=True, resolve_path=True
+    )
 )
 @click.option(
     "-p",
@@ -209,7 +221,8 @@ def convert(ctx, input, vci, format, output, reverse, verbose):
     is_flag=True
 )
 @click.option("-v", "--verbose", count=True, help="verbose output")
-def vcf2vci(ctx, vcf, fasta, strain, output, keep, passed, quality, diploid, num_processes, no_bgzip, verbose):
+def vcf2vci(ctx, vcf, fasta, strain, output, keep, passed, quality, diploid,
+            num_processes, no_bgzip, verbose):
     """
     Create VCI file from VCF file(s).
     """
@@ -249,19 +262,25 @@ def vcf2vci(ctx, vcf, fasta, strain, output, keep, passed, quality, diploid, num
     "--fasta",
     help="Fasta file to extract from",
     required=True,
-    type=click.Path(exists=True, dir_okay=False, readable=True, resolve_path=True)
+    type=click.Path(
+        exists=True, dir_okay=False, readable=True, resolve_path=True
+    )
 )
 @click.option(
     "-b",
     "--bed",
     help="BED file name",
-    type=click.Path(exists=True, dir_okay=False, readable=True, resolve_path=True)
+    type=click.Path(
+        exists=True, dir_okay=False, readable=True, resolve_path=True
+    )
 )
 @click.option(
     "-db",
     "--database",
-    help="Database file name, also specifiy --genes, --transcripts, --exons",
-    type=click.Path(exists=True, dir_okay=False, readable=True, resolve_path=True)
+    help="Database file name, use with --genes, --transcripts, --exons",
+    type=click.Path(
+        exists=True, dir_okay=False, readable=True, resolve_path=True
+    )
 )
 @click.option(
     "--genes",
@@ -297,10 +316,12 @@ def vcf2vci(ctx, vcf, fasta, strain, output, keep, passed, quality, diploid, num
     "-c",
     "--vci",
     help="VCI file to use",
-    type=click.Path(exists=True, dir_okay=False, readable=True, resolve_path=True)
+    type=click.Path(
+        exists=True, dir_okay=False, readable=True, resolve_path=True
+    )
 )
 @click.option(
-    "-R"
+    "-R",
     "--vci-reverse",
     default=False,
     help="Reverse the direction of the VCI file",
@@ -331,8 +352,9 @@ def vcf2vci(ctx, vcf, fasta, strain, output, keep, passed, quality, diploid, num
     is_flag=True
 )
 @click.option("-v", "--verbose", count=True, help="verbose output")
-def extract(ctx, fasta, bed, database, genes, transcripts, exons, identifier, region, vci, vci_reverse,
-            complement, reverse, reverse_complement, raw, verbose):
+def extract(ctx, fasta, bed, database, genes, transcripts, exons, identifier,
+            region, vci, vci_reverse, complement, reverse, reverse_complement,
+            raw, verbose):
     """
     Extract subsequence from a fasta file given a region
 
@@ -382,7 +404,7 @@ def extract(ctx, fasta, bed, database, genes, transcripts, exons, identifier, re
 
     try:
         fasta_file = g2g_utils.check_file(fasta)
-        fasta_file = fasta.FastaFile(fasta_file)
+        fasta_file = g2g_fasta.FastaFile(fasta_file)
 
         # get the regions if there are some
 
@@ -583,7 +605,9 @@ def extract(ctx, fasta, bed, database, genes, transcripts, exons, identifier, re
     "-b",
     "--bed",
     help="BED file name",
-    type=click.Path(exists=True, dir_okay=False, readable=True, resolve_path=True)
+    type=click.Path(
+        exists=True, dir_okay=False, readable=True, resolve_path=True
+    )
 )
 @click.option(
     "--region",
@@ -604,7 +628,8 @@ def extract(ctx, fasta, bed, database, genes, transcripts, exons, identifier, re
     is_flag=True
 )
 @click.option("-v", "--verbose", count=True, help="verbose output")
-def patch(ctx, fasta, vci, output, num_processes, bed, region, reverse, bgzip, verbose):
+def patch(ctx, fasta, vci, output, num_processes, bed, region, reverse,
+          bgzip, verbose):
     """
     Patch SNPs onto the reference sequence.
     """
@@ -668,20 +693,26 @@ def patch(ctx, fasta, vci, output, num_processes, bed, region, reverse, bgzip, v
     "--input",
     help="Fasta file to extract from",
     required=True,
-    type=click.Path(exists=True, dir_okay=False, readable=True, resolve_path=True)
+    type=click.Path(
+        exists=True, dir_okay=False, readable=True, resolve_path=True
+    )
 )
 @click.option(
     "-c",
     "--vci",
     help="VCI file to use",
     required=True,
-    type=click.Path(exists=True, dir_okay=False, readable=True, resolve_path=True)
+    type=click.Path(
+        exists=True, dir_okay=False, readable=True, resolve_path=True
+    )
 )
 @click.option(
     "-o",
     "--output",
     help="Name of output file",
-    type=click.Path(exists=False, dir_okay=False, writable=True, resolve_path=True)
+    type=click.Path(
+        exists=False, dir_okay=False, writable=True, resolve_path=True
+    )
 )
 @click.option(
     "-p",
@@ -693,7 +724,9 @@ def patch(ctx, fasta, vci, output, num_processes, bed, region, reverse, bgzip, v
     "-b",
     "--bed",
     help="BED file name",
-    type=click.Path(exists=True, dir_okay=False, readable=True, resolve_path=True)
+    type=click.Path(
+        exists=True, dir_okay=False, readable=True, resolve_path=True
+    )
 )
 @click.option(
     "--region",
@@ -714,7 +747,8 @@ def patch(ctx, fasta, vci, output, num_processes, bed, region, reverse, bgzip, v
     is_flag=True
 )
 @click.option("-v", "--verbose", count=True, help="verbose output")
-def transform(ctx, fasta, vci, output, num_processes, bed, region, reverse, bgzip, verbose):
+def transform(ctx, fasta, vci, output, num_processes, bed, region, reverse,
+              bgzip, verbose):
     """
     Incorporate indels onto the input sequence.
     """
@@ -735,7 +769,9 @@ def transform(ctx, fasta, vci, output, num_processes, bed, region, reverse, bgzi
                 if bed_file.current_line_is_bed:
                     strand = bed_rec.strand if bed_rec.strand else "+"
                     all_locations.append(
-                        g2g.Region(bed_rec.chrom, bed_rec.start, bed_rec.end, strand)
+                        g2g.Region(
+                            bed_rec.chrom, bed_rec.start, bed_rec.end, strand
+                        )
                     )
 
         g2g_fasta_transform.process(
@@ -844,7 +880,9 @@ def parse_region(ctx, region, base, name, verbose):
     "--fasta",
     help="Input Fasta file",
     required=True,
-    type=click.Path(exists=True, dir_okay=False, readable=True, resolve_path=True)
+    type=click.Path(
+        exists=True, dir_okay=False, readable=True, resolve_path=True
+    )
 )
 @click.option(
     "-l",
@@ -854,20 +892,16 @@ def parse_region(ctx, region, base, name, verbose):
     type=int
 )
 @click.option(
-    "-s",
-    "--seqids",
-    help="Comma separated list of seqids",
-    type=str
-)
-@click.option(
     "-o",
     "--output",
     help="Output Fasta file",
     required=True,
-    type=click.Path(exists=False, dir_okay=False, writable=True, resolve_path=True)
+    type=click.Path(
+        exists=False, dir_okay=False, writable=True, resolve_path=True
+    )
 )
 @click.option("-v", "--verbose", count=True, help="verbose output")
-def fasta_format(ctx, fasta, length, seqids, output, verbose):
+def fasta_format(ctx, fasta, length, output, verbose):
     """
     Reformat a Fasta file.
     """
@@ -897,25 +931,29 @@ def fasta_format(ctx, fasta, length, seqids, output, verbose):
 @click.pass_context
 @click.option(
     "-i",
-    "--input",
+    "--input-file",
     help="Input GTF file",
     required=True,
-    type=click.Path(exists=True, dir_okay=False, readable=True, resolve_path=True)
+    type=click.Path(
+        exists=True, dir_okay=False, readable=True, resolve_path=True
+    )
 )
 @click.option(
     "-o",
-    "--output",
+    "--output-file",
     help="Output database file",
     required=True,
-    type=click.Path(exists=False, dir_okay=False, writable=True, resolve_path=True)
+    type=click.Path(
+        exists=False, dir_okay=False, writable=True, resolve_path=True
+    )
 )
 @click.option("-v", "--verbose", count=True, help="verbose output")
-def gtf2db(ctx, input, output, verbose):
+def gtf2db(ctx, input_file, output_file, verbose):
     """
     Convert a GTF file to a G2G DB file
     """
     try:
-        gtf_db.gtf2db(input, output, verbose)
+        gtf_db.gtf2db(input_file, output_file, verbose)
     except KeyboardInterrupt as ki:
         g2g.exit(str(ki))
     except exceptions.KeyboardInterruptError as e:
@@ -925,6 +963,7 @@ def gtf2db(ctx, input, output, verbose):
     except exceptions.G2GError as e:
         g2g.exit(e.msg)
 
+
 # #############################################################################
 #
 # vciquery
@@ -933,11 +972,13 @@ def gtf2db(ctx, input, output, verbose):
 @cli.command()
 @click.pass_context
 @click.option(
-    "-i",
-    "--input",
+    "-c",
+    "--vci",
     help="Input VCI file",
     required=True,
-    type=click.Path(exists=True, dir_okay=False, readable=True, resolve_path=True)
+    type=click.Path(
+        exists=True, dir_okay=False, readable=True, resolve_path=True
+    )
 )
 @click.option(
     "-r",
@@ -946,21 +987,14 @@ def gtf2db(ctx, input, output, verbose):
     required=True,
     type=str
 )
-@click.option(
-    "-f",
-    "--fasta",
-    help="Input Fasta file",
-    required=True,
-    type=click.Path(exists=True, dir_okay=False, readable=True, resolve_path=True)
-)
 @click.option("-v", "--verbose", count=True, help="verbose output")
-def gtf2db(ctx, input, region, fasta, verbose):
+def vciquery(ctx, vci, region, verbose):
     """
     Query a VCI file.
     """
     try:
         region = g2g.parse_region(region, 1)
-        vci.vci_query(input, region, debug_level=verbose)
+        g2g_vci.vci_query(vci, region, debug_level=verbose)
     except KeyboardInterrupt as ki:
         g2g.exit(str(ki))
     except exceptions.KeyboardInterruptError as e:

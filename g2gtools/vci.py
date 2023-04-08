@@ -132,10 +132,16 @@ class VCIFile:
         self.debug_level: int = 0
 
         self.tabix_file: pysam.TabixFile = pysam.TabixFile(
-            self.file_name, mode=mode, parser=parser, index=index, encoding=encoding
+            self.file_name,
+            mode=mode,
+            parser=parser,
+            index=index,
+            encoding=encoding
         )
 
-        g2g_utils.index_file(file_name=file_name, file_format="vci", overwrite=False)
+        g2g_utils.index_file(
+            file_name=file_name, file_format="vci", overwrite=False
+        )
 
         self.parse_header()
 
@@ -413,7 +419,8 @@ class VCIFile:
             for interval in all_intervals:
                 # logging.debug(f'Interval {len(mappings)} = {interval}')
                 chromosome, real_start, real_end = intersect_regions(
-                    chromosome, start, end, chromosome, interval.start, interval.end
+                    chromosome, start, end,
+                    chromosome, interval.start, interval.end
                 )
                 offset = abs(real_start - interval.start)
                 size = abs(real_end - real_start)
@@ -442,7 +449,11 @@ class VCIFile:
         return mappings
 
 
-def vci_query(vci_file_name_in: str, region: g2g.Region, debug_level: int = 0) -> None:
+def vci_query(
+        vci_file_name_in: str,
+        region: g2g.Region,
+        debug_level: int = 0
+) -> None:
     """
     Query the VCI file and output the matching records.
 
@@ -470,10 +481,15 @@ def vci_query(vci_file_name_in: str, region: g2g.Region, debug_level: int = 0) -
     start_pos = mappings[0].to_start
     end_pos = mappings[-1].to_end
 
-    logger.debug(f"Converted Region: {region.seq_id}:{start_pos+1}-{end_pos + 1}")
+    logger.debug(
+        f"Converted: {region.seq_id}:{start_pos + 1}-{end_pos + 1}"
+    )
 
     for line in vci_f.fetch(
-        reference=region.seq_id, start=start_pos, end=end_pos, parser=pysam.asTuple()
+            reference=region.seq_id,
+            start=start_pos,
+            end=end_pos,
+            parser=pysam.asTuple()
     ):
         print(str(line))
 

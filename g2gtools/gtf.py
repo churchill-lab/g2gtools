@@ -244,7 +244,9 @@ def convert_gtf_file(
 
         for lr in left_right:
             seq_id = f"{record.seqid}{lr}"
-            mappings = vci_file.find_mappings(seq_id, record.start - 1, record.end)
+            mappings = vci_file.find_mappings(
+                seq_id, record.start - 1, record.end
+            )
 
             # unmapped
             if mappings is None:
@@ -259,7 +261,9 @@ def convert_gtf_file(
             start = mappings[0].to_start + 1
             end = mappings[-1].to_end
 
-            logger.debug(f"({record.start - 1}, {record.end}) => ({start}, {end})")
+            logger.debug(
+                f"({record.start - 1}, {record.end}) => ({start}, {end})"
+            )
 
             elem = gtf_file.current_line.rstrip().split("\t")
             elem[0] = seq_id
@@ -284,7 +288,7 @@ def convert_gtf_file(
     if gtf_unmapped_file:
         gtf_unmapped_file.close()
 
-    logger.warn(f"Generated {success:,} records from the original {total:,} records")
+    logger.warn(f"Generated {success:,} records from {total:,} records")
     logger.warn("GTF file converted")
 
 
@@ -361,7 +365,11 @@ def convert_gff_file(
 
         for lr in left_right:
             seq_id = f"{record.seqid}{lr}"
-            mappings = vci_file.find_mappings(seq_id, record.start - 1, record.end)
+            mappings = vci_file.find_mappings(
+                seq_id,
+                record.start - 1,
+                record.end
+            )
 
             # unmapped
             if mappings is None:
@@ -401,7 +409,7 @@ def convert_gff_file(
     if gff_unmapped_file:
         gff_unmapped_file.close()
 
-    logger.warn(f"Generated {success:,} records from the original {total:,} records")
+    logger.warn(f"Generated {success:,} records from {total:,} records")
     logger.warn("GFF file converted")
 
 

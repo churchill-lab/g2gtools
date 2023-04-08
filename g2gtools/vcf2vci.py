@@ -1,7 +1,6 @@
 """
 A way to combine vcf files into a more succinct format.
 """
-
 # standard library imports
 from collections import OrderedDict
 from typing import Any
@@ -153,13 +152,10 @@ def update_stats(stats: dict[str, int], reason: str) -> dict[str, int]:
     Returns:
         The statistics.
     """
-    if not stats:
-        stats = {}
-
-    if reason in stats:
-        stats[reason] += 1
+    if stats:
+        stats[reason] = stats.get(reason, 0) + 1
     else:
-        stats[reason] = 1
+        stats = {reason: 1}
 
     return stats
 

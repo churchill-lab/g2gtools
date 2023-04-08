@@ -22,11 +22,6 @@ import g2gtools.g2g as g2g
 import g2gtools.g2g_utils as g2g_utils
 
 
-def filter_fai(line):
-    if line.startswith("[fai"):
-        return True
-
-
 REGEX_FASTA_HEADER = re.compile(r">(\S*)\s*(.*)")
 FASTA_HEADER_FIELDS = ["id", "description"]
 FastaHeader = collections.namedtuple("FastaHeader", FASTA_HEADER_FIELDS)
@@ -289,7 +284,7 @@ def extract(
                 logger.debug(f"{sequence[:10]}...{sequence[-10:]}")
 
                 if location.name:
-                    fasta_id = f">{location.name} " f"{location.seq_id}:{start}-{end}"
+                    fasta_id = f">{location.name} {location.seq_id}:{start}-{end}"
                     logger.debug(f"Location name used, Fasta ID: {fasta_id}")
 
                 fasta_out.write(f"{fasta_id}\n")
@@ -482,10 +477,10 @@ def get_pos(fai: FAI, chrom: str, start: int, end: int) -> tuple[int, int, int]:
 
 
 def reformat(
-    fasta_file_name: str,
-    output_file_name: str = None,
-    length: int | None = 60,
-    debug_level: int | None = 0,
+        fasta_file_name: str,
+        output_file_name: str = None,
+        length: int = 60,
+        debug_level: int = 0,
 ):
     """
     Reformat a Fasta file to specified maximum line length.

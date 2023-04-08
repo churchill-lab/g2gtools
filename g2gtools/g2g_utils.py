@@ -435,7 +435,9 @@ def has_index_file(file_name: str, file_format: str | None = None) -> bool:
 
 
 def index_file(
-    file_name: str, file_format: str | None = "vcf", overwrite: bool | None = False
+        file_name: str,
+        file_format: str = "vcf",
+        overwrite: bool = False
 ) -> None:
     """
     Parse the VCF file and create a VCI file.
@@ -451,7 +453,9 @@ def index_file(
         elif file_format.lower() == "vcf":
             pysam.tabix_index(file_name, preset="vcf", force=True)
         elif file_format.lower() == "vci":
-            pysam.tabix_index(file_name, seq_col=0, start_col=1, end_col=1, force=True)
+            pysam.tabix_index(
+                file_name, seq_col=0, start_col=1, end_col=1, force=True
+            )
         else:
             raise G2GValueError(f"Unknown file format: {file_format}")
 
@@ -459,9 +463,9 @@ def index_file(
 def bgzip_and_index_file(
     file_name_in: str,
     file_name_out: str,
-    delete_original: bool | None = False,
-    force: bool | None = True,
-    file_format: str | None = "vcf",
+    delete_original: bool = False,
+    force: bool = True,
+    file_format: str = "vcf",
 ) -> None:
     """
     bgzip a file and index it
@@ -508,7 +512,8 @@ def open_resource(resource, mode: str = "rb"):
 
 
 def create_random_string(
-    size: int = 6, chars: str = string.ascii_uppercase + string.digits
+        size: int = 6,
+        chars: str = string.ascii_uppercase + string.digits
 ) -> str:
     """
     Create a random string.
@@ -524,11 +529,11 @@ def create_random_string(
 
 
 def gen_file_name(
-    name: str | None = None,
-    prefix: str | None = "",
-    output_dir: str = ".",
-    extension: str = "log",
-    append_time: bool = True,
+        name: str | None = None,
+        prefix: str = "",
+        output_dir: str = ".",
+        extension: str = "log",
+        append_time: bool = True,
 ) -> str:
     """
     Generate a file name.

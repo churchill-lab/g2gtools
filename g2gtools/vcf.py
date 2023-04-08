@@ -289,7 +289,17 @@ def parse_gt(vcf_record: VCFRecord, sample_index: int) -> GTData:
         == (len(left) if left else 0)
         == (len(right) if right else 0)
     )
-    return GTData(vcf_record.ref, left, right, gt, fi, phase, gt_left, gt_right, is_snp)
+    return GTData(
+        vcf_record.ref,
+        left,
+        right,
+        gt,
+        fi,
+        phase,
+        gt_left,
+        gt_right,
+        is_snp
+    )
 
 
 def parse_gt_tuple(vcf_record: VCFRecord, sample_index: int) -> GTData:
@@ -383,4 +393,14 @@ def parse_gt_tuple(vcf_record: VCFRecord, sample_index: int) -> GTData:
         == (len(left) if left else 0)
         == (len(right) if right else 0)
     )
-    return GTData(vcf_record.ref, left, right, gt, fi, phase, gt_left, gt_right, is_snp)
+    return GTData(
+        vcf_record.ref,
+        left,
+        right,
+        gt,
+        fi,
+        phase,
+        gt_left,
+        gt_right,
+        is_snp
+    )

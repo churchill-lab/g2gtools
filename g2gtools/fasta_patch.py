@@ -102,7 +102,9 @@ def process_piece(fasta_patch_params: FastaPatchParams) -> FastaPatchResult:
         vci_file = vci.VCIFile(fasta_patch_params.vci_file)
 
         if fasta_patch_params.gen_temp:
-            prefix = g2g_utils.location_to_filestring(fasta_patch_params.input_region)
+            prefix = g2g_utils.location_to_filestring(
+                fasta_patch_params.input_region
+            )
             tmp_fasta = g2g_utils.gen_file_name(
                 prefix=f"{prefix}_",
                 extension="fa",
@@ -132,7 +134,9 @@ def process_piece(fasta_patch_params: FastaPatchParams) -> FastaPatchResult:
             if len(sequence) < 50:
                 logger.debug(f"Fasta Fetch = {sequence}")
             else:
-                logger.debug(f"Fasta Fetch = {sequence[:25]} ... {sequence[-25:]}")
+                logger.debug(
+                    f"Fasta Fetch = {sequence[:25]} ... {sequence[-25:]}"
+                )
             g2g_utils.write_sequence(sequence, working)
             working.close()
 
@@ -242,14 +246,14 @@ def prepare_fasta_patch(filename_output: str) -> str:
 
 
 def process(
-    filename_fasta: str,
-    filename_vci: str,
-    regions: list[g2g.Region] | None = None,
-    filename_output: str | None = None,
-    bgzip: bool = False,
-    reverse: bool = False,
-    num_processes: int | None = None,
-    debug_level: int = 0,
+        filename_fasta: str,
+        filename_vci: str,
+        regions: list[g2g.Region] | None = None,
+        filename_output: str | None = None,
+        bgzip: bool = False,
+        reverse: bool = False,
+        num_processes: int | None = None,
+        debug_level: int = 0,
 ) -> None:
     """
     Patch a Fasta file by replacing the bases where the SNPs are located as
@@ -361,7 +365,8 @@ def process(
                         region.seq_id, region.start, region.end
                     )
                     params.output_header = fasta.FastaHeader(
-                        region.seq_id, f"{region.seq_id}:{region.start}-{region.end}"
+                        region.seq_id,
+                        f"{region.seq_id}:{region.start}-{region.end}"
                     )
                 else:
                     params.output_region = g2g.Region(

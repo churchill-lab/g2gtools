@@ -57,7 +57,7 @@ def get_logger(level=0):
 
 
 def exit(
-    message: str | None = "", parser: argparse.ArgumentParser | None = None
+    message: str = "", parser: argparse.ArgumentParser = None
 ) -> None:
     """
     Print message, help, and exit.
@@ -271,10 +271,6 @@ def parse_region(location_str, base=0, name=None):
     else:
         end = end_base * get_multiplier(end_mult)
 
-    # LOG.debug(f'identifier={identifier}, start={start}, end={end}, base={base}, name={name}')
-
     region = Region(identifier, start, end, "+", original_base=base, name=name)
-
-    # LOG.debug(f'parse_region returning: region = {region}')
 
     return region

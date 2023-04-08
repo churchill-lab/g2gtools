@@ -3,7 +3,6 @@ Collection of functions related to BED files
 
 0-based
 """
-
 # standard library imports
 import collections
 import sys
@@ -104,11 +103,11 @@ class BED(object):
 
 
 def convert_bed_file(
-    vci_file: str | VCIFile,
-    bed_file_name_in: str,
-    bed_file_name_out: str | None = None,
-    reverse: bool = False,
-    debug_level: int = 0,
+        vci_file: str | VCIFile,
+        bed_file_name_in: str,
+        bed_file_name_out: str = None,
+        reverse: bool = False,
+        debug_level: int = 0,
 ) -> None:
     """
     Convert BED coordinates.

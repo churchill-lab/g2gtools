@@ -78,7 +78,9 @@ class FastaTransformResult(object):
         return f"File: {self.output_file}"
 
 
-def process_piece(fasta_transform_params: FastaTransformParams) -> FastaTransformResult:
+def process_piece(
+        fasta_transform_params: FastaTransformParams
+) -> FastaTransformResult:
     """
     Process the 'piece' of information.
 
@@ -103,7 +105,9 @@ def process_piece(fasta_transform_params: FastaTransformParams) -> FastaTransfor
 
     try:
         fasta_file = fasta.FastaFile(fasta_transform_params.input_file)
-        prefix = g2g_utils.location_to_filestring(fasta_transform_params.input_region)
+        prefix = g2g_utils.location_to_filestring(
+            fasta_transform_params.input_region
+        )
         tmp_fasta = g2g_utils.gen_file_name(
             prefix=f"{prefix}_",
             extension="fa",
@@ -181,7 +185,10 @@ def process_piece(fasta_transform_params: FastaTransformParams) -> FastaTransfor
         logger.info(f"Finding VCI mappings for {region}")
 
         logger.info("PARSING VCI FILE...")
-        vci_file = vci.VCIFile(fasta_transform_params.vci_file, seq_ids=[region.seq_id])
+        vci_file = vci.VCIFile(
+            fasta_transform_params.vci_file,
+            seq_ids=[region.seq_id]
+        )
         vci_file.parse(reverse=reverse)
         logger.info("DONE PARSING!")
 
@@ -231,7 +238,9 @@ def process_piece(fasta_transform_params: FastaTransformParams) -> FastaTransfor
             if len(partial_seq) < 50:
                 logger.debug(f"Fasta Fetch = {partial_seq}")
             else:
-                logger.debug(f"Fasta Fetch = {partial_seq[:25]}...{partial_seq[-25:]}")
+                logger.debug(
+                    f"Fasta Fetch = {partial_seq[:25]}...{partial_seq[-25:]}"
+                )
 
             g2g_utils.write_sequence(partial_seq, fasta_out)
 
@@ -365,7 +374,7 @@ def process_piece(fasta_transform_params: FastaTransformParams) -> FastaTransfor
                     logger.debug(f"Fasta Fetch = {partial_seq}")
                 else:
                     logger.debug(
-                        f"Fasta Fetch = {partial_seq[:25]} ... " f"{partial_seq[-25:]}"
+                        f"Fasta Fetch = {partial_seq[:25]} ... {partial_seq[-25:]}"
                     )
 
                 new_sequence.write(partial_seq)
@@ -437,7 +446,7 @@ def process_piece(fasta_transform_params: FastaTransformParams) -> FastaTransfor
         logger.debug(f"Unable to parse (5) location, {e}")
         raise e
 
-    logger.info(f"Transforming complete for {fasta_transform_params.input_region}")
+    logger.info(f"Transforming complete: {fasta_transform_params.input_region}")
 
     g2g_utils.delete_index_files(tmp_fasta)
     g2g_utils.delete_file(tmp_fasta)
@@ -491,15 +500,15 @@ def prepare_fasta_transform(filename_output: str) -> str:
 
 
 def process(
-    fasta_file_name_in: str,
-    vci_file_name: str,
-    regions: list[g2g.Region] | None = None,
-    fasta_file_name_out: str | None = None,
-    bgzip: bool | None = False,
-    reverse: bool | None = False,
-    num_processes: int | None = None,
-    also_patch: bool | None = False,
-    debug_level: int | None = 0,
+        fasta_file_name_in: str,
+        vci_file_name: str,
+        regions: list[g2g.Region] | None = None,
+        fasta_file_name_out: str | None = None,
+        bgzip: bool | None = False,
+        reverse: bool | None = False,
+        num_processes: int | None = None,
+        also_patch: bool | None = False,
+        debug_level: int | None = 0,
 ) -> None:
     """
     Patch a Fasta file by replacing the bases where the SNPs are located in
@@ -659,7 +668,9 @@ def process(
                         f"{region.seq_id}_R:{region.start}-{region.end}",
                     )
 
-                params_r.vci_query = f"{region.seq_id}_R:{region.start}-{region.end}"
+                params_r.vci_query = (
+                    f"{region.seq_id}_R:{region.start}-{region.end}"
+                )
                 all_params.append(params_r)
             else:
                 fmt_string = "HAPLOID" if vci_file.is_haploid() else "DIPLOID"

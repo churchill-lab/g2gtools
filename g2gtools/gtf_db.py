@@ -286,7 +286,10 @@ def gtf2db(
                     _attribute_key = gtf_attributes[attribute]
 
                 logger.debug(f"inserting {gtf_key}, {_attribute_key}, {value}")
-                c.execute(SQL_INSERT_GTF_LOOKUP_TABLE, (gtf_key, _attribute_key, value))
+                c.execute(
+                    SQL_INSERT_GTF_LOOKUP_TABLE,
+                    (gtf_key, _attribute_key, value)
+                )
 
         counter += 1
 
@@ -523,7 +526,13 @@ def get_gene(database_file_name: str, ensembl_id: str) -> dict[str, Gene]:
         if gtf_type == "gene":
             gene = genes.get(
                 _key,
-                Gene(r["ensembl_id"], r["seqid"], r["start"], r["end"], r["strand"]),
+                Gene(
+                    r["ensembl_id"],
+                    r["seqid"],
+                    r["start"],
+                    r["end"],
+                    r["strand"]
+                ),
             )
 
             if attribute == "gene_name":
@@ -537,7 +546,11 @@ def get_gene(database_file_name: str, ensembl_id: str) -> dict[str, Gene]:
             transcript = transcripts.get(
                 _key,
                 Transcript(
-                    r["ensembl_id"], r["seqid"], r["start"], r["end"], r["strand"]
+                    r["ensembl_id"],
+                    r["seqid"],
+                    r["start"],
+                    r["end"],
+                    r["strand"]
                 ),
             )
             transcript.gene_ids[r["gene_id"]] = r["gene_id"]
@@ -552,7 +565,13 @@ def get_gene(database_file_name: str, ensembl_id: str) -> dict[str, Gene]:
         elif gtf_type == "exon":
             exon = exons.get(
                 _key,
-                Exon(r["ensembl_id"], r["seqid"], r["start"], r["end"], r["strand"]),
+                Exon(
+                    r["ensembl_id"],
+                    r["seqid"],
+                    r["start"],
+                    r["end"],
+                    r["strand"]
+                ),
             )
             exon.gene_ids = r["gene_id"]
             exon.transcript_ids[r["transcript_id"]] = r["transcript_id"]
@@ -564,7 +583,7 @@ def get_gene(database_file_name: str, ensembl_id: str) -> dict[str, Gene]:
 
     genes = {gene.ensembl_id: gene for i, gene in genes.items()}
     transcripts = {
-        transcript.ensembl_id: transcript for i, transcript in transcripts.items()
+        tr.ensembl_id: tr for i, tr in transcripts.items()
     }
 
     for _id, exon in exons.items():
@@ -738,7 +757,11 @@ def get_transcripts_simple(
                 # logger.debug(f"Adding transcript {r["transcript_id"]}")
 
                 transcripts[r["transcript_id"]] = Transcript(
-                    r["ensembl_id"], r["seqid"], r["start"], r["end"], r["strand"]
+                    r["ensembl_id"],
+                    r["seqid"],
+                    r["start"],
+                    r["end"],
+                    r["strand"]
                 )
 
         elif (
@@ -750,7 +773,13 @@ def get_transcripts_simple(
             # logger.debug("ADDING exon")
             # logger.debug(f"{r['ensembl_id']}:{r['exon_number']}")
 
-            exon = Exon(r["ensembl_id"], r["seqid"], r["start"], r["end"], r["strand"])
+            exon = Exon(
+                r["ensembl_id"],
+                r["seqid"],
+                r["start"],
+                r["end"],
+                r["strand"]
+            )
 
             exon.gene_id = r["gene_id"]
             exon.transcript_ids[r["transcript_id"]] = r["transcript_id"]
@@ -779,7 +808,11 @@ def get_transcripts_simple(
                 # logger.debug(f"Adding transcript {r["transcript_id"]}"))
 
                 transcripts[r["transcript_id"]] = Transcript(
-                    r["transcript_id"], r["seqid"], r["start"], r["end"], r["strand"]
+                    r["transcript_id"],
+                    r["seqid"],
+                    r["start"],
+                    r["end"],
+                    r["strand"]
                 )
         else:
             # logger.debug("gene")
