@@ -193,7 +193,14 @@ def process_piece(vcf2vci_params: VCF2VCIInfo) -> dict[str, Any]:
         discard_functions = []
 
         for i, file_info in enumerate(vcf2vci_params.vcf_files):
-            vcf_tabix = pysam.TabixFile(file_info.file_name)
+            try:
+                vcf_tabix = pysam.TabixFile(file_info.file_name)
+            except OSError:
+                # attempt CSI index if TBI can't be found
+                vcf_tabix = pysam.TabixFile(
+                    filename=file_info.file_name,
+                    index=f"{file_info.file_name}.csi"
+                )
 
             try:
                 vcf_iterator = vcf_tabix.fetch(
@@ -637,7 +644,14 @@ def process(
     logger.debug(f"Temp directory: {temp_directory}")
 
     for i, vcf_file in enumerate(vcf_file_inputs):
-        tb_file = pysam.TabixFile(vcf_file.file_name)
+        try:
+            tb_file = pysam.TabixFile(vcf_file.file_name)
+        except OSError:
+            # attempt CSI index if TBI can't be found
+            tb_file = pysam.TabixFile(
+                filename=vcf_file.file_name,
+                index=f"{vcf_file.file_name}.csi"
+            )
         for h in tb_file.header:
             h = g2g_utils.s(h)
             if h[:6] == "#CHROM":

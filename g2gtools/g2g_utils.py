@@ -396,42 +396,103 @@ def bgzip_file(
         delete_file(file_name_in)
 
 
-def has_index_file(file_name: str, file_format: str | None = None) -> bool:
+def has_index_file_fasta(file_name: str) -> bool:
+    """
+    Check to see if the Fasta file has an index.
+
+    Args:
+        file_name: The name of the Fasta file to check.
+
+    Returns:
+        True if the index exists, False otherwise.
+
+    Raises:
+        G2GValueError: If the index cannot be determined.
+    """
+    if file_name.lower().endswith(".fa"):
+        fai_file = f"{file_name}.fai"
+        return os.path.exists(fai_file)
+    elif file_name.lower().endswith(".gz"):
+        fai_file = f"{file_name}.fai"
+        gzi_file = f"{file_name}.gzi"
+        return os.path.exists(fai_file) and os.path.exists(gzi_file)
+
+    raise G2GValueError("Cannot determine file format")
+
+
+def has_index_file_vcf(file_name: str) -> bool:
+    """
+    Check to see if the VCF file has an index.
+
+    Args:
+        file_name: The name of the VCF file to check.
+
+    Returns:
+        True if the index exists, False otherwise.
+
+    Raises:
+        G2GValueError: If the index cannot be determined.
+    """
+    if file_name.lower().endswith(".vcf.gz"):
+        tbi_file = f"{file_name}.tbi"
+        csi_file = f"{file_name}.csi"
+        return os.path.exists(tbi_file) or os.path.exists(csi_file)
+    elif file_name.lower().endswith(".vcf"):
+        raise G2GValueError("VCF files should be compressed")
+
+    raise G2GValueError("Cannot determine file format")
+
+
+def has_index_file_vci(file_name: str) -> bool:
+    """
+    Check to see if the VCI file has an index.
+
+    Args:
+        file_name: The name of the VCI file to check.
+
+    Returns:
+        True if the index exists, False otherwise.
+
+    Raises:
+        G2GValueError: If the index cannot be determined.
+    """
+    if file_name.lower().endswith(".vci.gz"):
+        tbi_file = f"{file_name}.tbi"
+        csi_file = f"{file_name}.csi"
+        return os.path.exists(tbi_file) or os.path.exists(csi_file)
+    elif file_name.lower().endswith(".vci"):
+        raise G2GValueError("VCI files should be compressed")
+
+    raise G2GValueError("Cannot determine file format")
+
+
+def has_index_file(file_name: str) -> bool:
     """
     Check to see if the file has an index.
 
     Args:
         file_name: The name of the file to check.
-        file_format: The file format ("fa", "vcf", "vci")
 
     Returns:
         True if the index exists, False otherwise.
+
+    Raises:
+        G2GValueError: If the index cannot be determined.
     """
-    if not file_format:
-        # try to guess the file format
-        if file_name.lower().endswith(".fa"):
-            file_format = "fa"
-        elif file_name.lower().endswith(".fasta"):
-            file_format = "fa"
-        elif file_name.lower().endswith(".vcf"):
-            file_format = "vcf"
-        elif file_name.lower().endswith(".vci"):
-            file_format = "vci"
-        else:
-            raise G2GValueError("Cannot determine file format")
-
-    if file_format.lower() == "fa":
-        ext = "fai"
-    elif file_format.lower() == "vcf":
-        ext = "tbi"
-    elif file_format.lower() == "vci":
-        ext = "tbi"
+    if file_name.lower().endswith(".fa"):
+        return has_index_file_fasta(file_name)
+    elif file_name.lower().endswith(".fasta"):
+        return has_index_file_fasta(file_name)
+    elif file_name.lower().endswith(".vcf"):
+        return has_index_file_vcf(file_name)
+    elif file_name.lower().endswith(".vcf.gz"):
+        return has_index_file_vcf(file_name)
+    elif file_name.lower().endswith(".vci"):
+        return has_index_file_vci(file_name)
+    elif file_name.lower().endswith(".vci.gz"):
+        return has_index_file_vci(file_name)
     else:
-        raise G2GValueError(f"Unknown file format: {file_format}")
-
-    idx_file = f"{file_name}.{ext}"
-
-    return os.path.exists(idx_file)
+        raise G2GValueError("Cannot determine file format")
 
 
 def index_file(
@@ -447,7 +508,7 @@ def index_file(
         file_format: Format of the file (fa, vcf, vci).
         overwrite: True to overwrite existing file.
     """
-    if overwrite or not has_index_file(file_name, file_format=file_format):
+    if overwrite or not has_index_file(file_name):
         if file_format.lower() == "fa":
             pysam.FastaFile(file_name)
         elif file_format.lower() == "vcf":

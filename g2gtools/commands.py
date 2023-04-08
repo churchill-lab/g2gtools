@@ -17,7 +17,7 @@ import g2gtools.g2g_utils as g2g_utils
 import g2gtools.gtf as gtf
 import g2gtools.gtf_db as gtf_db
 import g2gtools.vci as g2g_vci
-import g2gtools.vcf2vci as vcf2vci
+import g2gtools.vcf2vci as g2g_vcf2vci
 
 logo_text = r"""
 
@@ -227,7 +227,7 @@ def vcf2vci(ctx, vcf, fasta, strain, output, keep, passed, quality, diploid,
     Create VCI file from VCF file(s).
     """
     try:
-        vcf2vci.process(
+        g2g_vcf2vci.process(
             vcf_files=vcf,
             fasta_file=fasta,
             output_file=output,
@@ -615,7 +615,7 @@ def extract(ctx, fasta, bed, database, genes, transcripts, exons, identifier,
     type=str
 )
 @click.option(
-    "-r"
+    "-r",
     "--reverse",
     default=False,
     help="Reverse the direction of the VCI file",
@@ -628,7 +628,7 @@ def extract(ctx, fasta, bed, database, genes, transcripts, exons, identifier,
     is_flag=True
 )
 @click.option("-v", "--verbose", count=True, help="verbose output")
-def patch(ctx, fasta, vci, output, num_processes, bed, region, reverse,
+def patch(ctx, input, vci, output, num_processes, bed, region, reverse,
           bgzip, verbose):
     """
     Patch SNPs onto the reference sequence.
@@ -660,7 +660,7 @@ def patch(ctx, fasta, vci, output, num_processes, bed, region, reverse,
 
     try:
         g2g_fasta_patch.process(
-            filename_fasta=fasta,
+            filename_fasta=input,
             filename_vci=vci,
             regions=all_locations,
             filename_output=output,
@@ -734,7 +734,7 @@ def patch(ctx, fasta, vci, output, num_processes, bed, region, reverse,
     type=str
 )
 @click.option(
-    "-r"
+    "-r",
     "--reverse",
     default=False,
     help="Reverse the direction of the VCI file",
@@ -747,7 +747,7 @@ def patch(ctx, fasta, vci, output, num_processes, bed, region, reverse,
     is_flag=True
 )
 @click.option("-v", "--verbose", count=True, help="verbose output")
-def transform(ctx, fasta, vci, output, num_processes, bed, region, reverse,
+def transform(ctx, input, vci, output, num_processes, bed, region, reverse,
               bgzip, verbose):
     """
     Incorporate indels onto the input sequence.
@@ -775,7 +775,7 @@ def transform(ctx, fasta, vci, output, num_processes, bed, region, reverse,
                     )
 
         g2g_fasta_transform.process(
-            fasta_file_name_in=fasta,
+            fasta_file_name_in=input,
             vci_file_name=vci,
             regions=all_locations,
             fasta_file_name_out=output,
