@@ -14,7 +14,7 @@ import re
 import pysam
 
 # local library imports
-from g2gtools import __version__ as g2g_version
+from g2gtools.version import __version__ as g2g_version
 from g2gtools.exceptions import G2GBAMError
 from g2gtools.exceptions import G2GCigarFormatError
 import g2gtools.g2g as g2g

@@ -5,7 +5,6 @@
 import click
 
 # local library imports
-from g2gtools import __version__ as version
 import g2gtools.bcsam as bcsam
 import g2gtools.bed as g2g_bed
 import g2gtools.exceptions as exceptions
@@ -18,19 +17,6 @@ import g2gtools.gtf as gtf
 import g2gtools.gtf_db as gtf_db
 import g2gtools.vci as g2g_vci
 import g2gtools.vcf2vci as g2g_vcf2vci
-
-logo_text = r"""
-
-        ___       _              _
-       |__ \     | |            | |
-   __ _   ) |__ _| |_ ___   ___ | |___
-  / _` | / // _` | __/ _ \ / _ \| / __|
- | (_| |/ /| (_| | || (_) | (_) | \__ \\
-  \__, |____\__, |\__\___/ \___/|_|___/   v""" + version + """
-   __/ |     __/ |
-  |___/     |___/
-
-"""
 
 
 @click.group()

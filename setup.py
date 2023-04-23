@@ -3,6 +3,11 @@ from setuptools import find_packages
 from setuptools import setup
 import os
 
+def get_g2gtools_version():
+    sys.path.insert(0, "g2gtools")
+    import version
+    return version.__version__
+
 with open("README.md") as readme_file:
     readme = readme_file.read()
 
@@ -19,7 +24,7 @@ if not on_rtd:
 
 setup(
     name="g2gtools",
-    version="1.0.0",
+    version=get_g2gtools_version(),
     description="A suite of tools for the reconstruction of personal diploid genomes and better coordinate conversion",
     long_description=readme,
     author="Matthew J. Vincent and Kwangbom 'KB' Choi, The Jackson Laboratory",
