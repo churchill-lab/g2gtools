@@ -12,23 +12,25 @@ from g2gtools.exceptions import G2GRegionError
 import g2gtools.g2g as g2g
 import g2gtools.g2g_utils as g2g_utils
 
+logger = g2g_utils.get_logger('g2gtools')
 
-InfoFields = ["chr", "start", "end", "shared", "inserted", "deleted", "pos"]
-IntervalInfo = collections.namedtuple("IntervalInfo", InfoFields)
+
+InfoFields = ['chr', 'start', 'end', 'shared', 'inserted', 'deleted', 'pos']
+IntervalInfo = collections.namedtuple('IntervalInfo', InfoFields)
 
 MappingFields = [
-    "from_chr",
-    "from_start",
-    "from_end",
-    "from_seq",
-    "to_chr",
-    "to_start",
-    "to_end",
-    "to_seq",
-    "same_bases",
-    "vcf_pos",
+    'from_chr',
+    'from_start',
+    'from_end',
+    'from_seq',
+    'to_chr',
+    'to_start',
+    'to_end',
+    'to_seq',
+    'same_bases',
+    'vcf_pos',
 ]
-IntervalMapping = collections.namedtuple("IntervalMapping", MappingFields)
+IntervalMapping = collections.namedtuple('IntervalMapping', MappingFields)
 
 #
 # VCIFile
@@ -76,7 +78,7 @@ def intersect_regions(
         return None
 
     if int(start1) > int(end1) or int(start2) > int(end2):
-        raise G2GRegionError("Start cannot be larger than end")
+        raise G2GRegionError('Start cannot be larger than end')
 
     return chr1, max(start1, start2), min(end1, end2)
 
@@ -87,24 +89,24 @@ class VCIFile:
     """
 
     HEADERS = [
-        "CREATION_TIME",
-        "INDEL_VCF",
-        "INDEL_SNP",
-        "STRAIN",
-        "VCF_KEEP",
-        "FILTER_PASSED",
-        "FILTER_QUALITY",
-        "DIPLOID",
-        "PROCESSES",
+        'CREATION_TIME',
+        'INDEL_VCF',
+        'INDEL_SNP',
+        'STRAIN',
+        'VCF_KEEP',
+        'FILTER_PASSED',
+        'FILTER_QUALITY',
+        'DIPLOID',
+        'PROCESSES',
     ]
 
     def __init__(
         self,
         file_name: str,
-        mode: str = "r",
+        mode: str = 'r',
         parser: pysam.libctabix.Parser | None = None,
         index: str | None = None,
-        encoding: str = "ascii",
+        encoding: str = 'ascii',
         seq_ids: list[str] | None = None,
         reverse: bool = False,
     ):
@@ -136,11 +138,11 @@ class VCIFile:
             mode=mode,
             parser=parser,
             index=index,
-            encoding=encoding
+            encoding=encoding,
         )
 
         g2g_utils.index_file(
-            file_name=file_name, file_format="vci", overwrite=False
+            file_name=file_name, file_format='vci', overwrite=False
         )
 
         self.parse_header()
@@ -193,8 +195,8 @@ class VCIFile:
         Returns:
             True if this is a DIPLOID VCI File.
         """
-        if "DIPLOID" in self.headers:
-            return self.headers["DIPLOID"].lower() in ["true", "t", "yes", "1"]
+        if 'DIPLOID' in self.headers:
+            return self.headers['DIPLOID'].lower() in ['true', 't', 'yes', '1']
         return False
 
     def is_haploid(self):
@@ -204,8 +206,8 @@ class VCIFile:
         Returns:
             True if this is a HAPLOID VCI File.
         """
-        if "DIPLOID" in self.headers:
-            if self.headers["DIPLOID"].lower() in ["true", "t", "yes", "1"]:
+        if 'DIPLOID' in self.headers:
+            if self.headers['DIPLOID'].lower() in ['true', 't', 'yes', '1']:
                 return False
         return True
 
@@ -218,11 +220,11 @@ class VCIFile:
         for header_line in self.tabix_file.header:
             header_line = g2g_utils.s(header_line)
 
-            if header_line.startswith("##"):
-                elem = header_line[2:].split("=")
+            if header_line.startswith('##'):
+                elem = header_line[2:].split('=')
 
-                if elem[0] == "CONTIG":
-                    info = elem[1].split(":")
+                if elem[0] == 'CONTIG':
+                    info = elem[1].split(':')
                     self.contigs[info[0]] = int(info[1])
                 else:
                     self.headers[elem[0]] = elem[1]
@@ -280,7 +282,9 @@ class VCIFile:
                 iterator = None
 
                 try:
-                    iterator = self.tabix_file.fetch(contig, parser=pysam.asTuple())
+                    iterator = self.tabix_file.fetch(
+                        contig, parser=pysam.asTuple()
+                    )
                 except Exception:
                     pass
 
@@ -293,19 +297,19 @@ class VCIFile:
 
                     if len(rec) != 6:
                         raise G2GError(
-                            "Unexpected line in VCI file. Line #"
-                            f"{total_num_lines_chrom:,}: {rec}"
+                            'Unexpected line in VCI file. Line #'
+                            f'{total_num_lines_chrom:,}: {rec}'
                         )
 
-                    if rec[2] == ".":
+                    if rec[2] == '.':
                         continue
 
-                    if rec[_inserted] == ".":
+                    if rec[_inserted] == '.':
                         inserted_bases = 0
                     else:
                         inserted_bases = len(rec[_inserted])
 
-                    if rec[_deleted] == ".":
+                    if rec[_deleted] == '.':
                         deleted_bases = 0
                     else:
                         deleted_bases = len(rec[_deleted])
@@ -347,7 +351,9 @@ class VCIFile:
                         None,  # deleted
                         None,  # pos
                     )
-                    interval = Interval(pos_from, self.contigs[contig[:-2]], info)
+                    interval = Interval(
+                        pos_from, self.contigs[contig[:-2]], info
+                    )
                 else:
                     info = IntervalInfo(
                         contig,  # chr
@@ -419,8 +425,12 @@ class VCIFile:
             for interval in all_intervals:
                 # logging.debug(f'Interval {len(mappings)} = {interval}')
                 chromosome, real_start, real_end = intersect_regions(
-                    chromosome, start, end,
-                    chromosome, interval.start, interval.end
+                    chromosome,
+                    start,
+                    end,
+                    chromosome,
+                    interval.start,
+                    interval.end,
                 )
                 offset = abs(real_start - interval.start)
                 size = abs(real_end - real_start)
@@ -449,26 +459,20 @@ class VCIFile:
         return mappings
 
 
-def vci_query(
-        vci_file_name_in: str,
-        region: g2g.Region,
-        debug_level: int = 0
-) -> None:
+def vci_query(vci_file_name_in: str, region: g2g.Region) -> None:
     """
     Query the VCI file and output the matching records.
 
     Args:
         vci_file_name_in: The name of the VCI file.
         region: The region to query.
-        debug_level: Debug level (0=WARN,1=INFO,2+=DEBUG).
     """
     start = time.time()
-    logger = g2g.get_logger(debug_level)
 
-    vci_file_name_in = g2g_utils.check_file(vci_file_name_in, "r")
+    vci_file_name_in = g2g_utils.check_file(vci_file_name_in, 'r')
 
-    logger.warn(f"VCI File: {vci_file_name_in}")
-    logger.warn(f"Region: {region}")
+    logger.warning(f'VCI File: {vci_file_name_in}')
+    logger.warning(f'Region: {region}')
 
     vci_f = VCIFile(vci_file_name_in, seq_ids=[region.seq_id])
     vci_f.parse(False)
@@ -481,17 +485,15 @@ def vci_query(
     start_pos = mappings[0].to_start
     end_pos = mappings[-1].to_end
 
-    logger.debug(
-        f"Converted: {region.seq_id}:{start_pos + 1}-{end_pos + 1}"
-    )
+    logger.debug(f'Converted: {region.seq_id}:{start_pos + 1}-{end_pos + 1}')
 
     for line in vci_f.fetch(
-            reference=region.seq_id,
-            start=start_pos,
-            end=end_pos,
-            parser=pysam.asTuple()
+        reference=region.seq_id,
+        start=start_pos,
+        end=end_pos,
+        parser=pysam.asTuple(),
     ):
         print(str(line))
 
     fmt_time = g2g_utils.format_time(start, time.time())
-    logger.warn(f"VCI Query Complete: {fmt_time}")
+    logger.warning(f'VCI Query Complete: {fmt_time}')

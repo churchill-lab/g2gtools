@@ -1,0 +1,37 @@
+# Docker stuff
+.dockerignore
+Dockerfile
+
+# ignore .git directory
+.git
+.gitignore
+
+# ignore the data directory
+data
+
+# ignore the tmp directory
+temp
+
+# ignore any db3 files
+**/*.db3
+
+# ignore any ipynb and py files
+**/*.ipynb
+**/*.ipynb_checkpoints
+**/*.db
+**/*.pyc
+**/*.pyo
+**/*.pyd
+**/*__pycache__
+
+# eggs
+**/*.egg-info
+
+# extra
+DEV.md
+
+# build dir
+build
+
+# notebooks dir
+notebooks

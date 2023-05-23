@@ -1,7 +1,3 @@
-#
-# Collection of g2g utility functions and classes
-#
-
 # standard library imports
 from itertools import zip_longest
 from os import PathLike
@@ -11,6 +7,7 @@ from typing import IO
 from typing import Iterator
 import bz2
 import gzip
+import logging
 import os
 import re
 import random
@@ -22,28 +19,128 @@ import time
 import urllib
 
 # 3rd party library imports
+from rich.logging import RichHandler
 from natsort import natsorted as _natsorted
 import pysam
 
-import g2gtools.g2g
-
 # local library imports
-from .exceptions import G2GValueError
+import g2gtools.g2g
+from g2gtools.exceptions import G2GValueError
 
 
 REGEX_LOCATION = re.compile(
-    r"(\w*)\s*(-|:)?\s*(\d+)\s*(MB|M|K|)?\s*(-|:|)?\s*(\d+|)\s*(MB|M|K|)?",
+    r'(\w*)\s*(-|:)?\s*(\d+)\s*(MB|M|K|)?\s*(-|:|)?\s*(\d+|)\s*(MB|M|K|)?',
     re.IGNORECASE,
 )
 REGEX_LOCATION_CHR = re.compile(
-    r"(CHR|)*\s*([0-9]{1,2}|X|Y|MT)\s*(-|:)?\s*(\d+)\s*(MB|M|K|)?\s*(-|:|)?\s*(\d+|)\s*(MB|M|K|)?",
+    r'(CHR|)*\s*([0-9]{1,2}|X|Y|MT)\s*(-|:)?\s*(\d+)\s*(MB|M|K|)?\s*(-|:|)?\s*(\d+|)\s*(MB|M|K|)?',
     re.IGNORECASE,
 )
-BASES = re.compile(r"([ATGCYRSWKMBDHVNatgcyrswkmbdhvn]+)")
+BASES = re.compile(r'([ATGCYRSWKMBDHVNatgcyrswkmbdhvn]+)')
 
 TRANS = str.maketrans(
-    "ATGCYRSWKMBDHVNatgcyrswkmbdhvn", "TACGRYSWMKVHDBNtacgryswmkvhdbn"
+    'ATGCYRSWKMBDHVNatgcyrswkmbdhvn', 'TACGRYSWMKVHDBNtacgryswmkvhdbn'
 )
+
+
+def get_logger(logger_name: str = 'g2gtools') -> logging.Logger:
+    """
+    Get the logger.
+
+    Args:
+        logger_name: Name of the logger.
+
+    Returns:
+        logging.Logger: The logging object.
+    """
+    return logging.getLogger(logger_name)
+
+
+def configure_logging(
+    logger_name: str = 'g2gtools', level: int = 0
+) -> logging.Logger:
+    """
+    Configure the logger with the specified `level`. Valid `level` values
+    are:
+
+    ======  =================================
+    level   logging value
+    ======  =================================
+    0       logging.WARNING is informational
+    1       logging.INFO is user debug
+    2+      logging.DEBUG is developer debug
+    ======  =================================
+
+    Anything greater than 2 is treated as 2.
+
+    if the environment variable G2GTOOLS_APP_DEBUG is set to 1,
+    there will be more detailed debugging information.
+
+    Args:
+        logger_name: The name of the logger.
+        level: The logging level; defaults to 0.
+
+    Returns:
+        logging.Logger: The logging object.
+    """
+    ensimpl_app_debug = nvli(os.environ.get('G2GTOOLS_APP_DEBUG', '0'), -1)
+
+    rich_handler = RichHandler(
+        level=logging.NOTSET,
+        show_level=False,
+        show_time=True,
+        show_path=False,
+        omit_repeated_times=False,
+    )
+
+    if ensimpl_app_debug == 1:
+        rich_handler = RichHandler(
+            level=logging.NOTSET,
+            show_level=True,
+            show_time=True,
+            show_path=True,
+            omit_repeated_times=False,
+        )
+
+    # this is configuring the root logger and below
+    # set the level to WARNING, as that is the default
+    logging.basicConfig(
+        level=logging.WARNING,
+        format='%(message)s',
+        datefmt=f'{logger_name} [%X]',
+        handlers=[rich_handler],
+    )
+
+    log = logging.getLogger(logger_name)
+
+    # set gbrs's logging level
+    if level == 0:
+        log.setLevel(logging.WARNING)
+    elif level == 1:
+        log.setLevel(19)
+    elif level > 1:
+        log.setLevel(logging.DEBUG)
+
+    return log
+
+
+def nvli(value, default) -> int:
+    """Returns `value` as an int if `value` can be converted, else `default`.
+
+    Args:
+        value: The value to evaluate and convert to an it.
+        default: The default value.
+
+    Returns:
+        Either `value` or `default`.
+    """
+    ret = default
+    if value:
+        try:
+            ret = int(value)
+        except ValueError:
+            pass
+    return ret
 
 
 def cmp(x: Any, y: Any) -> int:
@@ -60,7 +157,7 @@ def cmp(x: Any, y: Any) -> int:
     return (x > y) - (x < y)
 
 
-def n(b, encoding="utf-8"):
+def n(b, encoding='utf-8'):
     return b.decode(encoding)
 
 
@@ -80,14 +177,14 @@ def show_error():
     """
     et, ev, tb = sys.exc_info()
 
-    print("Error Type: {}".format(et))
-    print("Error Value: {}".format(ev))
+    print('Error Type: {}'.format(et))
+    print('Error Value: {}'.format(ev))
     print(str(tb))
     while tb:
         co = tb.tb_frame.f_code
         filename = str(co.co_filename)
         line_no = str(tb.tb_lineno)
-        print("    {}:{}".format(filename, line_no))
+        print('    {}:{}'.format(filename, line_no))
         tb = tb.tb_next
 
 
@@ -111,7 +208,7 @@ def natsort_key(s):
     """
     Used internally to get a tuple by which s is sorted.
     """
-    return map(try_int, re.findall(r"(\d+|\D+)", s))
+    return map(try_int, re.findall(r'(\d+|\D+)', s))
 
 
 def natcmp(a, b):
@@ -166,7 +263,7 @@ def format_time(start: float, end: float) -> str:
     """
     hours, rem = divmod(end - start, 3600)
     minutes, seconds = divmod(rem, 60)
-    return "{:0>2}:{:0>2}:{:05.2f}".format(int(hours), int(minutes), seconds)
+    return '{:0>2}:{:0>2}:{:05.2f}'.format(int(hours), int(minutes), seconds)
 
 
 def parse_chromosome(chrom_file_name: str) -> dict[str, int]:
@@ -185,7 +282,7 @@ def parse_chromosome(chrom_file_name: str) -> dict[str, int]:
         if not os.path.exists(chrom_file_name):
             raise IOError(chrom_file_name)
 
-        fd = open(chrom_file_name, "r")
+        fd = open(chrom_file_name, 'r')
         for line in fd:
             elem = line.strip().split()
             try:
@@ -196,7 +293,7 @@ def parse_chromosome(chrom_file_name: str) -> dict[str, int]:
                 pass  # most likely header line
         fd.close()
     except IOError as e:
-        message = f"Error parsing chromosome files: {e.message}"
+        message = f'Error parsing chromosome files: {e.message}'
         print(message)
         return {}
 
@@ -204,7 +301,7 @@ def parse_chromosome(chrom_file_name: str) -> dict[str, int]:
 
 
 def wrap_sequence(
-    sequence: str, wrap_length: int = 60, fill_value: str | None = ""
+    sequence: str, wrap_length: int = 60, fill_value: str | None = ''
 ) -> Iterator[str]:
     """
     Wrap a sequence for better output.
@@ -219,7 +316,7 @@ def wrap_sequence(
     """
     args = [iter(sequence)] * wrap_length
     for line in zip_longest(fillvalue=fill_value, *args):
-        yield "".join(line + ("\n",))
+        yield ''.join(line + ('\n',))
 
 
 def write_sequence(sequence: str, out: IO, wrap_length: int = 60):
@@ -233,7 +330,7 @@ def write_sequence(sequence: str, out: IO, wrap_length: int = 60):
     """
     for i in range(0, len(sequence), wrap_length):
         out.write(sequence[i : i + wrap_length])
-        out.write("\n")
+        out.write('\n')
 
 
 def dump_file_contents(file_name: str) -> None:
@@ -243,7 +340,7 @@ def dump_file_contents(file_name: str) -> None:
     Args:
         file_name: The name of the file.
     """
-    with open(file_name, "r") as f:
+    with open(file_name, 'r') as f:
         shutil.copyfileobj(f, sys.stdout)
 
 
@@ -261,8 +358,8 @@ def reverse_sequence(sequence: str) -> str:
         return sequence[::-1]
     else:
         raise ValueError(
-            f"Cannot complement object of {type(sequence)}, "
-            "expecting string or Sequence object"
+            f'Cannot complement object of {type(sequence)}, '
+            'expecting string or Sequence object'
         )
 
 
@@ -284,7 +381,7 @@ def complement_sequence(sequence):
         matches = re.findall(BASES, val)
         position = len(matches[0])
         raise ValueError(
-            "Sequence contains non-DNA character "
+            'Sequence contains non-DNA character '
             f"'{val[position]}' at position {position+1:n}"
         )
 
@@ -292,8 +389,8 @@ def complement_sequence(sequence):
         return val
     else:
         raise ValueError(
-            f"Cannot complement object of {type(sequence)}, "
-            "expecting string or Sequence object"
+            f'Cannot complement object of {type(sequence)}, '
+            'expecting string or Sequence object'
         )
 
 
@@ -314,7 +411,7 @@ def concatenate_files(
     list_files: list[str],
     file_name_out: str,
     delete: bool | None = False,
-    mode: str | None = "wb",
+    mode: str | None = 'wb',
 ) -> None:
     """
     Concatenate the files in the order they are listed.
@@ -326,7 +423,7 @@ def concatenate_files(
     """
     with open(file_name_out, mode) as out:
         for from_file in list_files:
-            with open(from_file, "rb") as f:
+            with open(from_file, 'rb') as f:
                 shutil.copyfileobj(f, out)
             if delete:
                 delete_file(from_file)
@@ -355,9 +452,9 @@ def delete_index_files(file_name: str) -> None:
     Args:
         file_name: Name of the file to delete the index of.
     """
-    delete_file(f"{file_name}.gzi")
-    delete_file(f"{file_name}.fai")
-    delete_file(f"{file_name}.tbi")
+    delete_file(f'{file_name}.gzi')
+    delete_file(f'{file_name}.fai')
+    delete_file(f'{file_name}.tbi')
 
 
 def bgzip_decompress(file_name: str) -> None:
@@ -368,8 +465,8 @@ def bgzip_decompress(file_name: str) -> None:
         file_name: The file to bgzip decompress.
     """
     # gobble the output
-    with open(os.devnull, "w") as null:
-        p = Popen(["bgzip", "-f", "-d", file_name], stdout=null, stderr=null)
+    with open(os.devnull, 'w') as null:
+        p = Popen(['bgzip', '-f', '-d', file_name], stdout=null, stderr=null)
         p.wait()
 
     delete_index_files(file_name)
@@ -409,15 +506,15 @@ def has_index_file_fasta(file_name: str) -> bool:
     Raises:
         G2GValueError: If the index cannot be determined.
     """
-    if file_name.lower().endswith(".fa"):
-        fai_file = f"{file_name}.fai"
+    if file_name.lower().endswith('.fa'):
+        fai_file = f'{file_name}.fai'
         return os.path.exists(fai_file)
-    elif file_name.lower().endswith(".gz"):
-        fai_file = f"{file_name}.fai"
-        gzi_file = f"{file_name}.gzi"
+    elif file_name.lower().endswith('.gz'):
+        fai_file = f'{file_name}.fai'
+        gzi_file = f'{file_name}.gzi'
         return os.path.exists(fai_file) and os.path.exists(gzi_file)
 
-    raise G2GValueError("Cannot determine file format")
+    raise G2GValueError('Cannot determine file format')
 
 
 def has_index_file_vcf(file_name: str) -> bool:
@@ -433,14 +530,14 @@ def has_index_file_vcf(file_name: str) -> bool:
     Raises:
         G2GValueError: If the index cannot be determined.
     """
-    if file_name.lower().endswith(".vcf.gz"):
-        tbi_file = f"{file_name}.tbi"
-        csi_file = f"{file_name}.csi"
+    if file_name.lower().endswith('.vcf.gz'):
+        tbi_file = f'{file_name}.tbi'
+        csi_file = f'{file_name}.csi'
         return os.path.exists(tbi_file) or os.path.exists(csi_file)
-    elif file_name.lower().endswith(".vcf"):
-        raise G2GValueError("VCF files should be compressed")
+    elif file_name.lower().endswith('.vcf'):
+        raise G2GValueError('VCF files should be compressed')
 
-    raise G2GValueError("Cannot determine file format")
+    raise G2GValueError('Cannot determine file format')
 
 
 def has_index_file_vci(file_name: str) -> bool:
@@ -456,14 +553,14 @@ def has_index_file_vci(file_name: str) -> bool:
     Raises:
         G2GValueError: If the index cannot be determined.
     """
-    if file_name.lower().endswith(".vci.gz"):
-        tbi_file = f"{file_name}.tbi"
-        csi_file = f"{file_name}.csi"
+    if file_name.lower().endswith('.vci.gz'):
+        tbi_file = f'{file_name}.tbi'
+        csi_file = f'{file_name}.csi'
         return os.path.exists(tbi_file) or os.path.exists(csi_file)
-    elif file_name.lower().endswith(".vci"):
-        raise G2GValueError("VCI files should be compressed")
+    elif file_name.lower().endswith('.vci'):
+        raise G2GValueError('VCI files should be compressed')
 
-    raise G2GValueError("Cannot determine file format")
+    raise G2GValueError('Cannot determine file format')
 
 
 def has_index_file(file_name: str) -> bool:
@@ -479,26 +576,24 @@ def has_index_file(file_name: str) -> bool:
     Raises:
         G2GValueError: If the index cannot be determined.
     """
-    if file_name.lower().endswith(".fa"):
+    if file_name.lower().endswith('.fa'):
         return has_index_file_fasta(file_name)
-    elif file_name.lower().endswith(".fasta"):
+    elif file_name.lower().endswith('.fasta'):
         return has_index_file_fasta(file_name)
-    elif file_name.lower().endswith(".vcf"):
+    elif file_name.lower().endswith('.vcf'):
         return has_index_file_vcf(file_name)
-    elif file_name.lower().endswith(".vcf.gz"):
+    elif file_name.lower().endswith('.vcf.gz'):
         return has_index_file_vcf(file_name)
-    elif file_name.lower().endswith(".vci"):
+    elif file_name.lower().endswith('.vci'):
         return has_index_file_vci(file_name)
-    elif file_name.lower().endswith(".vci.gz"):
+    elif file_name.lower().endswith('.vci.gz'):
         return has_index_file_vci(file_name)
     else:
-        raise G2GValueError("Cannot determine file format")
+        raise G2GValueError('Cannot determine file format')
 
 
 def index_file(
-        file_name: str,
-        file_format: str = "vcf",
-        overwrite: bool = False
+    file_name: str, file_format: str = 'vcf', overwrite: bool = False
 ) -> None:
     """
     Parse the VCF file and create a VCI file.
@@ -509,16 +604,16 @@ def index_file(
         overwrite: True to overwrite existing file.
     """
     if overwrite or not has_index_file(file_name):
-        if file_format.lower() == "fa":
+        if file_format.lower() == 'fa':
             pysam.FastaFile(file_name)
-        elif file_format.lower() == "vcf":
-            pysam.tabix_index(file_name, preset="vcf", force=True)
-        elif file_format.lower() == "vci":
+        elif file_format.lower() == 'vcf':
+            pysam.tabix_index(file_name, preset='vcf', force=True)
+        elif file_format.lower() == 'vci':
             pysam.tabix_index(
                 file_name, seq_col=0, start_col=1, end_col=1, force=True
             )
         else:
-            raise G2GValueError(f"Unknown file format: {file_format}")
+            raise G2GValueError(f'Unknown file format: {file_format}')
 
 
 def bgzip_and_index_file(
@@ -526,7 +621,7 @@ def bgzip_and_index_file(
     file_name_out: str,
     delete_original: bool = False,
     force: bool = True,
-    file_format: str = "vcf",
+    file_format: str = 'vcf',
 ) -> None:
     """
     bgzip a file and index it
@@ -542,7 +637,7 @@ def bgzip_and_index_file(
     index_file(file_name_out, file_format)
 
 
-def open_resource(resource, mode: str = "rb"):
+def open_resource(resource, mode: str = 'rb'):
     """
     Open different types of files and return the handle.
 
@@ -562,19 +657,18 @@ def open_resource(resource, mode: str = "rb"):
 
     resource = s(resource)
 
-    if resource.endswith((".gz", ".Z", ".z")):
+    if resource.endswith(('.gz', '.Z', '.z')):
         return gzip.open(resource, mode)
-    elif resource.endswith((".bz", ".bz2", ".bzip2")):
+    elif resource.endswith(('.bz', '.bz2', '.bzip2')):
         return bz2.BZ2File(resource, mode)
-    elif resource.startswith(("http://", "https://", "ftp://")):
+    elif resource.startswith(('http://', 'https://', 'ftp://')):
         return urllib.urlopen(resource)
     else:
         return open(resource, mode)
 
 
 def create_random_string(
-        size: int = 6,
-        chars: str = string.ascii_uppercase + string.digits
+    size: int = 6, chars: str = string.ascii_uppercase + string.digits
 ) -> str:
     """
     Create a random string.
@@ -586,15 +680,15 @@ def create_random_string(
     Returns:
         A random string of length size.
     """
-    return "".join(random.choice(chars) for _ in range(size))
+    return ''.join(random.choice(chars) for _ in range(size))
 
 
 def gen_file_name(
-        name: str | None = None,
-        prefix: str = "",
-        output_dir: str = ".",
-        extension: str = "log",
-        append_time: bool = True,
+    name: str | None = None,
+    prefix: str = '',
+    output_dir: str = '.',
+    extension: str = 'log',
+    append_time: bool = True,
 ) -> str:
     """
     Generate a file name.
@@ -612,17 +706,17 @@ def gen_file_name(
     if name is None:
         name = create_random_string(15)
 
-    if extension and extension[-1] == ".":
+    if extension and extension[-1] == '.':
         extension = extension[-1:]
 
     if append_time:
-        t = time.strftime("%Y-%m-%d.%H_%M_%S")
-        file_name = f"{prefix}{name}.{t}.{extension}"
+        t = time.strftime('%Y-%m-%d.%H_%M_%S')
+        file_name = f'{prefix}{name}.{t}.{extension}'
     else:
         if extension:
-            file_name = f"{prefix}{name}.{extension}"
+            file_name = f'{prefix}{name}.{extension}'
         else:
-            file_name = f"{prefix}{name}"
+            file_name = f'{prefix}{name}'
 
     return os.path.abspath(os.path.join(output_dir, file_name))
 
@@ -636,7 +730,7 @@ def prepend_before_extension(filename, text):
     file_first, file_extension = os.path.splitext(filename)
 
     if file_extension:
-        return f"{file_first}.{text}{file_extension}"
+        return f'{file_first}.{text}{file_extension}'
 
     return filename
 
@@ -649,7 +743,7 @@ def get_dir_and_file(filename):
     return os.path.split(abspath)
 
 
-def check_file(file_name: str, mode: str | None = "r") -> str:
+def check_file(file_name: str, mode: str | None = 'r') -> str:
     """
     Check if file_name exists and accessible for reading or writing.
 
@@ -663,20 +757,20 @@ def check_file(file_name: str, mode: str | None = "r") -> str:
     Raises:
         G2GValueError: When the file doesn't exist or cannot be generated.
     """
-    if mode == "r":
+    if mode == 'r':
         if file_name and os.path.exists(file_name):
             return os.path.abspath(file_name)
 
-        raise G2GValueError(f"The following file does not exist: {file_name}")
-    elif mode == "w":
-        file_dir = "."
+        raise G2GValueError(f'The following file does not exist: {file_name}')
+    elif mode == 'w':
+        file_dir = '.'
 
         if file_name:
             file_name = os.path.abspath(file_name)
             file_dir = os.path.dirname(file_name)
 
             if not os.access(file_dir, os.W_OK | os.X_OK):
-                raise G2GValueError(f"Cannot generate file: {file_name}")
+                raise G2GValueError(f'Cannot generate file: {file_name}')
 
             return file_name
 
@@ -684,7 +778,7 @@ def check_file(file_name: str, mode: str | None = "r") -> str:
 
 
 def create_temp_dir(
-    name: str, prefix: str = ".g2gtools_", dir: str | PathLike | None = None
+    name: str, prefix: str = '.g2gtools_', dir: str | PathLike | None = None
 ) -> str:
     """
     Create a temporary directory.
@@ -697,7 +791,7 @@ def create_temp_dir(
     Returns:
         The absolute path to the temporary directory.
     """
-    new_name = f"{prefix}{name}"
+    new_name = f'{prefix}{name}'
     return os.path.abspath(tempfile.mkdtemp(prefix=new_name, dir=dir))
 
 
@@ -729,11 +823,11 @@ def delete_dir(directory: str) -> None:
         root = get_sys_exec_root_or_drive()
         # bad error checking, but at least it's something
         if root == directory:
-            raise G2GValueError(f"Will not delete directory: {directory}")
+            raise G2GValueError(f'Will not delete directory: {directory}')
         try:
             shutil.rmtree(directory)
         except Exception as e:
-            raise G2GValueError(f"Will not delete directory: {directory}")
+            raise G2GValueError(f'Will not delete directory: {directory}')
 
 
 def location_to_filestring(location: g2gtools.g2g.Region) -> str:
@@ -746,4 +840,4 @@ def location_to_filestring(location: g2gtools.g2g.Region) -> str:
     Returns:
         The region as a string.
     """
-    return f"{location.seq_id}-{location.start}-{location.end}"
+    return f'{location.seq_id}-{location.start}-{location.end}'
