@@ -360,8 +360,7 @@ def extract(
                     output_file_name=None,
                     reverse=reverse,
                     complement=complement,
-                    raw=raw,
-                    debug_level=verbose
+                    raw=raw
                 )
 
                 return
@@ -379,17 +378,14 @@ def extract(
                         fasta_file=fasta_file,
                         database_file_name=db_file,
                         output=None,
-                        raw=raw,
-                        debug_level=verbose
+                        raw=raw
                     )
 
                     return
 
                 elif genes:
                     logger.info('Extracting genes from database...')
-                    genes = gtf_db.get_genes_simple(
-                        db_file, debug_level=verbose
-                    )
+                    genes = gtf_db.get_genes_simple(db_file)
 
                     logger.debug('Genes extracted, transforming to locations')
                     for gene in genes:
