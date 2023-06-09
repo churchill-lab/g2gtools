@@ -730,7 +730,7 @@ def fasta_format(
 #
 # #############################################################################
 @app.command(help='Convert a GTF file to a G2G DB file')
-def fasta_format(
+def gtf2db(
     input_file: Annotated[Path, typer.Option('-i', '--input', exists=True, dir_okay=False, resolve_path=True, help='GTF file')],
     output_file: Annotated[Path, typer.Option('-o', '--output', exists=False, dir_okay=False, writable=True, resolve_path=True, help='Name of output file')] = None,
     verbose: Annotated[int, typer.Option('-v', '--verbose', count=True, help='specify multiple times for more verbose output')] = 0,
