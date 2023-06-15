@@ -181,6 +181,8 @@ def process_piece(vcf2vci_params: VCF2VCIInfo) -> dict[str, Any]:
         if vcf2vci_params.diploid:
             mi = ['L', 'R']
 
+        #logger = g2g_utils.configure_logging('g2tools', 10)
+
         logger.warning(f'Processing Chromosome {vcf2vci_params.chromosome}...')
 
         iterators = []
@@ -253,19 +255,19 @@ def process_piece(vcf2vci_params: VCF2VCIInfo) -> dict[str, Any]:
         n = 0
 
         line_numbers = 0
-        # print('iterators=' + str(type(iterators)))
-        # print('iterators[0]=' + str(type(iterators[0])))
+        #print('iterators=' + str(type(iterators)))
+        #print('iterators[0]=' + str(type(iterators[0])))
         for vcf_records in walk_vcfs_together(iterators):
             # print('vcf_records=' + str(type(vcf_records)))
             for i, vcf_record in enumerate(vcf_records):
-                # print('vcf_record=' + str(type(vcf_record)))
-                # logger.debug(vcf_record)
+                #print('vcf_record=' + str(type(vcf_record)))
+                #logger.debug(vcf_record)
                 if vcf_record is None:
                     continue
                 # logger.debug(vcf_record.alt)
                 # logger.debug(type(vcf_record.alt))
                 logger.debug('------------')
-                logger.debug(f'{vcf_record.pos=}')
+                #print(f'{vcf_record.pos=}')
 
                 if tabix:
                     gt = vcf.parse_gt_tuple_orig(
@@ -278,9 +280,6 @@ def process_piece(vcf2vci_params: VCF2VCIInfo) -> dict[str, Any]:
 
                 # logger.debug(gt)
                 logger.debug(f'{gt=}')
-
-                if not gt.is_snp:
-                    logger.critical('NO SNP DETECTED')
 
                 line_numbers = line_numbers + 1
                 if gt.is_snp:
@@ -421,10 +420,10 @@ def process_piece(vcf2vci_params: VCF2VCIInfo) -> dict[str, Any]:
 
                         orig_alt_seq = alt_seq
 
-                        s = vcf_record[
-                            vcf2vci_params.vcf_files[i].sample_index
-                        ]
-                        logger.debug(f'SAMPLE: {s}')
+                        #s = vcf_record[
+                        #    vcf2vci_params.vcf_files[i].sample_index
+                        #]
+                        #logger.debug(f'SAMPLE: {s}')
                         logger.debug(
                             f'REF="{gt.ref}", ALT_L="{gt.left}", '
                             f'ALT_R="{gt.right}", POS={vcf_record.pos}'
@@ -505,7 +504,7 @@ def process_piece(vcf2vci_params: VCF2VCIInfo) -> dict[str, Any]:
                             alt_str = alt_seq if alt_seq else '.'
                             out = (
                                 f'{vcf2vci_params.chromosome}{lr_out}\t'
-                                f'{vcf_record.pos + 1}\t'
+                                f'{vcf_record.pos + (1 if tabix else 0)}\t'
                                 f'{shared_bases}\t{ref_str}\t{alt_str}\t'
                                 f'{fragment_size}\n'
                             )

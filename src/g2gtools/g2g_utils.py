@@ -83,7 +83,7 @@ def configure_logging(
     Returns:
         logging.Logger: The logging object.
     """
-    ensimpl_app_debug = nvli(os.environ.get('G2GTOOLS_APP_DEBUG', '0'), -1)
+    g2g_app_debug = nvli(os.environ.get('G2GTOOLS_APP_DEBUG', '0'), -1)
 
     rich_handler = RichHandler(
         level=logging.NOTSET,
@@ -93,7 +93,7 @@ def configure_logging(
         omit_repeated_times=False,
     )
 
-    if ensimpl_app_debug == 1:
+    if g2g_app_debug == 1:
         rich_handler = RichHandler(
             level=logging.NOTSET,
             show_level=True,
@@ -117,7 +117,7 @@ def configure_logging(
     if level == 0:
         log.setLevel(logging.WARNING)
     elif level == 1:
-        log.setLevel(19)
+        log.setLevel(logging.INFO)
     elif level > 1:
         log.setLevel(logging.DEBUG)
 

@@ -141,12 +141,12 @@ def vcf2vci(
     fasta_file: Annotated[Path, typer.Option('-f', '--fasta', exists=True, dir_okay=False, resolve_path=True, help='Fasta file matching VCF information')],
     strain: Annotated[str, typer.Option('-s', '--strain', help='Name of strain/sample (column in VCF file)')],
     output_file: Annotated[Path, typer.Option('-o', '--output', exists=False, dir_okay=False, writable=True, resolve_path=True, help='Name of output file')] = None,
-    num_processes: Annotated[int, typer.Option('-n', '--num-processes', hidden=True)] = None,
+    num_processes: Annotated[int, typer.Option('-p', '--num-processes', hidden=True)] = None,
     diploid: Annotated[bool, typer.Option('-d', '--diploid', help='Create diploid VCI file')] = False,
-    keep: Annotated[bool, typer.Option('-k', '--keep', help='Keep track of VCF lines that could not be converted to VCI file')] = False,
-    passed: Annotated[bool, typer.Option('-p', '--pass', help='Use only VCF lines that have a PASS for the filter value')] = False,
-    quality: Annotated[bool, typer.Option('-q', '--quality', help='Filter on quality, FI=PASS')] = False,
-    no_bgzip: Annotated[bool, typer.Option('-z', '--no-bgzip', help='DO NOT compress and index output')] = False,
+    keep: Annotated[bool, typer.Option('--keep', help='Keep track of VCF lines that could not be converted to VCI file')] = False,
+    passed: Annotated[bool, typer.Option('--pass', help='Use only VCF lines that have a PASS for the filter value')] = False,
+    quality: Annotated[bool, typer.Option('--quality', help='Filter on quality, FI=PASS')] = False,
+    no_bgzip: Annotated[bool, typer.Option('--no-bgzip', help='DO NOT compress and index output')] = False,
     verbose: Annotated[int, typer.Option('-v', '--verbose', count=True, help='specify multiple times for more verbose output')] = 0
 ) -> None:
     """

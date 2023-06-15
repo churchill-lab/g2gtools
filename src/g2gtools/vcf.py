@@ -360,7 +360,7 @@ def parse_gt_tuple(
             gt_left = gt[0]
             gt_right = gt[1]
 
-            fi = sample_data['FI']
+            fi = vcf_record.format.get('FI')
         except ValueError:
             # LOG.debug(ve)
             pass

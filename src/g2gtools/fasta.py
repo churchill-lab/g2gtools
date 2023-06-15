@@ -241,7 +241,7 @@ def extract(
         output_file_name = g2g_utils.check_file(output_file_name, 'w')
         fasta_out = open(output_file_name, 'w')
     else:
-        fasta_out = sys.stdout
+        fasta_out = sys.stderr
 
     try:
         if not isinstance(locations, list):
