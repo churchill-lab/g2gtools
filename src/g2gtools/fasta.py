@@ -556,7 +556,7 @@ def fasta_extract_transcripts(
         fasta = FastaFile(fasta_file)
 
     database_file_name = g2g_utils.check_file(database_file_name)
-    fasta_out = sys.stdout
+    fasta_out = sys.stderr
 
     if output:
         output = g2g_utils.check_file(output, 'w')
