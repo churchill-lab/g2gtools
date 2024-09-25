@@ -159,14 +159,10 @@ def convert_bcsam_file(
     new_header['HD'] = {'VN': 1.0, 'SO': 'coordinate'}
 
     # replace SQ
-    tmp = []
-    name_to_id = {}
+    # Filter the records in alignment_file_in.header['SQ'] to keep only those that are in the vci file
+    filtered_header_sq = [record for record in alignment_file_in.header['SQ'] if record['SN'] in vci_file.contigs]
 
-    for ref_name in vci_file.contigs:
-        tmp.append({'LN': vci_file.contigs[ref_name], 'SN': ref_name})
-        name_to_id[ref_name] = alignment_file_in.get_tid(ref_name)
-
-    new_header['SQ'] = tmp
+    new_header['SQ'] = filtered_header_sq
 
     if 'PG' not in new_header:
         new_header['PG'] = []
@@ -202,6 +198,12 @@ def convert_bcsam_file(
         )
     else:
         raise G2GBAMError('Unable to create file based upon file extension')
+        
+    # create map from contig name to new ID index. 
+    # If build using input BAM, IDs are out of sync and it contains contigs not in the VCI file.
+    name_to_id = {}
+    for ref_name in vci_file.contigs:
+        name_to_id[ref_name] = new_file.get_tid(ref_name)
 
     total = 0
     total_unmapped = 0
@@ -246,7 +248,7 @@ def convert_bcsam_file(
                 )
 
             alignment = next(alignment_file_in)
-            alignment_new = pysam.AlignedRead()
+            alignment_new = pysam.AlignedSegment()
             read_chr = alignment_file_in.get_reference_name(
                 alignment.reference_id
             )
@@ -300,7 +302,7 @@ def convert_bcsam_file(
 
                     alignment_new.reference_id = name_to_id[mappings[0].to_chr]
                     alignment_new.reference_start = mappings[0].to_start
-                    alignment_new.cigarstring = alignment.cigarstring
+                    alignment_new.cigartuples = alignment.cigartuples
                     new_file.write(alignment_new)
 
                     logger.debug(
@@ -319,8 +321,8 @@ def convert_bcsam_file(
 
                     alignment_new.reference_id = name_to_id[mappings[0].to_chr]
                     alignment_new.reference_start = mappings[0].to_start
-                    alignment_new.cigarstring = convert_cigar(
-                        alignment.cigarstring,
+                    alignment_new.cigartuples = convert_cigar(
+                        alignment.cigartuples,
                         read_chr,
                         vci_file,
                         alignment.query_sequence,
@@ -529,8 +531,8 @@ def convert_bcsam_file(
                         read1_mappings[0].to_chr
                     ]
                     alignment_new.reference_start = read1_mappings[0].to_start
-                    alignment_new.cigarstring = convert_cigar(
-                        alignment.cigarsting,
+                    alignment_new.cigartuples = convert_cigar(
+                        alignment.cigartuples,
                         read_chr,
                         vci_file,
                         alignment.query_sequence,
@@ -560,8 +562,8 @@ def convert_bcsam_file(
                         read1_mappings[0].to_chr
                     ]
                     alignment_new.reference_start = read1_mappings[0].to_start
-                    alignment_new.cigarstring = convert_cigar(
-                        alignment.cigarstring,
+                    alignment_new.cigartuples = convert_cigar(
+                        alignment.cigartuples,
                         read_chr,
                         vci_file,
                         alignment.query_sequence,
@@ -593,8 +595,8 @@ def convert_bcsam_file(
                         read1_mappings[0].to_chr
                     ]
                     alignment_new.reference_start = read1_mappings[0].to_start
-                    alignment_new.cigarstring = convert_cigar(
-                        alignment.cigarstring,
+                    alignment_new.cigartuples = convert_cigar(
+                        alignment.cigartuples,
                         read_chr,
                         vci_file,
                         alignment.query_sequence,
@@ -1255,7 +1257,7 @@ def convert_cigar(
         In this phase remove the remaining -1D or -1N in those regions first.
 
     Args:
-        cigar:
+        cigar: cigartuples in the form [ (0, 10), (1, 1), (0, 75), (2, 2), (0, 20) ]
         chromosome: The chromosome.
         vci_file: The vci.VCIFile object.
         sequence:
@@ -1263,9 +1265,9 @@ def convert_cigar(
         debug_level: Debug level (0=WARN,1=INFO,2+=DEBUG).
 
     Returns:
-
+        cigartuples in the form [ (0, 10), (1, 1), (0, 75), (2, 2), (0, 20) ]
     """
-    logger = g2g.get_logger(debug_level)
+    logger = g2g_utils.get_logger(debug_level)
 
     old_cigar = cigarlist_to_cigarstring(cigar)
     logger.debug(f'CIGAR CONVERSION : {old_cigar}')
@@ -1364,7 +1366,7 @@ def convert_cigar(
 
 
 if __name__ == '__main__':
-    log = g2g.get_logger(10)
+    log = g2g_utils.get_logger(10)
     cigarstring = '5I3D4M9D3S104M7D2I'
     cigarlist = cigar_string_to_list(cigarstring)
     log.debug(cigarstring)
