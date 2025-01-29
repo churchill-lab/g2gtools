@@ -1,6 +1,6 @@
 [project]
 name = 'g2gtools'
-version = '2.1.0'
+version = '2.2.0'
 description = 'A suite of tools for the reconstruction of personal diploid genomes and better coordinate conversion'
 authors = [
     {name = 'KB Choi'},
