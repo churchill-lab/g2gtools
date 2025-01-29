@@ -339,7 +339,7 @@ def parse_gt_tuple(
     """
 
     # check for to see if ALT is <CN*> or something not ACGT
-    if ','.join(vcf_record.alts).find('<') == -1:
+    if (vcf_record.alts is not None) and ','.join(vcf_record.alts).find('<') == -1:
         try:
             # parse the GT field
             gt = sample_data['GT']
