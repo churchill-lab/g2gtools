@@ -10,7 +10,7 @@ import sys
 from g2gtools.exceptions import G2GRegionError
 
 REGEX_REGION = re.compile(
-    r'(\w*)\s*(-|:)?\s*(\d+)\s*(MB|M|K|)?\s*(-|:|)?\s*(\d+|)\s*(MB|M|K|)?',
+    r'([\w.]*)\s*(-|:)?\s*(\d+)\s*(MB|M|K|)?\s*(-|:|)?\s*(\d+|)\s*(MB|M|K|)?',
     re.IGNORECASE,
 )
 REGEX_REGION_CHR = re.compile(
