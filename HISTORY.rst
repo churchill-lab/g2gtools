@@ -3,6 +3,11 @@
 History
 -------
 
+2.3.0 (02/03/2025)
+~~~~~~~~~~~~~~~~~~
+
+* Fixed a bug in parsing regions that have a period in their identifier.
+
 2.2.0 (01/29/2025)
 ~~~~~~~~~~~~~~~~~~
 
