@@ -3,6 +3,11 @@
 History
 -------
 
+2.4.0 (02/15/2025)
+~~~~~~~~~~~~~~~~~~
+
+* Fixed a bug in parsing GTF file where the attribute field's values contained nested semi-colons.
+
 2.3.0 (02/03/2025)
 ~~~~~~~~~~~~~~~~~~
 
