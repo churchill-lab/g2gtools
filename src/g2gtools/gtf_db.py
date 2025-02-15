@@ -8,9 +8,9 @@ import time
 
 # local library imports
 from g2gtools.exceptions import G2GValueError
-from g2gtools import g2g
 from g2gtools import g2g_utils
 from g2gtools import gtf
+from g2gtools import region
 
 logger = g2g_utils.get_logger('g2gtools')
 
@@ -141,7 +141,7 @@ SQL_GENES_SIMPLE = """
 SELECT distinct g.ensembl_id, g.seqid, g.start, g.end, g.strand
   FROM gtf g
  WHERE g.gene_id is not null
-   AND g.transcript_id is null
+   AND (g.transcript_id is null or g.transcript_id = '')
 """
 
 SQL_GENES_SIMPLE_ORDER_BY = ' ORDER BY g._key '
@@ -195,6 +195,8 @@ def gtf2db(
     c.execute(SQL_CREATE_GTF_TYPES_TABLE)
     c.execute(SQL_CREATE_GTF_ATTRIBUTES_TABLE)
 
+    # these values will build the gtf_types, gtf_source, and gtf_attributes
+    # tables. these will be different for each GTF file.
     gtf_types = {}
     gtf_sources = {}
     gtf_attributes = {}
@@ -438,7 +440,7 @@ class Exon(GTFObject):
 
 
 def location_to_sql(
-    location: g2g.Region, use_strand: bool = False, overlap: bool | None = True
+    location: region.Region, use_strand: bool = False, overlap: bool | None = True
 ) -> tuple[str, dict]:
     """
     Utility function to convert a Region into a SQL condition.
@@ -598,7 +600,7 @@ def get_gene(database_file_name: str, ensembl_id: str) -> dict[str, Gene]:
 
 def get_genes_ids(
     database_file_name: str,
-    location: g2g.Region,
+    location: region.Region,
     use_strand: bool | None = False,
     overlap: bool | None = True,
 ) -> list[str]:
@@ -638,7 +640,7 @@ def get_genes_ids(
 
 def get_genes(
     database_file_name: str,
-    location: g2g.Region,
+    location: region.Region,
     use_strand: bool | None = False,
     overlap: bool | None = True,
 ) -> dict[str, Gene]:
@@ -665,7 +667,7 @@ def get_genes(
 
 def get_genes_simple(
     database_file_name: str,
-    location: g2g.Region | None = None,
+    location: region.Region | None = None,
     use_strand: bool | None = False,
     overlap: bool | None = True
 ) -> list[Gene]:

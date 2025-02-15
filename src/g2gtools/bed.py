@@ -197,7 +197,9 @@ def convert_bed_file(
 
             bed_out.write(f'{temp_elem}\n')
 
-    bed_out.close()
+    if bed_file_name_out:
+        bed_out.close()
+
     bed_unmapped_file.close()
 
     logger.warning(f'Converted {success:,} of {total:,} records')

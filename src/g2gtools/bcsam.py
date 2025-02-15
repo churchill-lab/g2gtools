@@ -17,7 +17,6 @@ import pysam
 # local library imports
 from g2gtools.exceptions import G2GBAMError
 from g2gtools.exceptions import G2GCigarFormatError
-import g2gtools.g2g as g2g
 import g2gtools.g2g_utils as g2g_utils
 import g2gtools.vci as vci
 

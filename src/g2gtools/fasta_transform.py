@@ -18,8 +18,8 @@ from g2gtools.exceptions import G2GValueError
 from g2gtools.exceptions import KeyboardInterruptError
 import g2gtools.fasta as fasta
 import g2gtools.fasta_patch as fasta_patch
-import g2gtools.g2g as g2g
 import g2gtools.g2g_utils as g2g_utils
+import g2gtools.region as region
 import g2gtools.vci as vci
 
 logger = g2g_utils.get_logger('g2gtools')
@@ -190,18 +190,18 @@ def process_piece(
         reverse = fasta_transform_params.reverse
 
         logger.info(f'Transforming {fasta_transform_params.input_region}...')
-        region = g2g.parse_region(fasta_transform_params.vci_query)
-        logger.info(f'Finding VCI mappings for {region}')
+        reg = region.parse_region(fasta_transform_params.vci_query)
+        logger.info(f'Finding VCI mappings for {reg}')
 
         logger.info('PARSING VCI FILE...')
         vci_file = vci.VCIFile(
-            fasta_transform_params.vci_file, seq_ids=[region.seq_id]
+            fasta_transform_params.vci_file, seq_ids=[reg.seq_id]
         )
         vci_file.parse(reverse=reverse)
         logger.info('DONE PARSING!')
 
         mappings = vci_file.find_mappings(
-            region.seq_id,
+            reg.seq_id,
             fasta_transform_params.output_region.start - 1,
             fasta_transform_params.output_region.end,
         )
@@ -517,7 +517,7 @@ def prepare_fasta_transform(filename_output: str) -> str:
 def process(
     fasta_file_name_in: str,
     vci_file_name: str,
-    regions: list[g2g.Region] | None = None,
+    regions: list[region.Region] | None = None,
     fasta_file_name_out: str | None = None,
     bgzip: bool | None = False,
     reverse: bool | None = False,
@@ -531,7 +531,7 @@ def process(
     Args
         fasta_file_name_in: Input Fasta file to convert.
         vci_file_name: Name of the VCI file or a VCIFile object.
-        regions: A list of g2g.Regions to process.
+        regions: A list of Regions to process.
         fasta_file_name_out: Name of output Fasta file.
         bgzip: True to compress and index file.
         reverse: Reverse the insertions and deletions in VCI file.
@@ -611,23 +611,23 @@ def process(
             regions = []
             for chrom in fasta_file.references:
                 regions.append(
-                    g2g.Region(
+                    region.Region(
                         chrom, 1, fasta_file.get_reference_length(chrom)
                     )
                 )
 
         all_params = []
-        for region in regions:
-            logger.debug(f'region={region}')
-            logger.debug(f'region.original_base={region.original_base}')
+        for reg in regions:
+            logger.debug(f'reg={reg}')
+            logger.debug(f'reg.original_base={reg.original_base}')
 
             params = FastaTransformParams()
-            params.input_region = region
+            params.input_region = reg
             params.input_file = fasta_file_name_in
             params.temp_dir = temp_directory
             params.vci_file = vci_file_name
             params.reverse = reverse
-            params.offset = 0 if region.start <= 1 else region.start - 1
+            params.offset = 0 if reg.start <= 1 else reg.start - 1
             params.patch = also_patch
             params.full_file = full_file
 
@@ -635,7 +635,7 @@ def process(
                 # logger.info('*** Experimental ***')
                 # logger.info('*** HAPLOID FASTA and DIPLOID VCI ***')
                 logger.info('Fasta file is haploid and VCI file is diploid')
-                prefix = g2g_utils.location_to_filestring(region)
+                prefix = g2g_utils.location_to_filestring(reg)
                 params.output_file = g2g_utils.gen_file_name(
                     prefix=f'{prefix}_L',
                     extension='fa',
@@ -644,29 +644,29 @@ def process(
                 )
 
                 if full_file:
-                    params.output_region = g2g.Region(
-                        f'{region.seq_id}_L', region.start, region.end
+                    params.output_region = region.Region(
+                        f'{reg.seq_id}_L', reg.start, reg.end
                     )
                     params.output_header = fasta.FastaHeader(
-                        f'{region.seq_id}_L',
-                        f'{region.seq_id}:{region.start}-{region.end}',
+                        f'{reg.seq_id}_L',
+                        f'{reg.seq_id}:{reg.start}-{reg.end}',
                     )
                 else:
-                    params.output_region = g2g.Region(
-                        f'{region.seq_id}_L', region.start, region.end
+                    params.output_region = region.Region(
+                        f'{reg.seq_id}_L', reg.start, reg.end
                     )
                     params.output_header = fasta.FastaHeader(
-                        f'{region.seq_id}_L',
-                        f'{region.seq_id}_L:{region.start}-{region.end}',
+                        f'{reg.seq_id}_L',
+                        f'{reg.seq_id}_L:{reg.start}-{reg.end}',
                     )
 
                 params.vci_query = (
-                    f'{region.seq_id}_L:{region.start}-{region.end}'
+                    f'{reg.seq_id}_L:{reg.start}-{reg.end}'
                 )
                 all_params.append(params)
 
                 params_r = copy.deepcopy(params)
-                prefix_r = g2g_utils.location_to_filestring(region)
+                prefix_r = g2g_utils.location_to_filestring(reg)
                 params_r.output_file = g2g_utils.gen_file_name(
                     prefix=f'{prefix_r}_R',
                     extension='fa',
@@ -675,56 +675,56 @@ def process(
                 )
 
                 if full_file:
-                    params_r.output_region = g2g.Region(
-                        f'{region.seq_id}_R', region.start, region.end
+                    params_r.output_region = region.Region(
+                        f'{reg.seq_id}_R', reg.start, reg.end
                     )
                     params_r.output_header = fasta.FastaHeader(
-                        f'{region.seq_id}_R',
-                        f'{region.seq_id}:{region.start}-{region.end}',
+                        f'{reg.seq_id}_R',
+                        f'{reg.seq_id}:{reg.start}-{reg.end}',
                     )
                 else:
-                    params_r.output_region = g2g.Region(
-                        f'{region.seq_id}_R', region.start, region.end
+                    params_r.output_region = region.Region(
+                        f'{reg.seq_id}_R', reg.start, reg.end
                     )
                     params_r.output_header = fasta.FastaHeader(
-                        f'{region.seq_id}_R',
-                        f'{region.seq_id}_R:{region.start}-{region.end}',
+                        f'{reg.seq_id}_R',
+                        f'{reg.seq_id}_R:{reg.start}-{reg.end}',
                     )
 
                 params_r.vci_query = (
-                    f'{region.seq_id}_R:{region.start}-{region.end}'
+                    f'{reg.seq_id}_R:{reg.start}-{reg.end}'
                 )
                 all_params.append(params_r)
             else:
                 fmt_string = 'HAPLOID' if vci_file.is_haploid() else 'DIPLOID'
                 logger.debug(f'VCI file and Fasta file are both: {fmt_string}')
                 params.output_file = g2g_utils.gen_file_name(
-                    prefix=g2g_utils.location_to_filestring(region),
+                    prefix=g2g_utils.location_to_filestring(reg),
                     extension='fa',
                     output_dir=temp_directory,
                     append_time=False,
                 )
 
                 if full_file:
-                    params.output_region = g2g.Region(
-                        region.seq_id, region.start, region.end
+                    params.output_region = region.Region(
+                        reg.seq_id, reg.start, reg.end
                     )
                     params.output_header = fasta.FastaHeader(
-                        region.seq_id,
-                        f'{region.seq_id}:{region.start}-{region.end}',
+                        reg.seq_id,
+                        f'{reg.seq_id}:{reg.start}-{reg.end}',
                     )
                 else:
-                    params.output_region = g2g.Region(
-                        region.seq_id, region.start, region.end
+                    params.output_region = region.Region(
+                        reg.seq_id, reg.start, reg.end
                     )
                     params.output_header = fasta.FastaHeader(
-                        f'{region.seq_id} '
-                        '{region.seq_id}:{region.start}-{region.end}',
+                        f'{reg.seq_id} '
+                        '{reg.seq_id}:{reg.start}-{reg.end}',
                         None,
                     )
 
                 params.vci_query = (
-                    f'{region.seq_id}:{region.start}-{region.end}'
+                    f'{reg.seq_id}:{reg.start}-{reg.end}'
                 )
                 all_params.append(params)
 

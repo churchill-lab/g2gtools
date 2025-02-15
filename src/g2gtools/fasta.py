@@ -18,7 +18,7 @@ from g2gtools.exceptions import G2GFastaError
 from g2gtools.exceptions import G2GRegionError
 from g2gtools.exceptions import G2GValueError
 import g2gtools.gtf_db as gtf_db
-import g2gtools.g2g as g2g
+import g2gtools.region as region
 import g2gtools.g2g_utils as g2g_utils
 
 
@@ -207,7 +207,7 @@ class FAI(object):
 
 def extract(
     fasta_file: str | FastaFile,
-    locations: g2g.Region | list[g2g.Region],
+    locations: region.Region | list[region.Region],
     output_file_name: str | None = None,
     reverse: bool | None = False,
     complement: bool | None = False,
@@ -249,7 +249,7 @@ def extract(
 
         for location in locations:
             logger.debug(f'LOCATION: {location}')
-            if not isinstance(location, g2g.Region):
+            if not isinstance(location, region.Region):
                 raise G2GRegionError(
                     f'Found: {location}, which is not a Region'
                 )

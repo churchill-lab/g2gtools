@@ -14,10 +14,10 @@ import g2gtools.exceptions as exceptions
 import g2gtools.fasta as g2g_fasta
 import g2gtools.fasta_patch as g2g_fasta_patch
 import g2gtools.fasta_transform as g2g_fasta_transform
-import g2gtools.g2g as g2g
 import g2gtools.g2g_utils as g2g_utils
 import g2gtools.gtf as gtf
 import g2gtools.gtf_db as gtf_db
+import g2gtools.region as g2g_region
 import g2gtools.vci as g2g_vci
 import g2gtools.vcf2vci as g2g_vcf2vci
 
@@ -110,6 +110,50 @@ def convert(
         else:
             logger.error(f'Unknown file format: {file_format}')
             raise typer.Exit()
+    except KeyboardInterrupt as ki:
+        logger.error(str(ki))
+        raise typer.Exit()
+    except exceptions.KeyboardInterruptError as e:
+        logger.error(str(e))
+        raise typer.Exit()
+    except exceptions.G2GValueError as e:
+        logger.error(e.msg)
+        raise typer.Exit()
+    except exceptions.G2GChainFileError as e:
+        logger.error(e.msg)
+        raise typer.Exit()
+    except exceptions.G2GBAMError as e:
+        logger.error(e.msg)
+        raise typer.Exit()
+    except exceptions.G2GBedError as e:
+        logger.error(e.msg)
+        raise typer.Exit()
+
+
+# #############################################################################
+#
+# convert
+#
+# #############################################################################
+@app.command(help='Convert a region to the new coordinates')
+def convert_region(
+    vci_file: Annotated[Path, typer.Option('-c', '--vci-file', exists=True, dir_okay=False, resolve_path=True, help='VCI file')],
+    region: Annotated[list[str], typer.Option('-r', '--region', exists=True, dir_okay=False, resolve_path=True, help='Region to parse in chromosome:start-end format')],
+    verbose: Annotated[int, typer.Option('-v', '--verbose', count=True, help='specify multiple times for more verbose output')] = 0
+) -> None:
+    """
+    Convert coordinates of Ba region
+    """
+    logger = g2g_utils.configure_logging('g2gtools', verbose)
+    logger.debug('convert-region')
+
+    logger.debug(f'reg={region}')
+
+    try:
+        regions = g2g_vci.convert_region(vci_file=str(vci_file), reg=region)
+        for r_old, r_new in regions.items():
+            logger.warn(f'{r_old} -> {r_new}')
+
     except KeyboardInterrupt as ki:
         logger.error(str(ki))
         raise typer.Exit()
@@ -282,7 +326,7 @@ def extract(
         if region:
             # simple region
             logger.debug(f'ARGS.REGION={region}')
-            region = g2g.parse_region(region, base=1)
+            region = g2g_region.parse_region(region, base=1)
 
             logger.debug(f'--> start = {region.start}')
             logger.debug(f'--> _start = {region._start}')
@@ -292,7 +336,7 @@ def extract(
             all_regions.append(region)
 
             # TEMPORARY OVERRIDE
-            # all_regions = [g2g.parse_region(args.region)]
+            # all_regions = [region.parse_region(args.region)]
 
         elif bed_file:
             # bed file
@@ -302,7 +346,7 @@ def extract(
                     strand = bed_rec.strand if bed_rec.strand else "+"
                     logger.debug(bed_rec)
                     all_regions.append(
-                        g2g.Region(
+                        g2g_region.Region(
                             bed_rec.chrom,
                             bed_rec.start,
                             bed_rec.end,
@@ -338,7 +382,7 @@ def extract(
 
             if region:
                 # overridden here, fasta.extract expects 1 base
-                all_regions = [g2g.parse_region(region)]
+                all_regions = [g2g_region.parse_region(region)]
 
             g2g_fasta_transform.process(
                 fasta_file_name_in=fasta_file,
@@ -389,7 +433,7 @@ def extract(
 
                     logger.debug('Genes extracted, transforming to locations')
                     for gene in genes:
-                        r = g2g.Region(
+                        r = g2g_region.Region(
                             gene.seqid,
                             gene.start - 1,
                             gene.end,
@@ -405,7 +449,7 @@ def extract(
                     for i, transcript in enumerate(transcripts):
                         for ensembl_id, exon in transcript.exons.items():
                             if ensembl_id not in exon_ids:
-                                r = g2g.Region(
+                                r = g2g_region.Region(
                                     exon.seqid,
                                     exon.start - 1,
                                     exon.end,
@@ -485,7 +529,7 @@ def patch(
         logger.error('Please use either a location or a BED file.')
         raise typer.Exit()
     elif region and not bed_file:
-        all_locations = [g2g.parse_region(region)]
+        all_locations = [g2g_region.parse_region(region)]
     elif not region and bed_file:
         bed_file = g2g_bed.BED(bed_file)
         all_locations = []
@@ -493,7 +537,7 @@ def patch(
             if bed_file.current_line_is_bed:
                 strand = bed_rec.strand if bed_rec.strand else "+"
                 all_locations.append(
-                    g2g.Region(
+                    g2g_region.Region(
                         bed_rec.chrom,
                         bed_rec.start,
                         bed_rec.end,
@@ -577,7 +621,7 @@ def transform(
             logger.error('Please use either a location or a BED file.')
             raise typer.Exit()
         elif region and not bed_file:
-            all_locations = [g2g.parse_region(region)]
+            all_locations = [g2g_region.parse_region(region)]
         elif not region and bed_file:
             bed_file = g2g_bed.BED(bed_file)
             all_locations = []
@@ -585,7 +629,7 @@ def transform(
                 if bed_file.current_line_is_bed:
                     strand = bed_rec.strand if bed_rec.strand else "+"
                     all_locations.append(
-                        g2g.Region(
+                        g2g_region.Region(
                             bed_rec.chrom, bed_rec.start, bed_rec.end, strand
                         )
                     )
@@ -653,7 +697,7 @@ def parse_region(
         base_fixed = base.value
         logger.debug(f'-b {base}')
 
-        region = g2g.parse_region(region, base=base_fixed, name=name)
+        region = g2g_region.parse_region(region, base=base_fixed, name=name)
         logger.warning(region)
         logger.warning(f'Seq ID: {region.seq_id}')
         logger.warning(f'Start: {region.start}')
@@ -780,13 +824,13 @@ def vci_query(
     try:
         vci_file = str(vci_file) if vci_file else None
 
-        region = g2g.parse_region(region, 1)
+        region = g2g_region.parse_region(region, 1)
         g2g_vci.vci_query(vci_file, region)
     except KeyboardInterrupt as ki:
-        g2g.exit(str(ki))
+        g2g_utils.exit(str(ki))
     except exceptions.KeyboardInterruptError as e:
-        g2g.exit(str(e))
+        g2g_utils.exit(str(e))
     except exceptions.G2GValueError as e:
-        g2g.exit(e.msg)
+        g2g_utils.exit(e.msg)
     except exceptions.G2GError as e:
-        g2g.exit(e.msg)
+        g2g_utils.exit(e.msg)

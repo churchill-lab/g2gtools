@@ -1,6 +1,7 @@
 # standard library imports
 import collections
 import time
+from collections import OrderedDict
 
 # 3rd party library imports
 import pysam
@@ -9,8 +10,8 @@ from bx.intervals.intersection import Interval, IntervalTree
 # local library imports
 from g2gtools.exceptions import G2GError
 from g2gtools.exceptions import G2GRegionError
-import g2gtools.g2g as g2g
 import g2gtools.g2g_utils as g2g_utils
+import g2gtools.region as region
 
 logger = g2g_utils.get_logger('g2gtools')
 
@@ -269,7 +270,6 @@ class VCIFile:
             for contig in contigs:
                 # contig_start_time = time.time()
 
-                # logger.info(f'Parsing VCI, contig: {contig}')
                 num_lines_chrom = 0
                 num_lines_processed = 0
 
@@ -286,6 +286,7 @@ class VCIFile:
                         contig, parser=pysam.asTuple()
                     )
                 except Exception:
+                    logger.error('uh oh')
                     pass
 
                 if iterator is None:
@@ -315,11 +316,17 @@ class VCIFile:
                         deleted_bases = len(rec[_deleted])
 
                     fragment = int(rec[_fragment])
+#g2gtools [09:35:22] Inserting interval 195349534 - 195359214
+#g2gtools [09:35:22] pos_from=195359216, pos_to=195305722
+#g2gtools [09:35:22] Inserting interval 195359216 - 195363317
+# 1	195363316	CA	A	.	4101
+# 1	195365691	.	G	T	.
 
-                    # logging.debug(f'pos_from={pos_from}, pos_to={pos_to}')
-                    # logging.debug(
-                    #     f'Inserting interval {pos_from} - {pos_from+fragment}'
-                    #  )
+
+                    # logger.debug(f'pos_from={pos_from}, pos_to={pos_to}')
+                    # logger.debug(
+                    #      f'Inserting interval {pos_from} - {pos_from+fragment}'
+                    # )
                     # 'chr', 'start', 'end', 'shared', 'inserted', 'deleted', 'pos'
                     info = IntervalInfo(
                         contig,  # chr
@@ -379,6 +386,9 @@ class VCIFile:
             self.valid = True
             self.mapping_tree = mapping_tree
         except Exception:
+            print(rec)
+            print(self.contigs)
+            print(contig)
             g2g_utils.show_error()
 
         # fmt_time = g2g_utils.format_time(start, time.time())
@@ -459,7 +469,7 @@ class VCIFile:
         return mappings
 
 
-def vci_query(vci_file_name_in: str, region: g2g.Region) -> None:
+def vci_query(vci_file_name_in: str, reg: region.Region) -> None:
     """
     Query the VCI file and output the matching records.
 
@@ -472,12 +482,19 @@ def vci_query(vci_file_name_in: str, region: g2g.Region) -> None:
     vci_file_name_in = g2g_utils.check_file(vci_file_name_in, 'r')
 
     logger.warning(f'VCI File: {vci_file_name_in}')
-    logger.warning(f'Region: {region}')
+    logger.warning(f'Region: {reg}')
+    logger.debug(f'seq_id: {reg.seq_id}')
+    logger.debug(f'start: {reg.start}')
+    logger.debug(f'end: {reg.end}')
 
-    vci_f = VCIFile(vci_file_name_in, seq_ids=[region.seq_id])
+    vci_f = VCIFile(vci_file_name_in, seq_ids=[reg.seq_id])
     vci_f.parse(False)
 
-    mappings = vci_f.find_mappings(region.seq_id, region.start, region.end)
+    mappings = vci_f.find_mappings(reg.seq_id, reg.start, reg.end)
+
+    if mappings is None:
+        logger.warning('No mappings found')
+        return
 
     for m in mappings:
         logger.debug(m)
@@ -485,10 +502,10 @@ def vci_query(vci_file_name_in: str, region: g2g.Region) -> None:
     start_pos = mappings[0].to_start
     end_pos = mappings[-1].to_end
 
-    logger.debug(f'Converted: {region.seq_id}:{start_pos + 1}-{end_pos + 1}')
+    logger.debug(f'Converted: {reg.seq_id}:{start_pos + 1}-{end_pos + 1}')
 
     for line in vci_f.fetch(
-        reference=region.seq_id,
+        reference=reg.seq_id,
         start=start_pos,
         end=end_pos,
         parser=pysam.asTuple(),
@@ -497,3 +514,85 @@ def vci_query(vci_file_name_in: str, region: g2g.Region) -> None:
 
     fmt_time = g2g_utils.format_time(start, time.time())
     logger.warning(f'VCI Query Complete: {fmt_time}')
+
+
+def convert_region(
+        vci_file: str | VCIFile,
+        reg: region.Region | list[region.Region] | str | list[str]
+    ):
+    """
+    Convert location(s) to new coordinates.
+
+    :param vci_file: a string or VCIFile
+    :param reg: a location or list of locations
+    :return: a list of regions or a single region
+    """
+
+    if isinstance(vci_file, VCIFile):
+        logger.warning(f'VCI FILE: {vci_file.filename}')
+        logger.info(f'VCI FILE IS DIPLOID: {vci_file.is_diploid()}')
+    else:
+        vci_file = g2g_utils.check_file(vci_file)
+        vci_file = VCIFile(vci_file)
+        logger.warning(f'VCI FILE: {vci_file.filename}')
+        logger.info(f'VCI FILE IS DIPLOID: {vci_file.is_diploid()}')
+        vci_file.parse(reverse=False)
+
+    all_regions = []
+
+    if isinstance(reg, region.Region):
+        all_regions.append(region)
+    elif isinstance(reg, str):
+        all_regions.append(region.parse_region(region))
+    elif isinstance(reg, list):
+        for loc in reg:
+            if isinstance(loc, region.Region):
+                all_regions.append(loc)
+            elif isinstance(loc, str):
+                all_regions.append(region.parse_region(loc))
+            else:
+                raise G2GRegionError(f'Unknown region type: {type(loc)}')
+    else:
+        raise G2GRegionError(f'Unknown region type: {type(region)}')
+
+    left_right = [''] if vci_file.is_haploid() else ['_L', '_R']
+
+    total = 0
+    success = 0
+    fail = 0
+    ret = OrderedDict()
+
+    for r in all_regions:
+        logger.debug(f'ORIGINAL: {str(r)}')
+
+        total += 1
+
+        if total % 10000 == 0:
+            logger.info(f'Processed {total:,} regions')
+
+        for lr in left_right:
+            seq_id = f'{r.seq_id}{lr}'
+            mappings = vci_file.find_mappings(
+                seq_id, r.start - 1, r.end
+            )
+
+            # unmapped
+            if mappings is None:
+                ret[r] = None
+                logger.debug(f'\t{r} -> No mappings')
+                fail += 0
+                continue
+            else:
+                logger.debug(f'\t{r} -> {len(mappings)} mappings')
+
+            success += 1
+            start = mappings[0].to_start + 1
+            end = mappings[-1].to_end
+
+            ret[r] = region.Region(seq_id, start, end)
+            logger.debug(f'\t{r} -> {ret[r]}')
+
+    logger.warning(f'Converted {success:,} of {total:,} records')
+
+    return ret
+

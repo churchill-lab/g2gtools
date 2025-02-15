@@ -105,8 +105,9 @@ def attributes_to_odict(attributes: str) -> OrderedDict[str, str]:
         return OrderedDict()
 
     ret = OrderedDict()
-    for attribute in attributes.strip().split(';'):
+    for attribute in attributes.strip().split('";'):
         if len(attribute):
+            attribute = f'{attribute}"'
             elem = attribute.strip().split(' ')
             key = elem[0]
             val = ' '.join(elem[1:])
@@ -116,7 +117,6 @@ def attributes_to_odict(attributes: str) -> OrderedDict[str, str]:
             if val[-1] == '"':
                 val = val[0:-1]
             ret[key] = val
-
     return ret
 
 
@@ -273,9 +273,15 @@ def convert_gtf_file(
 
             if lr:
                 attributes = attributes_to_odict(elem[8])
+                logger.debug(f'attributes={attributes}')
                 for k, v in ATTRIBUTES_TO_ALTER.items():
                     if k in attributes:
-                        attributes[k] = f'{attributes[k]}{lr}'
+                        # only append '_L' or '_R' if it is not empty
+                        if len(attributes[k]) > 0:
+                            attributes[k] = f'{attributes[k]}{lr}'
+                        else:
+                            attributes[k] = f'{attributes[k]}'
+
                 elem[8] = odict_to_attributes(attributes)
 
             logger.debug('     NEW: {0}'.format('\t'.join(map(str, elem))))

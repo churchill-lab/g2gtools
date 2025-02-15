@@ -5,6 +5,7 @@ from subprocess import Popen
 from typing import Any
 from typing import IO
 from typing import Iterator
+import argparse
 import bz2
 import gzip
 import logging
@@ -24,18 +25,9 @@ from natsort import natsorted as _natsorted
 import pysam
 
 # local library imports
-import g2gtools.g2g
+import g2gtools.region as region
 from g2gtools.exceptions import G2GValueError
 
-
-REGEX_LOCATION = re.compile(
-    r'(\w*)\s*(-|:)?\s*(\d+)\s*(MB|M|K|)?\s*(-|:|)?\s*(\d+|)\s*(MB|M|K|)?',
-    re.IGNORECASE,
-)
-REGEX_LOCATION_CHR = re.compile(
-    r'(CHR|)*\s*([0-9]{1,2}|X|Y|MT)\s*(-|:)?\s*(\d+)\s*(MB|M|K|)?\s*(-|:|)?\s*(\d+|)\s*(MB|M|K|)?',
-    re.IGNORECASE,
-)
 BASES = re.compile(r'([ATGCYRSWKMBDHVNatgcyrswkmbdhvn]+)')
 
 TRANS = str.maketrans(
@@ -830,7 +822,7 @@ def delete_dir(directory: str) -> None:
             raise G2GValueError(f'Will not delete directory: {directory}')
 
 
-def location_to_filestring(location: g2gtools.g2g.Region) -> str:
+def location_to_filestring(location: region.Region) -> str:
     """
     Convert the specified Region into a string representation.
 
@@ -841,3 +833,23 @@ def location_to_filestring(location: g2gtools.g2g.Region) -> str:
         The region as a string.
     """
     return f'{location.seq_id}-{location.start}-{location.end}'
+
+
+def exit(message: str = '', parser: argparse.ArgumentParser = None) -> None:
+    """
+    Print message, help, and exit.
+
+    Args:
+        message: The message to print.
+        parser: The argument parser.
+    """
+    if parser:
+        if message:
+            parser.error(message)
+        else:
+            parser.error('Unknown error specified')
+    else:
+        if message:
+            sys.stderr.write(f'[g2gtools] Error: {message}\n')
+
+    sys.exit(1)
