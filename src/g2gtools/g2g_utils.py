@@ -858,3 +858,9 @@ def exit(message: str = '', parser: argparse.ArgumentParser = None) -> None:
             sys.stderr.write(f'[g2gtools] Error: {message}\n')
 
     sys.exit(1)
+
+
+def convert_if_bytes(data):
+    if isinstance(data, bytes):
+        return data.decode('utf-8')  # Decode bytes to string using UTF-8 encoding
+    return data

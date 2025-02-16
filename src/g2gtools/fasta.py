@@ -242,8 +242,7 @@ def extract(
         fasta_file = g2g_utils.check_file(fasta_file)
         fasta_file = pysam.FastaFile(fasta_file)
 
-    string_filename = str(fasta_file.filename)
-    logger.warning(f'Input Fasta File: {fasta_file.filename}')
+    logger.warning(f'Input Fasta File: {g2g_utils.convert_if_bytes(fasta_file.filename)}')
 
     if output_file_name:
         output_file_name = g2g_utils.check_file(output_file_name, 'w')
