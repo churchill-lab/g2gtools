@@ -20,6 +20,7 @@ import time
 import urllib
 
 # 3rd party library imports
+from logger_tt import setup_logging, logger
 from rich.logging import RichHandler
 from natsort import natsorted as _natsorted
 import pysam
@@ -105,13 +106,17 @@ def configure_logging(
 
     log = logging.getLogger(logger_name)
 
-    # set gbrs's logging level
+    # set g2g's logging level
     if level == 0:
         log.setLevel(logging.WARNING)
     elif level == 1:
         log.setLevel(logging.INFO)
-    elif level > 1:
+    elif level < 10:
         log.setLevel(logging.DEBUG)
+    else:
+        # assume we are no using built in and not g2g defined
+        log.setLevel(level)
+
 
     return log
 

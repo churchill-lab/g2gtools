@@ -10,13 +10,16 @@ import importlib.metadata
 import os
 import pathlib
 import re
+import time
 
 # 3rd party library imports
 import pysam
 
 # local library imports
+from g2gtools.exceptions import G2GError
 from g2gtools.exceptions import G2GBAMError
 from g2gtools.exceptions import G2GCigarFormatError
+from g2gtools.exceptions import KeyboardInterruptError
 import g2gtools.g2g_utils as g2g_utils
 import g2gtools.vci as vci
 
@@ -134,572 +137,582 @@ def convert_bcsam_file(
         reverse: True to process VCI in reverse.
         debug_level: Debug level (0=WARN,1=INFO,2+=DEBUG).
     """
-    if not isinstance(vci_file, vci.VCIFile):
-        vci_file = g2g_utils.check_file(vci_file)
-        logger.info('Parsing vci file...')
-        vci_file = vci.VCIFile(vci_file, reverse=reverse)
-        vci_file.parse(reverse=reverse)
-        logger.info('VCI file parsed')
-
-    bcsam_file_name_in = g2g_utils.check_file(bcsam_file_name_in)
-    bcsam_file_name_out = g2g_utils.check_file(bcsam_file_name_out, 'w')
-    unmapped_file_name = f'{bcsam_file_name_out}.unmapped'
-    alignment_file_in = open_alignment_file(bcsam_file_name_in)
-
-    logger.warning(f'VCI FILE: {vci_file.file_name}')
-    logger.warning(f'INPUT BAM/CRAM/SAM FILE: {bcsam_file_name_in}')
-    logger.warning(f'OUTPUT BAM/CRAM/SAM FILE: {bcsam_file_name_out}')
-    logger.warning(f'UNMAPPED FILE: {unmapped_file_name}')
-    logger.info('Converting BAM file')
-
-    new_header = alignment_file_in.header.to_dict()
-
-    # replace 'HD'
-    new_header['HD'] = {'VN': 1.0, 'SO': 'coordinate'}
-
-    # replace SQ
-    # Filter the records in alignment_file_in.header['SQ'] to keep only those that are in the vci file
-    filtered_header_sq = [record for record in alignment_file_in.header['SQ'] if record['SN'] in vci_file.contigs]
-
-    new_header['SQ'] = filtered_header_sq
-
-    if 'PG' not in new_header:
-        new_header['PG'] = []
-
-    new_header['PG'].append({
-        'ID': 'g2gtools',
-        'VN': importlib.metadata.version('g2gtools')
-    })
-
-    if 'CO' not in new_header:
-        new_header['CO'] = []
-
-    new_header['CO'].append(f'Original file: {bcsam_file_name_in}')
-    new_header['CO'].append(f'VCI File: {vci_file.filename}')
-
-    temp_dir, temp_file_name = os.path.split(bcsam_file_name_out)
-    parts = temp_file_name.split('.')
-    ext = parts[-1]
-
-    if ext.lower() == 'bam':
-        new_file = pysam.AlignmentFile(
-            bcsam_file_name_out, 'wb', header=new_header
-        )
-        new_file_unmapped = pysam.AlignmentFile(
-            unmapped_file_name, 'wb', template=alignment_file_in
-        )
-    elif ext.lower() == 'sam':
-        new_file = pysam.AlignmentFile(
-            bcsam_file_name_out, 'wh', header=new_header
-        )
-        new_file_unmapped = pysam.AlignmentFile(
-            unmapped_file_name, 'wh', template=alignment_file_in
-        )
-    else:
-        raise G2GBAMError('Unable to create file based upon file extension')
-        
-    # create map from contig name to new ID index. 
-    # If build using input BAM, IDs are out of sync and it contains contigs not in the VCI file.
-    name_to_id = {}
-    for ref_name in vci_file.contigs:
-        name_to_id[ref_name] = new_file.get_tid(ref_name)
-
-    total = 0
-    total_unmapped = 0
-    total_fail_qc = 0
-
-    map_statistics = {
-        'total': 0,
-        'fail_cannot_map': 0,
-        'success_simple': 0,
-        'success_complex': 0,
-    }
-
-    map_statistics_pair = {
-        'total': 0,
-        'fail_cannot_map': 0,
-        'success_1_fail_2_simple': 0,
-        'success_1_fail_2_complex': 0,
-        'success_1_simple_2_fail': 0,
-        'success_1_simple_2_simple': 0,
-        'success_1_simple_2_complex': 0,
-        'success_1_complex_2_fail': 0,
-        'success_1_complex_2_simple': 0,
-        'success_1_complex_2_complex': 0,
-    }
-
     try:
-        while True:
-            if total and total % 10000 == 0:
-                status_success = 0
-                status_failed = 0
+        start = time.time()
 
-                for k, v in map_statistics_pair.items():
-                    if k.startswith('success'):
-                        status_success += v
-                    elif k.startswith('fail'):
-                        status_failed += v
+        if not isinstance(vci_file, vci.VCIFile):
+            vci_file = g2g_utils.check_file(vci_file)
+            logger.info('Parsing VCI File')
+            vci_file = vci.VCIFile(vci_file, reverse=reverse)
+            vci_file.parse(reverse=reverse)
+            logger.info('VCI file parsed')
 
-                logger.info(
-                    f'Processed {total:,} reads, '
-                    f'{status_success:,} successful, '
-                    f'{status_failed:,} failed'
-                )
+        bcsam_file_name_in = g2g_utils.check_file(bcsam_file_name_in)
+        bcsam_file_name_out = g2g_utils.check_file(bcsam_file_name_out, 'w')
+        unmapped_file_name = f'{bcsam_file_name_out}.unmapped'
+        alignment_file_in = open_alignment_file(bcsam_file_name_in)
 
-            alignment = next(alignment_file_in)
-            alignment_new = pysam.AlignedSegment()
-            read_chr = alignment_file_in.get_reference_name(
-                alignment.reference_id
+        logger.warning(f'Input VCI File: {vci_file.file_name}')
+        logger.warning(f'Input BAM/CRAM/SAM File: {bcsam_file_name_in}')
+        logger.warning(f'Output BAM/CRAM/SAM File: {bcsam_file_name_out}')
+        logger.warning(f'Output UNMAPPED File: {unmapped_file_name}')
+        logger.info('Converting BAM file')
+
+        new_header = alignment_file_in.header.to_dict()
+
+        # replace 'HD'
+        new_header['HD'] = {'VN': 1.0, 'SO': 'coordinate'}
+
+        # replace SQ
+        # Filter the records in alignment_file_in.header['SQ'] to keep only those that are in the vci file
+        filtered_header_sq = [record for record in alignment_file_in.header['SQ'] if record['SN'] in vci_file.contigs]
+
+        new_header['SQ'] = filtered_header_sq
+
+        if 'PG' not in new_header:
+            new_header['PG'] = []
+
+        new_header['PG'].append({
+            'ID': 'g2gtools',
+            'VN': importlib.metadata.version('g2gtools')
+        })
+
+        if 'CO' not in new_header:
+            new_header['CO'] = []
+
+        new_header['CO'].append(f'Original file: {bcsam_file_name_in}')
+        new_header['CO'].append(f'VCI File: {vci_file.filename}')
+
+        temp_dir, temp_file_name = os.path.split(bcsam_file_name_out)
+        parts = temp_file_name.split('.')
+        ext = parts[-1]
+
+        if ext.lower() == 'bam':
+            new_file = pysam.AlignmentFile(
+                bcsam_file_name_out, 'wb', header=new_header
             )
-            total += 1
-
-            logger.debug('~' * 80)
-            logger.debug(
-                f'Converting {alignment.query_name} {read_chr} '
-                f'{alignment.reference_start} {alignment.cigarstring}'
+            new_file_unmapped = pysam.AlignmentFile(
+                unmapped_file_name, 'wb', template=alignment_file_in
             )
+        elif ext.lower() == 'sam':
+            new_file = pysam.AlignmentFile(
+                bcsam_file_name_out, 'wh', header=new_header
+            )
+            new_file_unmapped = pysam.AlignmentFile(
+                unmapped_file_name, 'wh', template=alignment_file_in
+            )
+        else:
+            raise G2GBAMError('Unable to create file based upon file extension')
 
-            if alignment.is_qcfail:
-                logger.debug('\tFail due to qc of old alignment')
-                new_file_unmapped.write(alignment)
-                total_fail_qc += 1
-                continue
+        # create map from contig name to new ID index.
+        # If build using input BAM, IDs are out of sync and it contains contigs not in the VCI file.
+        name_to_id = {}
+        for ref_name in vci_file.contigs:
+            name_to_id[ref_name] = new_file.get_tid(ref_name)
 
-            if alignment.is_unmapped:
-                logger.debug('\tFail due to unmapped old alignment')
-                new_file_unmapped.write(alignment)
-                total_unmapped += 1
-                continue
+        total = 0
+        total_unmapped = 0
+        total_fail_qc = 0
 
-            if not alignment.is_paired:
-                logger.debug('SINGLE END ALIGNMENT')
-                map_statistics['total'] += 1
+        map_statistics = {
+            'total': 0,
+            'fail_cannot_map': 0,
+            'success_simple': 0,
+            'success_complex': 0,
+        }
 
-                alignment_new.query_sequence = alignment.query_sequence
-                alignment_new.flag = FLAG_NONE
-                alignment_new.mapping_quality = alignment.mapping_quality
-                alignment_new.query_name = alignment.query_name
-                alignment_new.query_qualities = alignment.query_qualities
-                alignment_new.set_tags(alignment.get_tags())
+        map_statistics_pair = {
+            'total': 0,
+            'fail_cannot_map': 0,
+            'success_1_fail_2_simple': 0,
+            'success_1_fail_2_complex': 0,
+            'success_1_simple_2_fail': 0,
+            'success_1_simple_2_simple': 0,
+            'success_1_simple_2_complex': 0,
+            'success_1_complex_2_fail': 0,
+            'success_1_complex_2_simple': 0,
+            'success_1_complex_2_complex': 0,
+        }
 
-                read_start = alignment.reference_start
-                read_end = alignment.reference_end
+        try:
+            while True:
+                if total and total % 10000 == 0:
+                    status_success = 0
+                    status_failed = 0
 
-                mappings = vci_file.find_mappings(
-                    read_chr, read_start, read_end
-                )
+                    for k, v in map_statistics_pair.items():
+                        if k.startswith('success'):
+                            status_success += v
+                        elif k.startswith('fail'):
+                            status_failed += v
 
-                # unmapped
-                if mappings is None:
-                    logger.debug('\tFail due to no mappings')
-                    new_file_unmapped.write(alignment)
-                    map_statistics['fail_cannot_map'] += 1
-
-                elif len(mappings) == 1:
-                    if alignment.is_reverse:
-                        alignment_new.flag |= FLAG_REVERSE
-
-                    alignment_new.reference_id = name_to_id[mappings[0].to_chr]
-                    alignment_new.reference_start = mappings[0].to_start
-                    alignment_new.cigartuples = alignment.cigartuples
-                    new_file.write(alignment_new)
-
-                    logger.debug(
-                        f'\tSuccess (simple): {alignment_new.reference_start} '
-                        f'{alignment_new.cigarstring}'
+                    logger.info(
+                        f'Processed {total:,} reads, '
+                        f'{status_success:,} successful, '
+                        f'{status_failed:,} failed'
                     )
-                    map_statistics['success_simple'] += 1
 
-                else:
-                    logger.debug(f'MAPPINGS: {len(mappings)}')
-                    for m in mappings:
-                        logger.debug(f'> {m}')
-
-                    if alignment.is_reverse:
-                        alignment_new.flag |= FLAG_REVERSE
-
-                    alignment_new.reference_id = name_to_id[mappings[0].to_chr]
-                    alignment_new.reference_start = mappings[0].to_start
-                    alignment_new.cigartuples = convert_cigar(
-                        alignment.cigartuples,
-                        read_chr,
-                        vci_file,
-                        alignment.query_sequence,
-                        alignment.reference_start,
-                    )
-                    new_file.write(alignment_new)
-
-                    logger.debug(
-                        f'\tSuccess (complex): {alignment_new.reference_start} '
-                        f'{alignment_new.cigarstring}'
-                    )
-                    map_statistics['success_complex'] += 1
-
-            else:
-                logger.debug('PAIRED END ALIGNMENT')
-                map_statistics_pair['total'] += 1
-
-                alignment_new.query_sequence = alignment.query_sequence
-                alignment_new.flag = FLAG_PAIRED
-                alignment_new.mapping_quality = alignment.mapping_quality
-                alignment_new.query_name = alignment.query_name
-                alignment_new.query_qualities = alignment.query_qualities
-                alignment_new.set_tags(alignment.get_tags())
-
-                if alignment.is_read1:
-                    alignment_new.flag |= FLAG_READ1
-                if alignment.is_read2:
-                    alignment_new.flag |= FLAG_READ2
-                if alignment.is_reverse:
-                    alignment_new.flag |= FLAG_REVERSE
-                if alignment.mate_is_reverse:
-                    alignment_new.flag |= FLAG_MREVERSE
-                if alignment.is_proper_pair:
-                    alignment_new.flag |= FLAG_PROPER_PAIR
-
-                read1_chr = alignment_file_in.get_reference_name(
+                alignment = next(alignment_file_in)
+                alignment_new = pysam.AlignedSegment()
+                read_chr = alignment_file_in.get_reference_name(
                     alignment.reference_id
                 )
-                read1_start = alignment.reference_start
-                read1_end = alignment.reference_end
-                read1_mappings = vci_file.find_mappings(
-                    read1_chr, read1_start, read1_end
+                total += 1
+
+                logger.debug('~' * 80)
+                logger.debug(
+                    f'Converting {alignment.query_name} {read_chr} '
+                    f'{alignment.reference_start} {alignment.cigarstring}'
                 )
 
-                read2_mappings = None
-
-                if alignment.mate_is_unmapped:
-                    alignment_new.flag |= FLAG_MUNMAP
-                else:
-                    read2_chr = alignment_file_in.get_reference_name(
-                        alignment.next_reference_id
-                    )
-                    read2_start = alignment.next_reference_start
-                    read2_end = read2_start + 1
-
-                    try:
-                        read2_mappings = vci_file.find_mappings(
-                            read2_chr, read2_start, read2_end
-                        )
-                    except Exception as e:
-                        logger.error(e)
-                        read2_mappings = None
-
-                if read1_mappings is None and read2_mappings is None:
-                    alignment_new.flag |= FLAG_UNMAP
-                    alignment_new.flag |= FLAG_MUNMAP
-
-                    logger.debug('\tFail due to no mappings')
+                if alignment.is_qcfail:
+                    logger.debug('\tFail due to qc of old alignment')
                     new_file_unmapped.write(alignment)
-                    map_statistics_pair['fail_cannot_map'] += 1
+                    total_fail_qc += 1
+                    continue
 
-                elif (
-                    read1_mappings is None
-                    and read2_mappings
-                    and len(read2_mappings) == 1
-                ):
-                    alignment_new.flag |= FLAG_UNMAP
-                    alignment_new.reference_start = 0
-                    alignment_new.cigarstring = '0M'
-                    alignment_new.next_reference_id = name_to_id[
-                        read2_mappings[0].to_chr
-                    ]
-                    alignment_new.next_reference_start = read2_mappings[
-                        0
-                    ].to_start
-                    alignment_new.template_length = 0
+                if alignment.is_unmapped:
+                    logger.debug('\tFail due to unmapped old alignment')
+                    new_file_unmapped.write(alignment)
+                    total_unmapped += 1
+                    continue
 
-                    logger.debug(
-                        '\tPair Success (1:fail, 2:simple): '
-                        f'{alignment_new.reference_start} '
-                        f'{alignment_new.cigarstring}'
+                if not alignment.is_paired:
+                    logger.debug('SINGLE END ALIGNMENT')
+                    map_statistics['total'] += 1
+
+                    alignment_new.query_sequence = alignment.query_sequence
+                    alignment_new.flag = FLAG_NONE
+                    alignment_new.mapping_quality = alignment.mapping_quality
+                    alignment_new.query_name = alignment.query_name
+                    alignment_new.query_qualities = alignment.query_qualities
+                    alignment_new.set_tags(alignment.get_tags())
+
+                    read_start = alignment.reference_start
+                    read_end = alignment.reference_end
+
+                    mappings = vci_file.find_mappings(
+                        read_chr, read_start, read_end
                     )
-                    new_file.write(alignment_new)
-                    map_statistics_pair['success_1_fail_2_simple'] += 1
 
-                elif (
-                    read1_mappings is None
-                    and read2_mappings
-                    and len(read2_mappings) > 1
-                ):
-                    alignment_new.flag |= FLAG_UNMAP
-                    alignment_new.reference_start = 0
-                    alignment_new.cigarstring = '0M'
-                    alignment_new.next_reference_id = name_to_id[
-                        read2_mappings[0].to_chr
-                    ]
-                    alignment_new.next_reference_start = read2_mappings[
-                        0
-                    ].to_start
-                    alignment_new.template_length = 0
+                    # unmapped
+                    if mappings is None:
+                        logger.debug('\tFail due to no mappings')
+                        new_file_unmapped.write(alignment)
+                        map_statistics['fail_cannot_map'] += 1
 
-                    logger.debug(
-                        '\tPair Success (1:fail, 2:complex): '
-                        f'{alignment_new.reference_start} '
-                        f'{alignment_new.cigarstring}'
-                    )
-                    new_file.write(alignment_new)
-                    map_statistics_pair['success_1_fail_2_complex'] += 1
+                    elif len(mappings) == 1:
+                        if alignment.is_reverse:
+                            alignment_new.flag |= FLAG_REVERSE
 
-                elif (
-                    read1_mappings
-                    and len(read1_mappings) == 1
-                    and read2_mappings is None
-                ):
-                    alignment_new.flag |= FLAG_MUNMAP
-                    alignment_new.reference_id = name_to_id[
-                        read1_mappings[0].to_chr
-                    ]
-                    alignment_new.reference_start = read1_mappings[0].to_start
-                    alignment_new.cigarstring = alignment.cigarstring
-                    alignment_new.next_reference_id = name_to_id[
-                        read1_mappings[0].to_chr
-                    ]
-                    alignment_new.next_reference_start = 0
-                    alignment_new.template_length = 0
+                        alignment_new.reference_id = name_to_id[mappings[0].to_chr]
+                        alignment_new.reference_start = mappings[0].to_start
+                        alignment_new.cigartuples = alignment.cigartuples
+                        new_file.write(alignment_new)
 
-                    logger.debug(
-                        '\tPair Success (1:simple,2:fail): '
-                        f'{alignment_new.reference_start} '
-                        f'{alignment_new.cigarstring}'
-                    )
-                    new_file.write(alignment_new)
-                    map_statistics_pair['success_1_simple_2_fail'] += 1
+                        logger.debug(
+                            f'\tSuccess (simple): {alignment_new.reference_start} '
+                            f'{alignment_new.cigarstring}'
+                        )
+                        map_statistics['success_simple'] += 1
 
-                elif (
-                    read1_mappings
-                    and len(read1_mappings) == 1
-                    and read2_mappings
-                    and len(read2_mappings) == 1
-                ):
-                    alignment_new.reference_id = name_to_id[
-                        read1_mappings[0].to_chr
-                    ]
-                    alignment_new.reference_start = read1_mappings[0].to_start
-                    alignment_new.cigarstring = alignment.cigarstring
-                    alignment_new.next_reference_id = name_to_id[
-                        read2_mappings[0].to_chr
-                    ]
-                    alignment_new.next_reference_start = read2_mappings[
-                        0
-                    ].to_start
-                    alignment_new.template_length = 0  # CHECK
+                    else:
+                        logger.debug(f'MAPPINGS: {len(mappings)}')
+                        for m in mappings:
+                            logger.debug(f'> {m}')
 
-                    logger.debug(
-                        '\tPair Success (1:simple,2:simple): '
-                        f'{alignment_new.reference_start} '
-                        f'{alignment_new.cigarstring}'
-                    )
-                    new_file.write(alignment_new)
-                    map_statistics_pair['success_1_simple_2_simple'] += 1
+                        if alignment.is_reverse:
+                            alignment_new.flag |= FLAG_REVERSE
 
-                elif (
-                    read1_mappings
-                    and len(read1_mappings) == 1
-                    and read2_mappings
-                    and len(read2_mappings) > 1
-                ):
-                    alignment_new.reference_id = name_to_id[
-                        read1_mappings[0].to_chr
-                    ]
-                    alignment_new.reference_start = read1_mappings[0].to_start
-                    alignment_new.cigarstring = alignment.cigarstring
-                    alignment_new.next_reference_id = name_to_id[
-                        read2_mappings[0].to_chr
-                    ]
-                    alignment_new.next_reference_start = read2_mappings[
-                        0
-                    ].to_start
-                    alignment_new.template_length = 0  # CHECK
+                        alignment_new.reference_id = name_to_id[mappings[0].to_chr]
+                        alignment_new.reference_start = mappings[0].to_start
+                        alignment_new.cigartuples = convert_cigar(
+                            alignment.cigartuples,
+                            read_chr,
+                            vci_file,
+                            alignment.query_sequence,
+                            alignment.reference_start,
+                        )
+                        new_file.write(alignment_new)
 
-                    logger.debug(
-                        '\tPair Success (1:simple,2:complex): '
-                        f'{alignment_new.reference_start} '
-                        f'{alignment_new.cigarstring}'
-                    )
-                    new_file.write(alignment_new)
-                    map_statistics_pair['success_1_simple_2_complex'] += 1
-
-                elif (
-                    read1_mappings
-                    and len(read1_mappings) > 1
-                    and read2_mappings is None
-                ):
-                    alignment_new.flag |= FLAG_MUNMAP
-                    alignment_new.reference_id = name_to_id[
-                        read1_mappings[0].to_chr
-                    ]
-                    alignment_new.reference_start = read1_mappings[0].to_start
-                    alignment_new.cigartuples = convert_cigar(
-                        alignment.cigartuples,
-                        read_chr,
-                        vci_file,
-                        alignment.query_sequence,
-                        alignment.reference_start,
-                    )
-                    alignment_new.next_reference_id = name_to_id[
-                        read1_mappings[0].to_chr
-                    ]
-                    alignment_new.next_reference_start = 0
-                    alignment_new.template_length = 0  # CHECK
-
-                    logger.debug(
-                        '\tPair Success (1:complex,2:fail): '
-                        f'{alignment_new.reference_start} '
-                        f'{alignment_new.cigarstring}'
-                    )
-                    new_file.write(alignment_new)
-                    map_statistics_pair['success_1_complex_2_fail'] += 1
-
-                elif (
-                    read1_mappings
-                    and len(read1_mappings) > 1
-                    and read2_mappings
-                    and len(read2_mappings) == 1
-                ):
-                    alignment_new.reference_id = name_to_id[
-                        read1_mappings[0].to_chr
-                    ]
-                    alignment_new.reference_start = read1_mappings[0].to_start
-                    alignment_new.cigartuples = convert_cigar(
-                        alignment.cigartuples,
-                        read_chr,
-                        vci_file,
-                        alignment.query_sequence,
-                        alignment.reference_start,
-                    )
-                    alignment_new.next_reference_id = name_to_id[
-                        read2_mappings[0].to_chr
-                    ]
-                    alignment_new.next_reference_start = read2_mappings[
-                        0
-                    ].to_start
-                    alignment_new.template_length = 0  # CHECK
-
-                    logger.debug(
-                        '\tPair Success (1:complex,2:simple): '
-                        f'{alignment_new.reference_start} '
-                        f'{alignment_new.cigarstring}'
-                    )
-                    new_file.write(alignment_new)
-                    map_statistics_pair['success_1_complex_2_simple'] += 1
-
-                elif (
-                    read1_mappings
-                    and len(read1_mappings) > 1
-                    and read2_mappings
-                    and len(read2_mappings) > 1
-                ):
-                    alignment_new.reference_id = name_to_id[
-                        read1_mappings[0].to_chr
-                    ]
-                    alignment_new.reference_start = read1_mappings[0].to_start
-                    alignment_new.cigartuples = convert_cigar(
-                        alignment.cigartuples,
-                        read_chr,
-                        vci_file,
-                        alignment.query_sequence,
-                        alignment.reference_start,
-                    )
-                    alignment_new.next_reference_id = name_to_id[
-                        read2_mappings[0].to_chr
-                    ]
-                    alignment_new.next_reference_start = read2_mappings[
-                        0
-                    ].to_start
-                    alignment_new.template_length = 0  # CHECK
-
-                    logger.debug(
-                        '\tPair Success (1:complex,2:complex): '
-                        f'{alignment_new.reference_start} '
-                        f'{alignment_new.cigarstring}'
-                    )
-                    new_file.write(alignment_new)
-                    map_statistics_pair['success_1_complex_2_complex'] += 1
+                        logger.debug(
+                            f'\tSuccess (complex): {alignment_new.reference_start} '
+                            f'{alignment_new.cigarstring}'
+                        )
+                        map_statistics['success_complex'] += 1
 
                 else:
-                    raise G2GBAMError(
-                        'Unknown BAM/CRAM/SAM conversion/parse situation'
+                    logger.debug('PAIRED END ALIGNMENT')
+                    map_statistics_pair['total'] += 1
+
+                    alignment_new.query_sequence = alignment.query_sequence
+                    alignment_new.flag = FLAG_PAIRED
+                    alignment_new.mapping_quality = alignment.mapping_quality
+                    alignment_new.query_name = alignment.query_name
+                    alignment_new.query_qualities = alignment.query_qualities
+                    alignment_new.set_tags(alignment.get_tags())
+
+                    if alignment.is_read1:
+                        alignment_new.flag |= FLAG_READ1
+                    if alignment.is_read2:
+                        alignment_new.flag |= FLAG_READ2
+                    if alignment.is_reverse:
+                        alignment_new.flag |= FLAG_REVERSE
+                    if alignment.mate_is_reverse:
+                        alignment_new.flag |= FLAG_MREVERSE
+                    if alignment.is_proper_pair:
+                        alignment_new.flag |= FLAG_PROPER_PAIR
+
+                    read1_chr = alignment_file_in.get_reference_name(
+                        alignment.reference_id
+                    )
+                    read1_start = alignment.reference_start
+                    read1_end = alignment.reference_end
+                    read1_mappings = vci_file.find_mappings(
+                        read1_chr, read1_start, read1_end
                     )
 
-    except StopIteration:
-        logger.info('All reads processed')
+                    read2_mappings = None
 
-    logger.info(f'  {total:>10} TOTAL ENTRIES')
-    logger.info(f'  {total_unmapped:>10} TOTAL UNMAPPED')
-    logger.info(f'  {total_fail_qc:>10} TOTAL FAIL QC')
+                    if alignment.mate_is_unmapped:
+                        alignment_new.flag |= FLAG_MUNMAP
+                    else:
+                        read2_chr = alignment_file_in.get_reference_name(
+                            alignment.next_reference_id
+                        )
+                        read2_start = alignment.next_reference_start
+                        read2_end = read2_start + 1
 
-    if map_statistics['total'] > 0:
-        n = (
-            map_statistics['success_simple']
-            + map_statistics['success_complex']
-        )
-        logger.info('')
-        logger.info('Mapping Summary Single End')
-        logger.info(f"  {map_statistics['total']:>10} TOTAL ENTRIES")
-        logger.info('')
-        logger.info(f'  {n:>10} TOTAL SUCCESS')
-        logger.info(f"  {map_statistics['success_simple']:>10} Simple")
-        logger.info(f"  {map_statistics['success_complex']:>10} Complex")
-        logger.info('')
-        logger.info(
-            f"  {map_statistics['fail_cannot_map']:>10} TOTAL FAILURES"
-        )
-        logger.info(f"  {map_statistics['fail_cannot_map']:>10} Cannot Map")
+                        try:
+                            read2_mappings = vci_file.find_mappings(
+                                read2_chr, read2_start, read2_end
+                            )
+                        except Exception as e:
+                            logger.error(e)
+                            read2_mappings = None
 
-    if map_statistics_pair['total'] > 0:
-        total_success = 0
-        for k, v in map_statistics_pair.items():
-            if k.startswith('success'):
-                total_success += v
+                    if read1_mappings is None and read2_mappings is None:
+                        alignment_new.flag |= FLAG_UNMAP
+                        alignment_new.flag |= FLAG_MUNMAP
 
-        logger.info('')
-        logger.info('Mapping Summary Paired End')
-        logger.info(f"  {map_statistics_pair['total']:>10} TOTAL ENTRIES")
-        logger.info('')
-        logger.info(f'  {total_success:>10} TOTAL SUCCESS')
-        logger.info(
-            f"  {map_statistics_pair['success_1_fail_2_simple']:>10} "
-            'Read 1 Failed, Read 2 Simple'
-        )
-        logger.info(
-            f"  {map_statistics_pair['success_1_fail_2_complex']:>10} "
-            'Read 1 Failed, Read 2 Complex'
-        )
-        logger.info(
-            f"  {map_statistics_pair['success_1_simple_2_fail']:>10} "
-            'Read 1 Simple, Read 2 Failed'
-        )
-        logger.info(
-            f"  {map_statistics_pair['success_1_simple_2_simple']:>10} "
-            'Read 1 Simple, Read 2 Simple'
-        )
-        logger.info(
-            f"  {map_statistics_pair['success_1_simple_2_complex']:>10} "
-            'Read 1 Simple, Read 2 Complex'
-        )
-        logger.info(
-            f"  {map_statistics_pair['success_1_complex_2_fail']:>10} "
-            'Read 1 Complex, Read 2 Failed'
-        )
-        logger.info(
-            f"  {map_statistics_pair['success_1_complex_2_simple']:>10} "
-            'Read 1 Complex, Read 2 Simple'
-        )
-        logger.info(
-            f"  {map_statistics_pair['success_1_complex_2_complex']:>10} "
-            'Read 1 Complex, Read 2 Complex'
-        )
-        logger.info('')
-        logger.info(
-            f"  {map_statistics_pair['fail_cannot_map']:>10} TOTAL FAILURES"
-        )
-        logger.info(
-            f"  {map_statistics_pair['fail_cannot_map']:>10} Cannot Map"
-        )
-        logger.info('')
+                        logger.debug('\tFail due to no mappings')
+                        new_file_unmapped.write(alignment)
+                        map_statistics_pair['fail_cannot_map'] += 1
 
-    logger.info('BAM File Converted')
+                    elif (
+                        read1_mappings is None
+                        and read2_mappings
+                        and len(read2_mappings) == 1
+                    ):
+                        alignment_new.flag |= FLAG_UNMAP
+                        alignment_new.reference_start = 0
+                        alignment_new.cigarstring = '0M'
+                        alignment_new.next_reference_id = name_to_id[
+                            read2_mappings[0].to_chr
+                        ]
+                        alignment_new.next_reference_start = read2_mappings[
+                            0
+                        ].to_start
+                        alignment_new.template_length = 0
+
+                        logger.debug(
+                            '\tPair Success (1:fail, 2:simple): '
+                            f'{alignment_new.reference_start} '
+                            f'{alignment_new.cigarstring}'
+                        )
+                        new_file.write(alignment_new)
+                        map_statistics_pair['success_1_fail_2_simple'] += 1
+
+                    elif (
+                        read1_mappings is None
+                        and read2_mappings
+                        and len(read2_mappings) > 1
+                    ):
+                        alignment_new.flag |= FLAG_UNMAP
+                        alignment_new.reference_start = 0
+                        alignment_new.cigarstring = '0M'
+                        alignment_new.next_reference_id = name_to_id[
+                            read2_mappings[0].to_chr
+                        ]
+                        alignment_new.next_reference_start = read2_mappings[
+                            0
+                        ].to_start
+                        alignment_new.template_length = 0
+
+                        logger.debug(
+                            '\tPair Success (1:fail, 2:complex): '
+                            f'{alignment_new.reference_start} '
+                            f'{alignment_new.cigarstring}'
+                        )
+                        new_file.write(alignment_new)
+                        map_statistics_pair['success_1_fail_2_complex'] += 1
+
+                    elif (
+                        read1_mappings
+                        and len(read1_mappings) == 1
+                        and read2_mappings is None
+                    ):
+                        alignment_new.flag |= FLAG_MUNMAP
+                        alignment_new.reference_id = name_to_id[
+                            read1_mappings[0].to_chr
+                        ]
+                        alignment_new.reference_start = read1_mappings[0].to_start
+                        alignment_new.cigarstring = alignment.cigarstring
+                        alignment_new.next_reference_id = name_to_id[
+                            read1_mappings[0].to_chr
+                        ]
+                        alignment_new.next_reference_start = 0
+                        alignment_new.template_length = 0
+
+                        logger.debug(
+                            '\tPair Success (1:simple,2:fail): '
+                            f'{alignment_new.reference_start} '
+                            f'{alignment_new.cigarstring}'
+                        )
+                        new_file.write(alignment_new)
+                        map_statistics_pair['success_1_simple_2_fail'] += 1
+
+                    elif (
+                        read1_mappings
+                        and len(read1_mappings) == 1
+                        and read2_mappings
+                        and len(read2_mappings) == 1
+                    ):
+                        alignment_new.reference_id = name_to_id[
+                            read1_mappings[0].to_chr
+                        ]
+                        alignment_new.reference_start = read1_mappings[0].to_start
+                        alignment_new.cigarstring = alignment.cigarstring
+                        alignment_new.next_reference_id = name_to_id[
+                            read2_mappings[0].to_chr
+                        ]
+                        alignment_new.next_reference_start = read2_mappings[
+                            0
+                        ].to_start
+                        alignment_new.template_length = 0  # CHECK
+
+                        logger.debug(
+                            '\tPair Success (1:simple,2:simple): '
+                            f'{alignment_new.reference_start} '
+                            f'{alignment_new.cigarstring}'
+                        )
+                        new_file.write(alignment_new)
+                        map_statistics_pair['success_1_simple_2_simple'] += 1
+
+                    elif (
+                        read1_mappings
+                        and len(read1_mappings) == 1
+                        and read2_mappings
+                        and len(read2_mappings) > 1
+                    ):
+                        alignment_new.reference_id = name_to_id[
+                            read1_mappings[0].to_chr
+                        ]
+                        alignment_new.reference_start = read1_mappings[0].to_start
+                        alignment_new.cigarstring = alignment.cigarstring
+                        alignment_new.next_reference_id = name_to_id[
+                            read2_mappings[0].to_chr
+                        ]
+                        alignment_new.next_reference_start = read2_mappings[
+                            0
+                        ].to_start
+                        alignment_new.template_length = 0  # CHECK
+
+                        logger.debug(
+                            '\tPair Success (1:simple,2:complex): '
+                            f'{alignment_new.reference_start} '
+                            f'{alignment_new.cigarstring}'
+                        )
+                        new_file.write(alignment_new)
+                        map_statistics_pair['success_1_simple_2_complex'] += 1
+
+                    elif (
+                        read1_mappings
+                        and len(read1_mappings) > 1
+                        and read2_mappings is None
+                    ):
+                        alignment_new.flag |= FLAG_MUNMAP
+                        alignment_new.reference_id = name_to_id[
+                            read1_mappings[0].to_chr
+                        ]
+                        alignment_new.reference_start = read1_mappings[0].to_start
+                        alignment_new.cigartuples = convert_cigar(
+                            alignment.cigartuples,
+                            read_chr,
+                            vci_file,
+                            alignment.query_sequence,
+                            alignment.reference_start,
+                        )
+                        alignment_new.next_reference_id = name_to_id[
+                            read1_mappings[0].to_chr
+                        ]
+                        alignment_new.next_reference_start = 0
+                        alignment_new.template_length = 0  # CHECK
+
+                        logger.debug(
+                            '\tPair Success (1:complex,2:fail): '
+                            f'{alignment_new.reference_start} '
+                            f'{alignment_new.cigarstring}'
+                        )
+                        new_file.write(alignment_new)
+                        map_statistics_pair['success_1_complex_2_fail'] += 1
+
+                    elif (
+                        read1_mappings
+                        and len(read1_mappings) > 1
+                        and read2_mappings
+                        and len(read2_mappings) == 1
+                    ):
+                        alignment_new.reference_id = name_to_id[
+                            read1_mappings[0].to_chr
+                        ]
+                        alignment_new.reference_start = read1_mappings[0].to_start
+                        alignment_new.cigartuples = convert_cigar(
+                            alignment.cigartuples,
+                            read_chr,
+                            vci_file,
+                            alignment.query_sequence,
+                            alignment.reference_start,
+                        )
+                        alignment_new.next_reference_id = name_to_id[
+                            read2_mappings[0].to_chr
+                        ]
+                        alignment_new.next_reference_start = read2_mappings[
+                            0
+                        ].to_start
+                        alignment_new.template_length = 0  # CHECK
+
+                        logger.debug(
+                            '\tPair Success (1:complex,2:simple): '
+                            f'{alignment_new.reference_start} '
+                            f'{alignment_new.cigarstring}'
+                        )
+                        new_file.write(alignment_new)
+                        map_statistics_pair['success_1_complex_2_simple'] += 1
+
+                    elif (
+                        read1_mappings
+                        and len(read1_mappings) > 1
+                        and read2_mappings
+                        and len(read2_mappings) > 1
+                    ):
+                        alignment_new.reference_id = name_to_id[
+                            read1_mappings[0].to_chr
+                        ]
+                        alignment_new.reference_start = read1_mappings[0].to_start
+                        alignment_new.cigartuples = convert_cigar(
+                            alignment.cigartuples,
+                            read_chr,
+                            vci_file,
+                            alignment.query_sequence,
+                            alignment.reference_start,
+                        )
+                        alignment_new.next_reference_id = name_to_id[
+                            read2_mappings[0].to_chr
+                        ]
+                        alignment_new.next_reference_start = read2_mappings[
+                            0
+                        ].to_start
+                        alignment_new.template_length = 0  # CHECK
+
+                        logger.debug(
+                            '\tPair Success (1:complex,2:complex): '
+                            f'{alignment_new.reference_start} '
+                            f'{alignment_new.cigarstring}'
+                        )
+                        new_file.write(alignment_new)
+                        map_statistics_pair['success_1_complex_2_complex'] += 1
+
+                    else:
+                        raise G2GBAMError(
+                            'Unknown BAM/CRAM/SAM conversion/parse situation'
+                        )
+
+        except StopIteration:
+            logger.info('All reads processed')
+
+        logger.warning(f'Processed {total:,} entries')
+        logger.warning(f'{total_unmapped:,} unmapped entries')
+        logger.warning(f'{total_fail_qc:,} failed QC')
+
+        if map_statistics['total'] > 0:
+            n = (
+                map_statistics['success_simple']
+                + map_statistics['success_complex']
+            )
+            logger.info('')
+            logger.info('Mapping Summary Single End')
+            logger.info(f"  {map_statistics['total']:>10} TOTAL ENTRIES")
+            logger.info('')
+            logger.info(f'  {n:>10} TOTAL SUCCESS')
+            logger.info(f"  {map_statistics['success_simple']:>10} Simple")
+            logger.info(f"  {map_statistics['success_complex']:>10} Complex")
+            logger.info('')
+            logger.info(
+                f"  {map_statistics['fail_cannot_map']:>10} TOTAL FAILURES"
+            )
+            logger.info(f"  {map_statistics['fail_cannot_map']:>10} Cannot Map")
+
+        if map_statistics_pair['total'] > 0:
+            total_success = 0
+            for k, v in map_statistics_pair.items():
+                if k.startswith('success'):
+                    total_success += v
+
+            logger.info('')
+            logger.info('Mapping Summary Paired End')
+            logger.info(f"  {map_statistics_pair['total']:>10} TOTAL ENTRIES")
+            logger.info('')
+            logger.info(f'  {total_success:>10} TOTAL SUCCESS')
+            logger.info(
+                f"  {map_statistics_pair['success_1_fail_2_simple']:>10} "
+                'Read 1 Failed, Read 2 Simple'
+            )
+            logger.info(
+                f"  {map_statistics_pair['success_1_fail_2_complex']:>10} "
+                'Read 1 Failed, Read 2 Complex'
+            )
+            logger.info(
+                f"  {map_statistics_pair['success_1_simple_2_fail']:>10} "
+                'Read 1 Simple, Read 2 Failed'
+            )
+            logger.info(
+                f"  {map_statistics_pair['success_1_simple_2_simple']:>10} "
+                'Read 1 Simple, Read 2 Simple'
+            )
+            logger.info(
+                f"  {map_statistics_pair['success_1_simple_2_complex']:>10} "
+                'Read 1 Simple, Read 2 Complex'
+            )
+            logger.info(
+                f"  {map_statistics_pair['success_1_complex_2_fail']:>10} "
+                'Read 1 Complex, Read 2 Failed'
+            )
+            logger.info(
+                f"  {map_statistics_pair['success_1_complex_2_simple']:>10} "
+                'Read 1 Complex, Read 2 Simple'
+            )
+            logger.info(
+                f"  {map_statistics_pair['success_1_complex_2_complex']:>10} "
+                'Read 1 Complex, Read 2 Complex'
+            )
+            logger.info('')
+            logger.info(
+                f"  {map_statistics_pair['fail_cannot_map']:>10} TOTAL FAILURES"
+            )
+            logger.info(
+                f"  {map_statistics_pair['fail_cannot_map']:>10} Cannot Map"
+            )
+            logger.info('')
+
+        logger.info('BAM/SAM/CRAM File converted')
+    except KeyboardInterrupt:
+        raise KeyboardInterruptError()
+    except Exception as e:
+        raise G2GError(str(e))
+    finally:
+        fmt_time = g2g_utils.format_time(start, time.time())
+        logger.warning(f'Time: {fmt_time}')
 
 
 #

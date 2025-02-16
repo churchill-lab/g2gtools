@@ -55,6 +55,15 @@ class FastaFile(object):
         if not self.diploid:
             self.haploid = True
 
+    def get_filename(self) -> str:
+        """
+        Get the filename of the Fasta File.
+
+        Returns:
+            The filename.
+        """
+        return self.filename
+
     def is_diploid(self):
         return self.diploid
 
@@ -229,19 +238,22 @@ def extract(
     """
     start_time = time.time()
 
-    if isinstance(fasta_file, pysam.FastaFile):
-        fasta = fasta_file
-    else:
-        fasta_input = g2g_utils.check_file(fasta_file)
-        fasta = pysam.FastaFile(fasta_input)
+    if not isinstance(fasta_file, pysam.FastaFile):
+        fasta_file = g2g_utils.check_file(fasta_file)
+        fasta_file = pysam.FastaFile(fasta_file)
 
-    logger.warning(f'FASTA FILE: {fasta.filename}')
+    string_filename = str(fasta_file.filename)
+    logger.warning(f'Input Fasta File: {fasta_file.filename}')
 
     if output_file_name:
         output_file_name = g2g_utils.check_file(output_file_name, 'w')
+        logger.warning(f'Output Fasta File: {output_file_name}')
         fasta_out = open(output_file_name, 'w')
     else:
+        logger.warning('Output Fasta File: stderr')
         fasta_out = sys.stderr
+
+    num_sequences = 0
 
     try:
         if not isinstance(locations, list):
@@ -254,10 +266,10 @@ def extract(
                     f'Found: {location}, which is not a Region'
                 )
 
-            if location.seq_id not in fasta.references:
+            if location.seq_id not in fasta_file.references:
                 continue
 
-            sequence = fasta.fetch(
+            sequence = fasta_file.fetch(
                 location.seq_id, location.start, location.end
             )
 
@@ -288,6 +300,7 @@ def extract(
                 fasta_id = f'>{location.seq_id}:{start}-{end}'
                 logger.debug(f'Fasta ID: {fasta_id}')
                 logger.debug(f'{sequence[:10]}...{sequence[-10:]}')
+                num_sequences += 1
 
                 if location.name:
                     fasta_id = (
@@ -298,16 +311,19 @@ def extract(
                 fasta_out.write(f'{fasta_id}\n')
                 g2g_utils.write_sequence(sequence, fasta_out)
 
+        logger.warning(f'Extracted {num_sequences:,} sequences')
+        logger.warning(f'Fasta file created')
+
     except G2GRegionError as e:
         logger.info(e.msg.rstrip())
         raise e
     except G2GFastaError as e:
         logger.info(e.msg.rstrip())
         raise e
-
-    fasta_out.close()
-    fmt_time = g2g_utils.format_time(start_time, time.time())
-    logger.warning(f'Execution complete: {fmt_time}')
+    finally:
+        fasta_out.close()
+        fmt_time = g2g_utils.format_time(start_time, time.time())
+        logger.warning(f'Time: {fmt_time}')
 
 
 def extract_id(
@@ -535,7 +551,7 @@ def reformat(
 def fasta_extract_transcripts(
     fasta_file: str | FastaFile,
     database_file_name: str,
-    output: str | None,
+    output_file_name: str | None = None,
     raw: bool | None = False
 ) -> None:
     """
@@ -544,27 +560,28 @@ def fasta_extract_transcripts(
     Args:
         fasta_file: Either the name of the Fasta file or a FastaFile object.
         database_file_name: Name of the database file.
-        output: Name of the output file or None for stdout.
+        output_file_name: Name of the output file or None for stdout.
         raw: True to omit Fasta sequence name and/or info.
     """
     start = time.time()
 
-    if isinstance(fasta_file, FastaFile):
-        fasta = fasta_file
-    else:
+    if not isinstance(fasta_file, FastaFile):
         fasta_file = g2g_utils.check_file(fasta_file)
-        fasta = FastaFile(fasta_file)
+        fasta_file = FastaFile(fasta_file)
+
+    logger.warning(f'Input Fasta File: {fasta_file.get_filename()}')
 
     database_file_name = g2g_utils.check_file(database_file_name)
-    fasta_out = sys.stderr
 
-    if output:
-        output = g2g_utils.check_file(output, 'w')
-        fasta_out = open(output, 'w')
+    if output_file_name:
+        output_file_name = g2g_utils.check_file(output_file_name, 'w')
+        logger.warning(f'Output Fasta File: {output_file_name}')
+        fasta_out = open(output_file_name, 'w')
+    else:
+        logger.warning('Output Fasta File: stderr')
+        fasta_out = sys.stderr
 
-    logger.warning(f'FASTA FILE: {fasta.filename}')
-    logger.warning(f'DATABASE FILE: {database_file_name}')
-    logger.warning(f'OUTPUT FILE: {fasta_out.name}')
+    num_sequences = 0
 
     try:
         transcripts = gtf_db.get_transcripts_simple(database_file_name)
@@ -572,19 +589,20 @@ def fasta_extract_transcripts(
         for i, transcript in enumerate(transcripts):
             logger.debug(f'Transcript={transcript}')
 
-            if transcript.seqid not in fasta.references:
+            if transcript.seqid not in fasta_file.references:
                 logger.debug(
                     'Skipping, transcript seqid not in fasta references'
                 )
-                logger.debug(f'{transcript.seqid} not in {fasta.references}')
+                logger.debug(f'{transcript.seqid} not in {fasta_file.references}')
                 continue
 
             new_sequence = StringIO()
             locations = []
+            num_sequences += 1
             for ensembl_id, exon in transcript.exons.items():
                 logger.debug(f'Exon ID={ensembl_id};{exon}')
 
-                partial_seq = fasta.fetch(exon.seqid, exon.start - 1, exon.end)
+                partial_seq = fasta_file.fetch(exon.seqid, exon.start - 1, exon.end)
                 partial_seq_str = str(partial_seq)
 
                 if transcript.strand == 1:
@@ -613,15 +631,18 @@ def fasta_extract_transcripts(
                     fasta_out.write(line.strip())
                     fasta_out.write('\n')
 
+        logger.warning(f'Extracted {num_sequences:,} sequences')
+        logger.warning(f'Fasta file created')
+
     except G2GValueError as e:
         logger.info(e.msg.rstrip())
         raise e
     except G2GFastaError as e:
         logger.info(e.msg.rstrip())
         raise e
-
-    fmt_time = g2g_utils.format_time(start, time.time())
-    logger.warning(f'Execution complete: {fmt_time}')
+    finally:
+        fmt_time = g2g_utils.format_time(start, time.time())
+        logger.warning(f'Time: {fmt_time}')
 
 
 def fasta_extract_exons(
@@ -654,9 +675,10 @@ def fasta_extract_exons(
         output = g2g_utils.check_file(output, 'w')
         fasta_out = open(output, 'w')
 
-    logger.warning(f'FASTA FILE: {fasta.filename}')
-    logger.warning(f'DATABASE FILE: {database_file_name}')
-    logger.warning(f'OUTPUT FILE: {fasta_out.name}')
+    logger.warning(f'Input Fasta File: {fasta.filename}')
+    logger.warning(f'Input DB File: {database_file_name}')
+    logger.warning(f'Output Fasta File: {fasta_out.name}')
+    num_exons = 0
 
     try:
         transcripts = gtf_db.get_transcripts_simple(database_file_name)
@@ -666,6 +688,7 @@ def fasta_extract_exons(
 
             for ensembl_id, exon in transcript.exons.items():
                 logger.debug(f'Exon={exon}')
+                num_exons += 1
 
                 partial_seq = fasta.fetch(exon.seqid, exon.start - 1, exon.end)
                 partial_seq_str = partial_seq
@@ -694,12 +717,13 @@ def fasta_extract_exons(
                         fasta_out.write(line.strip())
                         fasta_out.write('\n')
 
+        logger.warning(f'Extracted {num_exons:,} exons')
     except G2GValueError as e:
         logger.info(e.msg.rstrip())
         raise e
     except G2GFastaError as e:
         logger.info(e.msg.rstrip())
         raise e
-
-    fmt_time = g2g_utils.format_time(start, time.time())
-    logger.warning(f'Execution complete: {fmt_time}')
+    finally:
+        fmt_time = g2g_utils.format_time(start, time.time())
+        logger.warning(f'Time: {fmt_time}')

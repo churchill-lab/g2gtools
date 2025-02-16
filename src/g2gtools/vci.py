@@ -126,6 +126,11 @@ class VCIFile:
             reverse: Is the file reversed.
         """
         self.file_name: str = file_name
+        try:
+            self.file_name = self.file_name.decode()
+        except (UnicodeDecodeError, AttributeError):
+            pass
+
         self.mapping_tree: dict[str, IntervalTree] = {}
         self.headers: dict[str, str] = {}
         self.seq_ids: list[str] = seq_ids
@@ -147,6 +152,15 @@ class VCIFile:
         )
 
         self.parse_header()
+
+    def get_filename(self) -> str:
+        """
+        Get the filename of the VCI File.
+
+        Returns:
+            The filename.
+        """
+        return self.file_name
 
     def __getattr__(self, name):
         """
@@ -286,7 +300,6 @@ class VCIFile:
                         contig, parser=pysam.asTuple()
                     )
                 except Exception:
-                    logger.error('uh oh')
                     pass
 
                 if iterator is None:
@@ -386,9 +399,6 @@ class VCIFile:
             self.valid = True
             self.mapping_tree = mapping_tree
         except Exception:
-            print(rec)
-            print(self.contigs)
-            print(contig)
             g2g_utils.show_error()
 
         # fmt_time = g2g_utils.format_time(start, time.time())
@@ -528,16 +538,6 @@ def convert_region(
     :return: a list of regions or a single region
     """
 
-    if isinstance(vci_file, VCIFile):
-        logger.warning(f'VCI FILE: {vci_file.filename}')
-        logger.info(f'VCI FILE IS DIPLOID: {vci_file.is_diploid()}')
-    else:
-        vci_file = g2g_utils.check_file(vci_file)
-        vci_file = VCIFile(vci_file)
-        logger.warning(f'VCI FILE: {vci_file.filename}')
-        logger.info(f'VCI FILE IS DIPLOID: {vci_file.is_diploid()}')
-        vci_file.parse(reverse=False)
-
     all_regions = []
 
     if isinstance(reg, region.Region):
@@ -554,6 +554,16 @@ def convert_region(
                 raise G2GRegionError(f'Unknown region type: {type(loc)}')
     else:
         raise G2GRegionError(f'Unknown region type: {type(region)}')
+
+    if isinstance(vci_file, VCIFile):
+        logger.warning(f'VCI FILE: {vci_file.filename}')
+        logger.info(f'VCI FILE IS DIPLOID: {vci_file.is_diploid()}')
+    else:
+        vci_file = g2g_utils.check_file(vci_file)
+        vci_file = VCIFile(vci_file)
+        logger.warning(f'VCI FILE: {vci_file.filename}')
+        logger.info(f'VCI FILE IS DIPLOID: {vci_file.is_diploid()}')
+        vci_file.parse(reverse=False)
 
     left_right = [''] if vci_file.is_haploid() else ['_L', '_R']
 

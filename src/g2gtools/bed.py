@@ -6,12 +6,15 @@ Collection of functions related to BED files
 # standard library imports
 import collections
 import sys
+import time
 
 # 3rd party library imports
 # none
 
 # local library imports
 from g2gtools.exceptions import G2GBedError
+from g2gtools.exceptions import G2GError
+from g2gtools.exceptions import KeyboardInterruptError
 from g2gtools.vci import VCIFile
 import g2gtools.g2g_utils as g2g_utils
 
@@ -118,89 +121,101 @@ def convert_bed_file(
         bed_file_name_out: Name of output BED file.
         reverse: True to process VCI in reverse.
     """
-    if isinstance(vci_file, VCIFile):
-        logger.warning(f'VCI FILE: {vci_file.filename}')
-        logger.info(f'VCI FILE IS DIPLOID: {vci_file.is_diploid()}')
-    else:
-        vci_file = g2g_utils.check_file(vci_file)
-        vci_file = VCIFile(vci_file)
-        logger.warning(f'VCI FILE: {vci_file.filename}')
-        logger.info(f'VCI FILE IS DIPLOID: {vci_file.is_diploid()}')
-        vci_file.parse(reverse)
+    start = time.time()
 
-    bed_file_name_in = g2g_utils.check_file(bed_file_name_in)
-    logger.warning(f'BED FILE: {bed_file_name_in}')
+    try:
 
-    if bed_file_name_out:
-        bed_file_name_out = g2g_utils.check_file(bed_file_name_out, 'w')
-        unmapped_file = f'{bed_file_name_out}.unmapped'
-        bed_out = open(bed_file_name_out, 'w')
-        bed_unmapped_file = open(unmapped_file, 'w')
-        logger.info(f'OUTPUT FILE: {bed_file_name_out}')
-        logger.info(f'UNMAPPED FILE: {unmapped_file}')
-    else:
-        input_dir, input_name = g2g_utils.get_dir_and_file(bed_file_name_in)
-        unmapped_file = f'{input_name}.unmapped'
-        unmapped_file = g2g_utils.check_file(unmapped_file, 'w')
-        bed_out = sys.stdout
-        bed_unmapped_file = open(unmapped_file, 'w')
-        logger.info('OUTPUT FILE: stdout')
-        logger.info(f'UNMAPPED FILE: {unmapped_file}')
+        if not isinstance(vci_file, VCIFile):
+            vci_file = g2g_utils.check_file(vci_file)
+            vci_file = VCIFile(vci_file)
+            logger.warning(f'Input VCI File: {vci_file.filename}')
+            vci_file.parse(reverse)
 
-    left_right = [''] if vci_file.is_haploid() else ['_L', '_R']
+        logger.warning(f'Input VCI File: {vci_file.filename}')
 
-    logger.warning('Converting BED file...')
+        bed_file_name_in = g2g_utils.check_file(bed_file_name_in)
+        logger.warning(f'Input BED File: {bed_file_name_in}')
 
-    bed_file = BED(bed_file_name_in)
+        if bed_file_name_out:
+            bed_file_name_out = g2g_utils.check_file(bed_file_name_out, 'w')
+            unmapped_file = f'{bed_file_name_out}.unmapped'
+            bed_out = open(bed_file_name_out, 'w')
+            bed_unmapped_file = open(unmapped_file, 'w')
+            logger.info(f'Output BED File: {bed_file_name_out}')
+            logger.info(f'Output UNMAPPED File: {unmapped_file}')
+        else:
+            input_dir, input_name = g2g_utils.get_dir_and_file(bed_file_name_in)
+            unmapped_file = f'{input_name}.unmapped'
+            unmapped_file = g2g_utils.check_file(unmapped_file, 'w')
+            bed_out = sys.stdout
+            bed_unmapped_file = open(unmapped_file, 'w')
+            logger.info('Output BED File: stdout')
+            logger.info(f'Output UNMAPPED File: {unmapped_file}')
 
-    total = 0
-    success = 0
-    fail = 0
+        logger.info(f'VCI File is diploid: {vci_file.is_diploid()}')
 
-    for record in bed_file:
-        logger.debug(f'ORIGINAL: {str(bed_file.current_line).strip()}')
+        left_right = [''] if vci_file.is_haploid() else ['_L', '_R']
 
-        total += 1
+        logger.warning('Converting BED file...')
 
-        if total % 100000 == 0:
-            logger.info(f'Processed {total:,} lines')
+        bed_file = BED(bed_file_name_in)
 
-        for lr in left_right:
-            seq_id = f'{record.chrom}{lr}'
-            mappings = vci_file.find_mappings(
-                seq_id, record.start - 1, record.end
-            )
+        total = 0
+        success = 0
+        fail = 0
 
-            # unmapped
-            if mappings is None:
-                logger.debug('\tFail due to no mappings')
-                bed_unmapped_file.write(bed_file.current_line)
-                fail += 0
-                continue
-            else:
-                logger.debug(f'{len(mappings)} mappings found')
+        for record in bed_file:
+            logger.debug(f'ORIGINAL: {str(bed_file.current_line).strip()}')
 
-            success += 1
-            start = mappings[0].to_start + 1
-            end = mappings[-1].to_end
-            elem = bed_file.current_line.rstrip().split('\t')
+            total += 1
 
-            logger.debug(f'({record.start-1}, {record.end})=>({start}, {end})')
-            logger.debug(elem)
+            if total % 100000 == 0:
+                logger.info(f'Processed {total:,} lines')
 
-            elem[0] = seq_id
-            elem[1] = start
-            elem[2] = end
+            for lr in left_right:
+                seq_id = f'{record.chrom}{lr}'
+                mappings = vci_file.find_mappings(
+                    seq_id, record.start - 1, record.end
+                )
 
-            temp_elem = '\t'.join(map(str, elem))
-            logger.debug(f'     NEW: {temp_elem}')
+                # unmapped
+                if mappings is None:
+                    logger.debug('\tFail due to no mappings')
+                    bed_unmapped_file.write(bed_file.current_line)
+                    fail += 0
+                    continue
+                else:
+                    logger.debug(f'{len(mappings)} mappings found')
 
-            bed_out.write(f'{temp_elem}\n')
+                success += 1
+                start = mappings[0].to_start + 1
+                end = mappings[-1].to_end
+                elem = bed_file.current_line.rstrip().split('\t')
 
-    if bed_file_name_out:
-        bed_out.close()
+                logger.debug(f'({record.start-1}, {record.end})=>({start}, {end})')
+                logger.debug(elem)
 
-    bed_unmapped_file.close()
+                elem[0] = seq_id
+                elem[1] = start
+                elem[2] = end
 
-    logger.warning(f'Converted {success:,} of {total:,} records')
-    logger.warning('BED file converted')
+                temp_elem = '\t'.join(map(str, elem))
+                logger.debug(f'     NEW: {temp_elem}')
+
+                bed_out.write(f'{temp_elem}\n')
+
+        if bed_file_name_out:
+            bed_out.close()
+
+        bed_unmapped_file.close()
+
+        logger.warning(f'Converted {success:,} of {total:,} records')
+        logger.warning('BED File converted')
+
+    except KeyboardInterrupt:
+        raise KeyboardInterruptError()
+    except Exception as e:
+        raise G2GError(str(e))
+    finally:
+        fmt_time = g2g_utils.format_time(start, time.time())
+        logger.warning(f'Time: {fmt_time}')

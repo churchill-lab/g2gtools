@@ -1,6 +1,7 @@
 """
 A way to combine vcf files into a more succinct format.
 """
+import logging
 # standard library imports
 from dataclasses import dataclass
 from collections import OrderedDict
@@ -45,6 +46,7 @@ class VCF2VCIInfo(object):
         # list of VCFFileInformation
         self.vcf_files: list[VCFFileInformation] = []
         self.fasta_file: str | None = None
+        self.log_level:  int | None = logging.INFO
 
         # indel specific
 
@@ -165,6 +167,8 @@ def process_piece(vcf2vci_params: VCF2VCIInfo) -> dict[str, Any]:
     Returns:
         The results of the processing.
     """
+    logger = g2g_utils.configure_logging('g2gtools', vcf2vci_params.log_level)
+
     stats = {}
 
     try:
@@ -180,8 +184,6 @@ def process_piece(vcf2vci_params: VCF2VCIInfo) -> dict[str, Any]:
         mi = ['L']
         if vcf2vci_params.diploid:
             mi = ['L', 'R']
-
-        #logger = g2g_utils.configure_logging('g2tools', 10)
 
         logger.warning(f'Processing Chromosome {vcf2vci_params.chromosome}...')
 
@@ -664,7 +666,7 @@ def process(
     if vcf_files:
         for file_name in vcf_files:
             vcf_file = g2g_utils.check_file(file_name)
-            logger.warning(f'VCF file: {vcf_file}')
+            logger.warning(f'Input VCF file: {vcf_file}')
             logger.debug('Checking for index file, creating if needed...')
             g2g_utils.index_file(
                 file_name=vcf_file, file_format='vcf', overwrite=False
@@ -676,7 +678,7 @@ def process(
                     output_file_dir,
                     f'{os.path.basename(output_file)}.errors.vcf',
                 )
-                logger.warning(f'VCF indel discard file: {vcf_discard_file}')
+                logger.warning(f'Output VCF indel discard file: {vcf_discard_file}')
 
             vcf_file_inputs.append(
                 VCFFileInformation(vcf_file, vcf_discard_file)
@@ -697,13 +699,18 @@ def process(
         if num_processes <= 0:
             num_processes = 1
 
-    logger.warning(f'Fasta File: {fasta_file}')
+    logger.warning(f'Input Fasta File: {fasta_file}')
     logger.warning(f'Strain: {strain}')
     logger.warning(f'Pass filter on: {passed}')
     logger.warning(f'Quality filter on: {quality}')
     logger.warning(f'Diploid: {diploid}')
-    logger.warning(f'Number of processes: {num_processes}')
-    logger.warning(f'Output VCI File: {output_file}')
+    logger.warning(f'BGZip: {bgzip}')
+    logger.debug(f'Number of processes: {num_processes}')
+    if bgzip:
+        logger.warning(f'Output VCI File: {output_file}.gz')
+    else:
+        logger.warning(f'Output VCI File: {output_file}')
+
 
     # not all chromosomes/seq_id will be processed if not in vcf file
     processed_seq_ids = {}
@@ -777,6 +784,7 @@ def process(
             params.passed = passed
             params.quality = quality
             params.vcf_keep = vcf_keep
+            params.log_level = logger.level
 
             if diploid:
                 params.output_file_left = g2g_utils.gen_file_name(
@@ -819,40 +827,29 @@ def process(
             total += r['line_numbers']
 
         logger.debug('Combining temp files...')
-        logger.warning('Finalizing VCI file...')
+        logger.warning('Finalizing VCI File')
+        logger.warning(f'Parsed {total:,} lines')
 
         files = [header_file]
-        if diploid:
-            for mi in all_params:
-                files.append(mi.output_file_left)
+
+        for mi in all_params:
+            files.append(mi.output_file_left)
+            if diploid:
                 files.append(mi.output_file_right)
 
-            g2g_utils.concatenate_files(files, output_file, True)
+        g2g_utils.concatenate_files(files, output_file, True)
 
-            if bgzip:
-                logger.warning('Compressing VCI file and indexing...')
-                g2g_utils.bgzip_and_index_file(
-                    output_file,
-                    f'{output_file}.gz',
-                    delete_original=True,
-                    file_format='vcf',
-                )
-        else:
-            for mi in all_params:
-                files.append(mi.output_file_left)
+        if bgzip:
+            logger.warning('Compressing VCI File and indexing')
+            g2g_utils.bgzip_and_index_file(
+                output_file,
+                f'{output_file}.gz',
+                delete_original=True,
+                file_format='vcf',
+            )
 
-            g2g_utils.concatenate_files(files, output_file, True)
+        logger.warning('VCI File created')
 
-            if bgzip:
-                logger.warning('Compressing VCI file and indexing...')
-                g2g_utils.bgzip_and_index_file(
-                    output_file,
-                    output_file + '.gz',
-                    delete_original=True,
-                    file_format='vcf',
-                )
-
-        logger.warning(f'Parsed {total:,} total lines')
     except KeyboardInterruptError:
         pool.terminate()
         raise G2GError('Keyboard quit consumed')
@@ -865,4 +862,4 @@ def process(
     finally:
         g2g_utils.delete_dir(temp_directory)
         fmt_time = g2g_utils.format_time(start, time.time())
-        logger.warning(f'VCI creation complete: {fmt_time}')
+        logger.warning(f'Time: {fmt_time}')

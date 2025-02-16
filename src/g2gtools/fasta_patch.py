@@ -3,6 +3,7 @@ A way to transform a Fasta file quickly.
 """
 # standard library imports
 import copy
+import logging
 import mmap
 import multiprocessing
 import time
@@ -50,6 +51,8 @@ class FastaPatchParams(object):
         # offset
         self.offset = 0
 
+        self.log_level:  int | None = logging.INFO
+
     def __str__(self):
         return (
             f'Input: {self.input_file}\nOutput: {self.output_file}\n'
@@ -76,6 +79,7 @@ def process_piece(fasta_patch_params: FastaPatchParams) -> FastaPatchResult:
     Returns:
         The results of the processing.
     """
+    logger = g2g_utils.configure_logging('g2gtools', fasta_patch_params.log_level)
     logger.debug(f'params:input_region = {fasta_patch_params.input_region}')
     logger.debug(f'params:input_file = {fasta_patch_params.input_file}')
     logger.debug(f'params:temp_dir = {fasta_patch_params.temp_dir}')
@@ -267,24 +271,24 @@ def process(
         reverse: Reverse the insertions and deletions in VCI file.
         num_processes: The number of processes to use.
     """
-    start = time.time()
-    dump_fasta = False
-    temp_directory = g2g_utils.create_temp_dir('patch_', dir='.')
-    filename_fasta = g2g_utils.check_file(filename_fasta)
-    filename_vci = g2g_utils.check_file(filename_vci)
-
-    if not num_processes:
-        num_processes = multiprocessing.cpu_count()
-    else:
-        if num_processes <= 0:
-            num_processes = 1
-
-    logger.warning(f'Processes: {num_processes}')
-    logger.warning(f'Input VCI File: {filename_vci}')
-    logger.warning(f'Input Fasta File: {filename_fasta}')
-    logger.debug(f'Temp directory: {temp_directory}')
-
     try:
+        start = time.time()
+        dump_fasta = False
+        temp_directory = g2g_utils.create_temp_dir('patch_', dir='.')
+        filename_fasta = g2g_utils.check_file(filename_fasta)
+        filename_vci = g2g_utils.check_file(filename_vci)
+
+        if not num_processes:
+            num_processes = multiprocessing.cpu_count()
+        else:
+            if num_processes <= 0:
+                num_processes = 1
+
+        logger.warning(f'Input VCI File: {filename_vci}')
+        logger.warning(f'Input Fasta File: {filename_fasta}')
+        logger.debug(f'Number of processes: {num_processes}')
+        logger.debug(f'Temp directory: {temp_directory}')
+
         if filename_output:
             filename_output = g2g_utils.check_file(filename_output, 'w')
 
@@ -305,7 +309,7 @@ def process(
                 extension='fa', append_time=False, output_dir=temp_directory
             )
             dump_fasta = True
-            logger.debug(f'Temporary fasta file: {filename_output}')
+            logger.debug(f'Temporary Fasta File: {filename_output}')
 
         fasta_file = fasta.FastaFile(filename_fasta)
         vci_file = vci.VCIFile(filename_vci)
@@ -348,6 +352,7 @@ def process(
             params.vci_file = filename_vci
             params.reverse = reverse
             params.offset = 0 if reg.start <= 1 else reg.start - 1
+            params.log_level = logger.level
 
             if vci_file.is_haploid():
                 logger.debug('VCI File is haploid')
@@ -462,7 +467,7 @@ def process(
                 g2g_utils.delete_index_files(c.output_file)
                 mode = 'ab'
 
-        logger.warning(f'Patched {total:,} SNPs total')
+        logger.warning(f'Processed {total:,} SNPs')
 
         if dump_fasta:
             g2g_utils.dump_file_contents(filename_output)
@@ -490,6 +495,8 @@ def process(
                         file_format='fa',
                     )
 
+        logger.warning('Fasta File patched')
+
     except KeyboardInterrupt:
         raise KeyboardInterruptError()
     except Exception as e:
@@ -498,4 +505,4 @@ def process(
         # clean up the temporary files
         g2g_utils.delete_dir(temp_directory)
         fmt_time = g2g_utils.format_time(start, time.time())
-        logger.warning(f'Patch complete: {fmt_time}')
+        logger.warning(f'Time: {fmt_time}')

@@ -4,6 +4,7 @@ A way to transform a Fasta file quickly.
 # standard library imports
 from io import StringIO
 import copy
+import logging
 import multiprocessing
 import time
 
@@ -57,6 +58,9 @@ class FastaTransformParams(object):
         # patch?
         self.patch = False
 
+        self.log_level:  int | None = logging.INFO
+
+
     def __str__(self):
         return (
             f'Input: {self.input_file}\n\tOutput: {self.output_file}\n'
@@ -90,6 +94,7 @@ def process_piece(
     Returns:
         The results of the processing.
     """
+    logger = g2g_utils.configure_logging('g2gtools', fasta_transform_params.log_level)
     # todo: check patch and make sure that we are using the same type of info
     # start_time = time.time()
     logger.debug(f'params:input_region={fasta_transform_params.input_region}')
@@ -515,10 +520,10 @@ def prepare_fasta_transform(filename_output: str) -> str:
 
 
 def process(
-    fasta_file_name_in: str,
-    vci_file_name: str,
+    filename_fasta: str,
+    filename_vci: str,
     regions: list[region.Region] | None = None,
-    fasta_file_name_out: str | None = None,
+    filename_output: str | None = None,
     bgzip: bool | None = False,
     reverse: bool | None = False,
     num_processes: int | None = None,
@@ -529,10 +534,10 @@ def process(
     the VCI file.
 
     Args
-        fasta_file_name_in: Input Fasta file to convert.
-        vci_file_name: Name of the VCI file or a VCIFile object.
+        filename_fasta: Input Fasta file to convert.
+        filename_vci: Name of the VCI file or a VCIFile object.
         regions: A list of Regions to process.
-        fasta_file_name_out: Name of output Fasta file.
+        filename_output: Name of output Fasta file.
         bgzip: True to compress and index file.
         reverse: Reverse the insertions and deletions in VCI file.
         num_processes: The number of processes to use.
@@ -541,8 +546,8 @@ def process(
     start = time.time()
     dump_fasta = False
     temp_directory = g2g_utils.create_temp_dir('transform_', dir='.')
-    fasta_file_name_in = g2g_utils.check_file(fasta_file_name_in)
-    vci_file_name = g2g_utils.check_file(vci_file_name)
+    filename_fasta = g2g_utils.check_file(filename_fasta)
+    filename_vci = g2g_utils.check_file(filename_vci)
 
     if not num_processes:
         num_processes = multiprocessing.cpu_count()
@@ -550,44 +555,44 @@ def process(
         if num_processes <= 0:
             num_processes = 1
 
-    logger.warning(f'Processes: {num_processes}')
-    logger.warning(f'Input VCI File: {vci_file_name}')
-    logger.warning(f'Input Fasta File: {fasta_file_name_in}')
+    logger.warning(f'Input VCI File: {filename_vci}')
+    logger.warning(f'Input Fasta File: {filename_fasta}')
+    logger.debug(f'Number of processes: {num_processes}')
     logger.debug(f'Temp directory: {temp_directory}')
 
     try:
-        if fasta_file_name_out:
-            fasta_file_name_out = g2g_utils.check_file(
-                fasta_file_name_out, 'w'
+        if filename_output:
+            filename_output = g2g_utils.check_file(
+                filename_output, 'w'
             )
 
             if not regions:
-                fasta_file_name_out = prepare_fasta_transform(
-                    fasta_file_name_out
+                filename_output = prepare_fasta_transform(
+                    filename_output
                 )
-                logger.warning(f'Output Fasta File: {fasta_file_name_out}')
+                logger.warning(f'Output Fasta File: {filename_output}')
             else:
                 if bgzip:
-                    if fasta_file_name_out.lower().endswith(('.fa', '.fasta')):
+                    if filename_output.lower().endswith(('.fa', '.fasta')):
                         logger.warning(
-                            f'Output Fasta File: {fasta_file_name_out}.gz'
+                            f'Output Fasta File: {filename_output}.gz'
                         )
-                    elif fasta_file_name_out.lower().endswith('.gz'):
+                    elif filename_output.lower().endswith('.gz'):
                         logger.warning(
-                            f'Output Fasta File: {fasta_file_name_out}'
+                            f'Output Fasta File: {filename_output}'
                         )
-                        fasta_file_name_out = fasta_file_name_out[:-3]
+                        filename_output = filename_output[:-3]
                 else:
-                    logger.warning(f'Output Fasta File: {fasta_file_name_out}')
+                    logger.warning(f'Output Fasta File: {filename_output}')
         else:
-            fasta_file_name_out = g2g_utils.gen_file_name(
+            filename_output = g2g_utils.gen_file_name(
                 extension='fa', append_time=False, output_dir=temp_directory
             )
             dump_fasta = True
-            logger.debug(f'Temporary fasta file: {fasta_file_name_out}')
+            logger.debug(f'Temporary Fasta File: {filename_output}')
 
-        fasta_file = fasta.FastaFile(fasta_file_name_in)
-        vci_file = vci.VCIFile(vci_file_name)
+        fasta_file = fasta.FastaFile(filename_fasta)
+        vci_file = vci.VCIFile(filename_vci)
 
         if fasta_file.is_diploid() and vci_file.is_haploid():
             raise G2GFastaError(
@@ -623,13 +628,14 @@ def process(
 
             params = FastaTransformParams()
             params.input_region = reg
-            params.input_file = fasta_file_name_in
+            params.input_file = filename_fasta
             params.temp_dir = temp_directory
-            params.vci_file = vci_file_name
+            params.vci_file = filename_vci
             params.reverse = reverse
             params.offset = 0 if reg.start <= 1 else reg.start - 1
             params.patch = also_patch
             params.full_file = full_file
+            params.log_level = logger.level
 
             if fasta_file.is_haploid() and vci_file.is_diploid():
                 # logger.info('*** Experimental ***')
@@ -747,41 +753,43 @@ def process(
                 total_del += c.del_count
 
         if also_patch:
-            logger.warning(f'Processed {total_snp:,} SNPs total')
+            logger.warning(f'Processed {total_snp:,} SNPs')
 
-        logger.warning(f'Processed {total_ins:,} insertions total')
-        logger.warning(f'Processed {total_del:,} deletions total')
+        logger.warning(f'Processed {total_ins:,} insertions')
+        logger.warning(f'Processed {total_del:,} deletions')
 
         logger.debug('Temp files created, copy to master temp file and delete')
-        g2g_utils.concatenate_files(files, fasta_file_name_out, False)
+        g2g_utils.concatenate_files(files, filename_output, False)
 
         if dump_fasta:
-            g2g_utils.dump_file_contents(fasta_file_name_out)
+            g2g_utils.dump_file_contents(filename_output)
         else:
             # move temp to final destination
             if bgzip:
                 # remove the fai
                 logger.debug(
-                    f'Removing the FAI index for {fasta_file_name_out}'
+                    f'Removing the FAI index for {filename_output}'
                 )
-                g2g_utils.delete_index_files(fasta_file_name_out)
+                g2g_utils.delete_index_files(filename_output)
 
                 logger.warning('Compressing and indexing...')
 
-                if fasta_file_name_out.lower().endswith(('.fa', '.fasta')):
+                if filename_output.lower().endswith(('.fa', '.fasta')):
                     g2g_utils.bgzip_and_index_file(
-                        fasta_file_name_out,
-                        f'{fasta_file_name_out}.gz',
+                        filename_output,
+                        f'{filename_output}.gz',
                         delete_original=True,
                         file_format='fa',
                     )
-                elif fasta_file_name_out.lower().endswith('.gz'):
+                elif filename_output.lower().endswith('.gz'):
                     g2g_utils.bgzip_and_index_file(
-                        fasta_file_name_out,
-                        fasta_file_name_out,
+                        filename_output,
+                        filename_output,
                         delete_original=True,
                         file_format='fa',
                     )
+
+        logger.warning('Fasta File transformed')
 
     except KeyboardInterrupt:
         raise KeyboardInterruptError()
@@ -791,4 +799,4 @@ def process(
         # clean up the temporary files
         g2g_utils.delete_dir(temp_directory)
         fmt_time = g2g_utils.format_time(start, time.time())
-        logger.warning(f'Transform complete: {fmt_time}')
+        logger.warning(f'Time: {fmt_time}')

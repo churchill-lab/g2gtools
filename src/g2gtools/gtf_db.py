@@ -182,13 +182,13 @@ def gtf2db(
 
     g2g_utils.delete_file(database_file_name)
 
-    logger.warning(f'GTF FILE: {gtf_file_name}')
-    logger.warning(f'DB File: {database_file_name}')
+    logger.warning(f'Input GTF File: {gtf_file_name}')
+    logger.warning(f'Input DB File: {database_file_name}')
 
     conn = sqlite3.connect(database_file_name)
     c = conn.cursor()
 
-    logger.warning('Generating tables...')
+    logger.warning('Generating tables')
     c.execute(SQL_CREATE_GTF_TABLE)
     c.execute(SQL_CREATE_GTF_LOOKUP_TABLE)
     c.execute(SQL_CREATE_GTF_SOURCES_TABLE)
@@ -201,12 +201,13 @@ def gtf2db(
     gtf_sources = {}
     gtf_attributes = {}
 
-    logger.warning('Parsing GTF file...')
+    logger.warning('Parsing GTF file')
 
     gtf_file = gtf.GTF(gtf_file_name)
 
     counter = 0
     prev_gene_id = None
+    stats = {}
 
     for record in gtf_file:
         logger.debug(f'LINE={record}')
@@ -242,6 +243,11 @@ def gtf2db(
             transcript_id = None
 
         logger.debug(f'transcript_id = {transcript_id}')
+
+        if record.type not in stats:
+            stats[record.type] = 0
+
+        stats[record.type] = stats[record.type] + 1
 
         if record.type == 'gene':
             ensembl_id = record.attributes['gene_id']
@@ -309,8 +315,12 @@ def gtf2db(
         conn.commit()
 
     logger.warning('GTF File parsed')
+    logger.warning(f'Parsed {counter:,} records')
+    stats = {k: v for k, v in sorted(stats.items(), reverse=True, key=lambda item: item[1])}
+    for k, v in stats.items():
+        logger.warning(f'  {v:>10,} {k}')
 
-    logger.warning('Finalizing database...')
+    logger.warning('Finalizing database')
 
     for sql in SQL_INDICES_GTF:
         logger.debug(sql)
@@ -338,7 +348,7 @@ def gtf2db(
     conn.close()
 
     fmt_time = g2g_utils.format_time(start, time.time())
-    logger.warning(f'Execution complete: {fmt_time}')
+    logger.warning(f'Time: {fmt_time}')
 
 
 class GTFObject(object):
