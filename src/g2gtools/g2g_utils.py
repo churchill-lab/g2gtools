@@ -20,7 +20,6 @@ import time
 import urllib
 
 # 3rd party library imports
-from logger_tt import setup_logging, logger
 from rich.logging import RichHandler
 from natsort import natsorted as _natsorted
 import pysam
