@@ -3,6 +3,13 @@
 History
 -------
 
+3.0.0 (02/16/2025)
+~~~~~~~~~~~~~~~~~~
+
+* Revamped all the commands and logging to be more consistent and user-friendly.
+* Updated third party libraries.
+* Tested on Python 3.10+.
+
 2.4.0 (02/15/2025)
 ~~~~~~~~~~~~~~~~~~
 
