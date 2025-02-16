@@ -3,9 +3,7 @@
 g2gtools is a new suite of tools that creates personal diploid genomes. It allows us to easily extract regions from personal genomes so we can create individualized alignment indexes for next-generation sequencing reads. g2gtools can liftover alignments on personal genome coordinates back to that of reference so we can compare alignments from among samples in a population. Unlike other liftover tools, g2gtools does not throw away alignments that land on indel regions.
 
 * Free software: MIT License
-* Documentation for Release Ver. 1.0.XX: BELOW
-* Documentation for Release Ver. 0.2.XX: http://churchill-lab.github.io/g2gtools/.
-* Documentation for Release Ver. 0.1.XX: https://g2gtools.readthedocs.org.
+* Documentation for Release Ver. 3.0.XX: BELOW
 
 Development Lead
 ----------------
