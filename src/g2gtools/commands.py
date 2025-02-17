@@ -136,7 +136,7 @@ def convert_region(
     verbose: Annotated[int, typer.Option('-v', '--verbose', show_default=False, count=True, help='specify multiple times for more verbose output')] = 0
 ) -> None:
     """
-    Convert coordinates of Ba region
+    Convert coordinates of a region
     """
     logger = g2g_utils.configure_logging('g2gtools', verbose)
     logger.debug('convert-region')
@@ -145,8 +145,8 @@ def convert_region(
 
     try:
         regions = g2g_vci.convert_region(vci_file=str(vci_file), reg=region)
-        for r_old, r_new in regions.items():
-            logger.warn(f'{r_old} -> {r_new}')
+        for r in regions:
+            logger.warning(f'{r["original"]} -> {r["new"]}')
 
     except KeyboardInterrupt as ki:
         logger.error(str(ki))
@@ -244,7 +244,7 @@ def vcf2vci(
 @app.command(help='Extract subsequence from a fasta file given a region')
 def extract(
     fasta_file: Annotated[Path, typer.Option('--fasta', show_default=False, exists=True, dir_okay=False, resolve_path=True, help='Fasta file to extract from')],
-    db_file: Annotated[Path, typer.Option('--db', show_default=False, exists=True, dir_okay=False, resolve_path=True, help='Database file name, use with --genes, --transcripts, --exons')],
+    db_file: Annotated[Path, typer.Option('--db', show_default=False, exists=True, dir_okay=False, resolve_path=True, help='Database file name, use with --genes, --transcripts, --exons')] = None,
     out_file: Annotated[Path, typer.Option('--out', show_default=False, exists=False, dir_okay=False, writable=True, resolve_path=True, help='Name of output file')] = None,
     bed_file: Annotated[Path, typer.Option('-b', '--bed', show_default=False, exists=True, dir_okay=False, resolve_path=True, help='BED file name')] = None,
     genes: Annotated[bool, typer.Option('--genes', help='Extract genes from --database')] = False,

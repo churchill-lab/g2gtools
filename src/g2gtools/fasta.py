@@ -346,22 +346,22 @@ def extract_id(
     """
     start_time = time.time()
 
-    if isinstance(fasta_file, pysam.FastaFile):
-        fasta = fasta_file
-    else:
+    if not isinstance(fasta_file, pysam.FastaFile):
         fasta_file = g2g_utils.check_file(fasta_file)
-        fasta = pysam.FastaFile(fasta_file)
+        fasta_file = pysam.FastaFile(fasta_file)
 
-    logger.warning(f'FASTA FILE: {fasta.filename}')
+    logger.warning(f'Input Fasta File: {g2g_utils.convert_if_bytes(fasta_file.filename)}')
 
     if output_file_name:
         output_file_name = g2g_utils.check_file(output_file_name, 'w')
+        logger.warning(f'Output Fasta File: {output_file_name}')
         fasta_out = open(output_file_name, 'w')
     else:
-        fasta_out = sys.stdout
+        logger.warning('Output Fasta File: stderr')
+        fasta_out = sys.stderr
 
     try:
-        sequence = fasta[identifier]
+        sequence = fasta_file[identifier]
 
         if reverse and not complement:
             sequence = g2g_utils.reverse_sequence(sequence)
@@ -386,10 +386,11 @@ def extract_id(
     except G2GFastaError as e:
         logger.info(e.msg.rstrip())
         raise e
-
-    fasta_out.close()
-    fmt_time = g2g_utils.format_time(start_time, time.time())
-    logger.warning(f'Execution complete: {fmt_time}')
+    finally:
+        if output_file_name:
+            fasta_out.close()
+        fmt_time = g2g_utils.format_time(start_time, time.time())
+        logger.warning(f'Time: {fmt_time}')
 
 
 def diff_files(file_name_1: str, file_name_2: str) -> None:

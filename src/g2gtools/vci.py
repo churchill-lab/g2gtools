@@ -10,6 +10,7 @@ from bx.intervals.intersection import Interval, IntervalTree
 # local library imports
 from g2gtools.exceptions import G2GError
 from g2gtools.exceptions import G2GRegionError
+from g2gtools.exceptions import KeyboardInterruptError
 import g2gtools.g2g_utils as g2g_utils
 import g2gtools.region as region
 
@@ -491,8 +492,8 @@ def vci_query(vci_file_name_in: str, reg: region.Region) -> None:
 
     vci_file_name_in = g2g_utils.check_file(vci_file_name_in, 'r')
 
-    logger.warning(f'VCI File: {vci_file_name_in}')
-    logger.warning(f'Region: {reg}')
+    logger.warning(f'Input VCI File: {vci_file_name_in}')
+    logger.warning(f'Input Region: {reg}')
     logger.debug(f'seq_id: {reg.seq_id}')
     logger.debug(f'start: {reg.start}')
     logger.debug(f'end: {reg.end}')
@@ -523,7 +524,7 @@ def vci_query(vci_file_name_in: str, reg: region.Region) -> None:
         print(str(line))
 
     fmt_time = g2g_utils.format_time(start, time.time())
-    logger.warning(f'VCI Query Complete: {fmt_time}')
+    logger.warning(f'Time: {fmt_time}')
 
 
 def convert_region(
@@ -537,72 +538,93 @@ def convert_region(
     :param reg: a location or list of locations
     :return: a list of regions or a single region
     """
-
+    start_time = time.time()
     all_regions = []
 
-    if isinstance(reg, region.Region):
-        all_regions.append(region)
-    elif isinstance(reg, str):
-        all_regions.append(region.parse_region(region))
-    elif isinstance(reg, list):
-        for loc in reg:
-            if isinstance(loc, region.Region):
-                all_regions.append(loc)
-            elif isinstance(loc, str):
-                all_regions.append(region.parse_region(loc))
-            else:
-                raise G2GRegionError(f'Unknown region type: {type(loc)}')
-    else:
-        raise G2GRegionError(f'Unknown region type: {type(region)}')
+    try:
 
-    if isinstance(vci_file, VCIFile):
-        logger.warning(f'VCI FILE: {vci_file.filename}')
-        logger.info(f'VCI FILE IS DIPLOID: {vci_file.is_diploid()}')
-    else:
-        vci_file = g2g_utils.check_file(vci_file)
-        vci_file = VCIFile(vci_file)
-        logger.warning(f'VCI FILE: {vci_file.filename}')
-        logger.info(f'VCI FILE IS DIPLOID: {vci_file.is_diploid()}')
-        vci_file.parse(reverse=False)
 
-    left_right = [''] if vci_file.is_haploid() else ['_L', '_R']
+        if isinstance(reg, region.Region):
+            all_regions.append(region)
+        elif isinstance(reg, str):
+            all_regions.append(region.parse_region(region))
+        elif isinstance(reg, list):
+            for loc in reg:
+                if isinstance(loc, region.Region):
+                    all_regions.append(loc)
+                elif isinstance(loc, str):
+                    all_regions.append(region.parse_region(loc))
+                else:
+                    raise G2GRegionError(f'Unknown region type: {type(loc)}')
+        else:
+            raise G2GRegionError(f'Unknown region type: {type(region)}')
 
-    total = 0
-    success = 0
-    fail = 0
-    ret = OrderedDict()
+        if not isinstance(vci_file, VCIFile):
+            vci_file = g2g_utils.check_file(vci_file)
+            vci_file = VCIFile(vci_file)
 
-    for r in all_regions:
-        logger.debug(f'ORIGINAL: {str(r)}')
+            seq_ids = [r.seq_id for r in all_regions]
+            if vci_file.is_diploid():
+                seq_ids = [f'{r}_L' for r in seq_ids] + [f'{r}_R' for r in seq_ids]
 
-        total += 1
+            vci_file.seq_ids = seq_ids
+            vci_file.parse(reverse=False)
 
-        if total % 10000 == 0:
-            logger.info(f'Processed {total:,} regions')
+        logger.warning(f'Inout VCI File: {vci_file.get_filename()}')
+        logger.info(f'VCI File is diploid: {vci_file.is_diploid()}')
 
-        for lr in left_right:
-            seq_id = f'{r.seq_id}{lr}'
-            mappings = vci_file.find_mappings(
-                seq_id, r.start - 1, r.end
-            )
+        left_right = [''] if vci_file.is_haploid() else ['_L', '_R']
 
-            # unmapped
-            if mappings is None:
-                ret[r] = None
-                logger.debug(f'\t{r} -> No mappings')
-                fail += 0
-                continue
-            else:
-                logger.debug(f'\t{r} -> {len(mappings)} mappings')
+        total = 0
+        success = 0
+        fail = 0
+        ret = []
 
-            success += 1
-            start = mappings[0].to_start + 1
-            end = mappings[-1].to_end
+        for r in all_regions:
+            logger.debug(f'ORIGINAL: {str(r)}')
 
-            ret[r] = region.Region(seq_id, start, end)
-            logger.debug(f'\t{r} -> {ret[r]}')
+            total += 1
 
-    logger.warning(f'Converted {success:,} of {total:,} records')
+            if total % 10000 == 0:
+                logger.info(f'Processed {total:,} regions')
+
+            for lr in left_right:
+                seq_id = f'{r.seq_id}{lr}'
+                mappings = vci_file.find_mappings(
+                    seq_id, r.start - 1, r.end
+                )
+
+                # unmapped
+                if mappings is None:
+                    #ret[r] = None
+                    logger.debug(f'\t{r} -> No mappings')
+                    fail += 0
+                    continue
+                else:
+                    logger.debug(f'\t{r} -> {len(mappings)} mappings')
+
+                success += 1
+                start = mappings[0].to_start + 1
+                end = mappings[-1].to_end
+
+                new_r = region.Region(seq_id, start, end)
+                ret.append({
+                    'original': r,
+                    'new': new_r
+                })
+
+                logger.debug(f'\t{r} -> {new_r}')
+
+        logger.warning(f'Converted {success:,} of {total:,} records')
+
+    except KeyboardInterrupt:
+        raise KeyboardInterruptError()
+    except Exception as e:
+        raise G2GError(str(e))
+    finally:
+        # clean up the temporary files
+        fmt_time = g2g_utils.format_time(start_time, time.time())
+        logger.warning(f'Time: {fmt_time}')
 
     return ret
 
