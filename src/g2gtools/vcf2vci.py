@@ -1,11 +1,12 @@
 """
 A way to combine vcf files into a more succinct format.
 """
-import logging
 # standard library imports
 from dataclasses import dataclass
 from collections import OrderedDict
 from typing import Any
+import copy
+import logging
 import multiprocessing
 import os
 import time
@@ -21,6 +22,7 @@ from g2gtools.exceptions import KeyboardInterruptError
 import g2gtools.fasta as fasta
 import g2gtools.g2g_utils as g2g_utils
 import g2gtools.vcf as vcf
+import g2gtools.gtf as gtf
 
 logger = g2g_utils.get_logger('g2gtools')
 
@@ -47,6 +49,7 @@ class VCF2VCIInfo(object):
         self.vcf_files: list[VCFFileInformation] = []
         self.fasta_file: str | None = None
         self.log_level:  int | None = logging.INFO
+        self.gtf_file: str | None = None
 
         # indel specific
 
@@ -60,6 +63,8 @@ class VCF2VCIInfo(object):
 
         self.output_file_left: str | None = None
         self.output_file_right: str | None = None
+        self.output_stats_file_left: str | None = None
+        self.output_stats_file_right: str | None = None
 
         self.stats_left: dict[str, int] = {}
         self.stats_right: dict[str, int] = {}
@@ -174,12 +179,20 @@ def process_piece(vcf2vci_params: VCF2VCIInfo) -> dict[str, Any]:
     try:
         output_file_left = None
         output_file_right = None
+        output_stats_file_left = None
+        output_stats_file_right = None
 
         if vcf2vci_params.output_file_left:
             output_file_left = open(vcf2vci_params.output_file_left, 'w')
 
         if vcf2vci_params.output_file_right:
             output_file_right = open(vcf2vci_params.output_file_right, 'w')
+
+        if vcf2vci_params.output_stats_file_left:
+            output_stats_file_left = open(vcf2vci_params.output_stats_file_left, 'w')
+
+        if vcf2vci_params.output_stats_file_right:
+            output_stats_file_right = open(vcf2vci_params.output_stats_file_right, 'w')
 
         mi = ['L']
         if vcf2vci_params.diploid:
@@ -256,6 +269,20 @@ def process_piece(vcf2vci_params: VCF2VCIInfo) -> dict[str, Any]:
 
         n = 0
 
+        transcript_info = None
+        transcript_features = None
+        transcript_tree = None
+        transcript_info_left = None
+        transcript_info_right = None
+
+        if vcf2vci_params.gtf_file:
+            transcript_info = gtf.parse_gtf(vcf2vci_params.gtf_file, vcf2vci_params.chromosome)
+            transcript_features = transcript_info['features']
+            transcript_tree = transcript_info['tree']
+
+            transcript_info_left = copy.deepcopy(transcript_features)
+            transcript_info_right = copy.deepcopy(transcript_features)
+
         line_numbers = 0
         #print('iterators=' + str(type(iterators)))
         #print('iterators[0]=' + str(type(iterators[0])))
@@ -303,23 +330,41 @@ def process_piece(vcf2vci_params: VCF2VCIInfo) -> dict[str, Any]:
                         if vcf2vci_params.diploid:
                             # 0 is the same as REF and do not need
                             if gt.gt_left != 0:
+                                vpos = vcf_record.pos + (1 if tabix else 0)
+
                                 output_file_left.write(
                                     f'{vcf2vci_params.chromosome}_L\t'
-                                    f'{vcf_record.pos + (1 if tabix else 0)}\t'
+                                    f'{vpos}\t'
                                     '.\t'
                                     f'{vcf_record.ref}\t'
                                     f'{gt.left}\t'
                                     '.\n'
                                 )
+
+                                if vcf2vci_params.gtf_file:
+                                    overlapping_features = transcript_tree[vpos]
+                                    for interval in overlapping_features:
+                                        feature_id = interval.data
+                                        transcript_info_left[feature_id].snp_count += 1
+
                             if gt.gt_right != 0:
+                                vpos = vcf_record.pos + (1 if tabix else 0)
+
                                 output_file_right.write(
                                     f'{vcf2vci_params.chromosome}_R\t'
-                                    f'{vcf_record.pos + (1 if tabix else 0)}\t'
+                                    f'{vpos}\t'
                                     '.\t'
                                     f'{vcf_record.ref}\t'
                                     f'{gt.right}\t'
                                     '.\n'
                                 )
+
+                                if vcf2vci_params.gtf_file:
+                                    overlapping_features = transcript_tree[vpos]
+                                    for interval in overlapping_features:
+                                        feature_id = interval.data
+                                        transcript_info_right[feature_id].snp_count += 1
+
                         else:
                             if gt.gt_left == gt.gt_right and gt.gt_left != 0:
                                 # ignore heterozygotes 0/1, 1/0,
@@ -331,18 +376,22 @@ def process_piece(vcf2vci_params: VCF2VCIInfo) -> dict[str, Any]:
                                 #     f'left {gt.left},
                                 #     f'right {gt.right}'
                                 # )
+                                vpos = vcf_record.pos + (1 if tabix else 0)
+
                                 output_file_left.write(
                                     f'{vcf2vci_params.chromosome}\t'
-                                    f'{vcf_record.pos + (1 if tabix else 0)}\t'
+                                    f'{vpos}\t'
                                     '.\t'
                                     f'{vcf_record.ref}\t'
                                     f'{gt.left}\t'
                                     '.\n'
                                 )
 
-                                # >1:3051585-3051587
-                                # TGC
-
+                                if vcf2vci_params.gtf_file:
+                                    overlapping_features = transcript_tree[vpos]
+                                    for interval in overlapping_features:
+                                        feature_id = interval.data
+                                        transcript_info_left[feature_id].snp_count += 1
                 else:
                     # indel
                     logger.debug(f'Processing INDEL {vcf_record}')
@@ -512,6 +561,18 @@ def process_piece(vcf2vci_params: VCF2VCIInfo) -> dict[str, Any]:
                             )
                             logger.debug(out)
                             output_file.write(out)
+
+                            vpos = vcf_record.pos + (1 if tabix else 0)
+                            overlapping_features = transcript_tree[vpos]
+                            if l_or_r == 'L':
+                                for interval in overlapping_features:
+                                    feature_id = interval.data
+                                    transcript_info_left[feature_id].indel_count += 1
+                            else:
+                                for interval in overlapping_features:
+                                    feature_id = interval.data
+                                    transcript_info_right[feature_id].indel_count += 1
+
                         else:
                             # THIS SHOULD NOT HAPPEN
                             raise G2GVCFError('Conflicting VCF entries')
@@ -541,6 +602,41 @@ def process_piece(vcf2vci_params: VCF2VCIInfo) -> dict[str, Any]:
             output_file_left.close()
 
         if vcf2vci_params.output_file_right:
+            output_file_right.close()
+
+        # output all gene info from stats
+        if vcf2vci_params.output_stats_file_left:
+            transcript_list = list(transcript_info_left.values())
+
+            # Sort the list by gene_id first, then by transcript_id
+            sorted_transcripts = sorted(transcript_list, key=lambda x: (x.gene_id, x.transcript_id))
+
+            for transcript in sorted_transcripts:
+                output_stats_file_left.write(
+                    f'{transcript.gene_id}\t'
+                    f'{transcript.gene_name}\t'
+                    f'{transcript.transcript_id}\t'
+                    f'{transcript.snp_count}\t'
+                    f'{transcript.indel_count}\n'
+                )
+
+            output_file_left.close()
+
+        if vcf2vci_params.output_stats_file_right:
+            transcript_list = list(transcript_info_right.values())
+
+            # Sort the list by gene_id first, then by transcript_id
+            sorted_transcripts = sorted(transcript_list, key=lambda x: (x.gene_id, x.transcript_id))
+
+            for transcript in sorted_transcripts:
+                output_stats_file_right.write(
+                    f'{transcript.gene_id}\t'
+                    f'{transcript.gene_name}\t'
+                    f'{transcript.transcript_id}\t'
+                    f'{transcript.snp_count}\t'
+                    f'{transcript.indel_count}\n'
+                )
+
             output_file_right.close()
 
     except KeyboardInterrupt:
@@ -633,6 +729,7 @@ def process(
     fasta_file: str,
     output_file: str,
     strain: str,
+    gtf_file: str = None,
     vcf_keep: bool = False,
     passed: bool = False,
     quality: bool = False,
@@ -646,8 +743,9 @@ def process(
     Args
         vcf_files: Name of the VCF files.
         fasta_file: Name of the Fasta file associated with the VCF file.
-        bed_file_out: Name of output file.
+        output_file: Name of output file.
         strain: Which strain to process.
+        gtf_file: Optional GTF file for additional annotations.
         vcf_keep: True to place troubling VCF lines in extra file.
         passed: True uses only VCF lines that have a PASS for the filter.
         quality: True to filter on quality, FI=PASS.
@@ -660,6 +758,12 @@ def process(
     output_file = g2g_utils.check_file(output_file, 'w')
     output_file_dir = os.path.dirname(output_file)
     fasta_file = g2g_utils.check_file(fasta_file)
+
+    output_stats_file = None
+
+    if gtf_file:
+        gtf_file = g2g_utils.check_file(gtf_file)
+        output_stats_file = f'{output_file}.stats.tsv'
 
     vcf_file_inputs = []
 
@@ -706,11 +810,15 @@ def process(
     logger.warning(f'Diploid: {diploid}')
     logger.warning(f'BGZip: {bgzip}')
     logger.debug(f'Number of processes: {num_processes}')
+
+    if gtf_file:
+        logger.warning(f'GTF File: {gtf_file}')
+        logger.warning(f'Stats File: {output_stats_file}')
+
     if bgzip:
         logger.warning(f'Output VCI File: {output_file}.gz')
     else:
         logger.warning(f'Output VCI File: {output_file}')
-
 
     # not all chromosomes/seq_id will be processed if not in vcf file
     processed_seq_ids = {}
@@ -780,6 +888,7 @@ def process(
             params.chromosome = c
             params.vcf_files = vcf_file_inputs
             params.fasta_file = fasta_file
+            params.gtf_file = gtf_file
             params.diploid = diploid
             params.passed = passed
             params.quality = quality
@@ -801,17 +910,48 @@ def process(
                     append_time=False,
                 )
 
+                # delete in case the files already exist from a previous run
                 g2g_utils.delete_file(params.output_file_left)
                 g2g_utils.delete_file(params.output_file_right)
+
+                if gtf_file:
+                    params.output_stats_file_left = g2g_utils.gen_file_name(
+                        f'chr{c}.left.stats',
+                        output_dir=temp_directory,
+                        extension='tsv',
+                        append_time=False,
+                    )
+
+                    params.output_stats_file_right = g2g_utils.gen_file_name(
+                        f'chr{c}.right.stats',
+                        output_dir=temp_directory,
+                        extension='tsv',
+                        append_time=False,
+                    )
+
+                    g2g_utils.delete_file(params.output_stats_file_left)
+                    g2g_utils.delete_file(params.output_stats_file_right)
+
             else:
                 params.output_file_left = g2g_utils.gen_file_name(
-                    f'chr{c}.right',
+                    f'chr{c}.left',
                     output_dir=temp_directory,
                     extension='vci',
                     append_time=False,
                 )
 
+                # delete in case the files already exist from a previous run
                 g2g_utils.delete_file(params.output_file_left)
+
+                if gtf_file:
+                    params.output_stats_file_left = g2g_utils.gen_file_name(
+                        f'chr{c}.left.stats',
+                        output_dir=temp_directory,
+                        extension='tsv',
+                        append_time=False,
+                    )
+
+                    g2g_utils.delete_file(params.output_stats_file_left)
 
             all_params.append(params)
 
@@ -838,6 +978,28 @@ def process(
                 files.append(mi.output_file_right)
 
         g2g_utils.concatenate_files(files, output_file, True)
+
+        if gtf_file:
+            logger.warning('Finalizing Stats File')
+            files_stats_left = []
+            files_stats_right = []
+
+            if diploid:
+                output_stats_file_left = g2g_utils.adjust_file_name(output_stats_file, 'L')
+                output_stats_file_right = g2g_utils.adjust_file_name(output_stats_file, 'R')
+            else:
+                output_stats_file_left = output_stats_file
+                output_stats_file_right = None
+
+            for mi in all_params:
+                files_stats_left.append(mi.output_stats_file_left)
+                if diploid:
+                    files_stats_right.append(mi.output_stats_file_right)
+
+            g2g_utils.concatenate_files(files_stats_left, output_stats_file_left, True)
+
+            if diploid:
+                g2g_utils.concatenate_files(files_stats_right, output_stats_file_right, True)
 
         if bgzip:
             logger.warning('Compressing VCI File and indexing')

@@ -478,3 +478,114 @@ def odict_to_attributes_gff(attributes: dict[str, str]) -> str:
         return temp_atts.rstrip()
 
     return '.'
+
+from dataclasses import dataclass
+import traceback
+import pandas as pd
+from intervaltree import IntervalTree
+
+@dataclass
+class GeneInfo:
+    """Store gene information from GTF file."""
+    gene_id: str
+    gene_name: str
+    chrom: str
+    start: int
+    end: int
+    snp_count: int = 0
+    indel_count: int = 0
+
+@dataclass
+class TranscriptInfo:
+    """Store transcript information from GTF file."""
+    gene_id: str
+    gene_name: str
+    transcript_id: str
+    chrom: str
+    start: int
+    end: int
+    snp_count: int = 0
+    indel_count: int = 0
+
+def parse_gtf(gtf_file: str, chrom: str = None):
+    """
+    Parse GTF file to extract gene information.
+
+    Args:
+        gtf_file: Path to the GTF file
+
+    Returns:
+        Dictionary mapping Ensembl gene IDs to GeneInfo objects
+    """
+    logger.info(f"Parsing GTF file: {gtf_file}")
+    transcripts = {}
+    transcripts_tree = IntervalTree()
+
+    try:
+        # Read GTF file with pandas for faster processing
+        # Only read the columns we need
+        cols = [0, 2, 3, 4, 8]  # seqname, feature, start, end, attributes
+        df = pd.read_csv(
+            gtf_file,
+            sep='\t',
+            comment='#',
+            header=None,
+            usecols=cols,
+            names=['chrom', 'feature', 'start', 'end', 'attributes'],
+            low_memory=False  # Avoid DtypeWarning
+        )
+        df['chrom'] = df['chrom'].astype(str)  # Ensure chromosome is string type
+
+        # Filter for gene entries only
+        #filtered_df = df[df['feature'] == 'gene']
+        filtered_df = df[df['feature'] == 'transcript']
+
+        logger.debug(f"Found {len(filtered_df)} entries in GTF file")
+
+        # Process each gene entry
+        for _, row in filtered_df.iterrows():
+            attributes = row['attributes']
+
+            # Extract gene_id and gene_name from attributes
+            gene_id_match = None
+            gene_name_match = None
+            transcript_id_match = None
+
+            for attr in attributes.split(';'):
+                attr = attr.strip()
+                if attr.startswith('gene_id'):
+                    gene_id_match = attr.split('"')[1]
+                elif attr.startswith('transcript_id'):
+                    transcript_id_match = attr.split('"')[1]
+                elif attr.startswith('gene_name'):
+                    gene_name_match = attr.split('"')[1]
+
+            if gene_id_match and gene_name_match and transcript_id_match:
+                if (chrom is None) or (chrom and row['chrom'] == chrom):
+
+                    # Add gene to dictionary
+                    # GTF is 1-based, inclusive
+                    transcripts[transcript_id_match] = TranscriptInfo(
+                        gene_id=gene_id_match,
+                        gene_name=gene_name_match,
+                        transcript_id=transcript_id_match,
+                        chrom=row['chrom'],
+                        start=int(row['start']),
+                        end=int(row['end']),
+                        snp_count=0,
+                        indel_count=0
+                    )
+
+                    transcripts_tree[int(row['start']):int(row['end'])] = transcript_id_match
+
+        logger.info(f"Successfully parsed {len(transcripts)} transcripts from GTF file")
+
+        return {
+            'features': transcripts,
+            'tree': transcripts_tree
+        }
+
+    except Exception as e:
+        logger.error(f"Error parsing GTF file: {e}")
+        logger.error(traceback.format_exc())
+        sys.exit(1)

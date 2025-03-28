@@ -731,6 +731,28 @@ def prepend_before_extension(filename, text):
     return filename
 
 
+def adjust_file_name(filename: str, value: str) -> str:
+    """
+    Inserts a value into a filename before the file extension.
+
+    Args:
+        filename: The original filename (with or without path)
+        value: The value to insert before the extension
+
+    Returns:
+        The modified filename with the value inserted before the extension
+    """
+    # Split the filename into base name and extension
+    parts = filename.rsplit('.', 1)
+
+    if len(parts) == 1:
+        # No extension found, just append the value
+        return f"{filename}.{value}"
+    else:
+        # Insert the value before the extension
+        base_name, extension = parts
+        return f"{base_name}.{value}.{extension}"
+
 def get_dir_and_file(filename):
     abspath = os.path.abspath(filename)
     if os.path.isdir(abspath):

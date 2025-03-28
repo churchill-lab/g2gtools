@@ -13,7 +13,9 @@ readme = 'README.md'
 dependencies = [
     'bx-python==0.13.0',
     'click==8.1.8',
+    'intervaltree==3.1.0',
     'natsort==8.4.0',
+    'pandas==2.2.3',
     'pysam==0.23.0',
     'rich==13.9.4',
     'typer==0.15.1',

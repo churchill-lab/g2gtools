@@ -19,6 +19,7 @@ import g2gtools.g2g_utils as g2g_utils
 import g2gtools.gtf as gtf
 import g2gtools.gtf_db as gtf_db
 import g2gtools.region as g2g_region
+import g2gtools.variant as g2g_variant
 import g2gtools.vci as g2g_vci
 import g2gtools.vcf2vci as g2g_vcf2vci
 
@@ -182,6 +183,7 @@ def vcf2vci(
     fasta_file: Annotated[Path, typer.Option('--fasta', show_default=False, exists=True, dir_okay=False, resolve_path=True, help='Fasta file matching VCF information')],
     strain: Annotated[str, typer.Option('--strain', show_default=False, help='Name of strain/sample (column in VCF file)')],
     vci_file: Annotated[Path, typer.Option('--vci', show_default=False, exists=False, dir_okay=False, writable=True, resolve_path=True, help='Name of output file')],
+    gtf_file: Annotated[Path, typer.Option('--gtf', show_default=False, exists=True, dir_okay=False, resolve_path=True, help='GTF File for gene information, will create info file')] = None,
     num_processes: Annotated[int, typer.Option('--num-processes', hidden=True)] = None,
     diploid: Annotated[bool, typer.Option('--diploid', help='Create diploid VCI file')] = False,
     keep: Annotated[bool, typer.Option('--keep', help='Keep track of VCF lines that could not be converted to VCI file')] = False,
@@ -209,12 +211,14 @@ def vcf2vci(
 
         fasta_file = str(fasta_file) if fasta_file else None
         vci_file = str(vci_file) if vci_file else None
+        gtf_file = str(gtf_file) if gtf_file else None
 
         g2g_vcf2vci.process(
             vcf_files=all_vcf_files,
             fasta_file=fasta_file,
             output_file=vci_file,
             strain=strain,
+            gtf_file=gtf_file,
             vcf_keep=keep,
             passed=passed,
             quality=quality,

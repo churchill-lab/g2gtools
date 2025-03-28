@@ -3,6 +3,39 @@
 #
 # 1 based
 #
+#
+##fileformat=VCFv4.2
+##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Genotype Quality">
+##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Read Depth">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	SAMPLE1
+#chr1	2	rs123456	A	G	100	PASS	NS=3;DP=30;AF=0.5	GT:GQ:DP	0/0:99:10    # Homozygous reference
+#chr1	3	rs123457	A	G,T	100	PASS	NS=3;DP=30;AF=0.5	GT:GQ:DP	1/2:99:10    # Heterozygous with two different alt alleles
+#chr1	5	rs123458	C	T	100	PASS	NS=3;DP=30;AF=0.5	GT:GQ:DP	0/1:99:10    # Heterozygous (ref and first alt)
+#chr1	6	rs123459	C	G	100	PASS	NS=3;DP=30;AF=0.5	GT:GQ:DP	1/1:99:10    # Homozygous alternate
+#chr1	8	rs123460	T	A,C,G	100	PASS	NS=3;DP=30;AF=0.5	GT:GQ:DP	0/3:99:10    # Heterozygous (ref and third alt)
+#chr1	9	rs123461	T	G	100	PASS	NS=3;DP=30;AF=0.5	GT:GQ:DP	./.:99:10    # Missing genotype
+#chr1	10	rs123462	G	A	100	PASS	NS=3;DP=30;AF=0.5	GT:GQ:DP	1/1:99:10    # Homozygous alternate
+#chr1	11	rs123463	G	C	100	PASS	NS=3;DP=30;AF=0.5	GT:GQ:DP	0/1:99:10    # Heterozygous
+#
+#Position 2: Homozygous reference (0/0) - No change to the reference sequence
+#Position 3: Heterozygous with two different alt alleles (1/2) - G in one haplotype, T in the other
+#Position 5: Heterozygous with reference and first alt (0/1) - C in one haplotype, T in the other
+#Position 6: Homozygous alternate (1/1) - G in both haplotypes
+#Position 8: Heterozygous with reference and third alt (0/3) - T in one haplotype, G in the other
+#Position 9: Missing genotype (./.) - Typically kept as reference
+#Position 10: Homozygous alternate (1/1) - A in both haplotypes
+#Position 11: Heterozygous (0/1) - G in one haplotype, C in the other
+#
+#>EXAMPLE1
+#AAACCCTTTGGG
+#
+#The resulting haplotypes after applying these variants would be:
+#
+#>EXAMPLE1_haplotype1
+#AAGCCTTAGAG
+#>EXAMPLE1_haplotype2
+#AATCTGTATAC
 
 # standard library imports
 from collections import namedtuple
@@ -318,8 +351,8 @@ def parse_gt_tuple(
     phase = None
     gt_left = None
     gt_right = None
-    """
 
+    """
     print(f"{vcf_record.alleles=}")
     print(f"{vcf_record.alleles_variant_types=}")
     print(f"{vcf_record.alts=}")
