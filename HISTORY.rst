@@ -3,6 +3,11 @@
 History
 -------
 
+3.1.0 (03/28/2025)
+~~~~~~~~~~~~~~~~~~
+
+* Added --gtf flag to vcf2vci command.  This will generate a stats file showing where snps and indels are located.
+
 3.0.0 (02/16/2025)
 ~~~~~~~~~~~~~~~~~~
 
