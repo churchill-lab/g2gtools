@@ -19,7 +19,6 @@ import g2gtools.g2g_utils as g2g_utils
 import g2gtools.gtf as gtf
 import g2gtools.gtf_db as gtf_db
 import g2gtools.region as g2g_region
-import g2gtools.variant as g2g_variant
 import g2gtools.vci as g2g_vci
 import g2gtools.vcf2vci as g2g_vcf2vci
 
