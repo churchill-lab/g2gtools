@@ -111,16 +111,13 @@ def convert(
         logger.error(str(e))
         raise typer.Exit()
     except exceptions.G2GValueError as e:
-        logger.error(e.msg)
-        raise typer.Exit()
-    except exceptions.G2GChainFileError as e:
-        logger.error(e.msg)
+        logger.error(str(e))
         raise typer.Exit()
     except exceptions.G2GBAMError as e:
-        logger.error(e.msg)
+        logger.error(str(e))
         raise typer.Exit()
     except exceptions.G2GBedError as e:
-        logger.error(e.msg)
+        logger.error(str(e))
         raise typer.Exit()
 
 
@@ -155,19 +152,16 @@ def convert_region(
         logger.error(str(e))
         raise typer.Exit()
     except exceptions.G2GValueError as e:
-        logger.error(e.msg)
+        logger.error(str(e))
         raise typer.Exit()
     except exceptions.G2GRegionError as e:
-        logger.error(e.msg)
-        raise typer.Exit()
-    except exceptions.G2GChainFileError as e:
-        logger.error(e.msg)
+        logger.error(str(e))
         raise typer.Exit()
     except exceptions.G2GBAMError as e:
-        logger.error(e.msg)
+        logger.error(str(e))
         raise typer.Exit()
     except exceptions.G2GBedError as e:
-        logger.error(e.msg)
+        logger.error(str(e))
         raise typer.Exit()
 
 
@@ -232,10 +226,10 @@ def vcf2vci(
         logger.error(str(e))
         raise typer.Exit()
     except exceptions.G2GValueError as e:
-        logger.error(e.msg)
+        logger.error(str(e))
         raise typer.Exit()
     except exceptions.G2GVCFError as e:
-        logger.error(e.msg)
+        logger.error(str(e))
         raise typer.Exit()
 
 
@@ -479,19 +473,19 @@ def extract(
         logger.error(str(e))
         raise typer.Exit()
     except exceptions.G2GValueError as e:
-        logger.error(e.msg)
+        logger.error(str(e))
         raise typer.Exit()
     except exceptions.G2GVCFError as e:
-        logger.error(e.msg)
+        logger.error(str(e))
         raise typer.Exit()
     except exceptions.G2GBedError as e:
-        logger.error(e.msg)
+        logger.error(str(e))
         raise typer.Exit()
     except exceptions.G2GRegionError as e:
-        logger.error(e.msg)
+        logger.error(str(e))
         raise typer.Exit()
     except exceptions.G2GFastaError as e:
-        logger.error(e.msg)
+        logger.error(str(e))
         raise typer.Exit()
 
 
@@ -647,22 +641,22 @@ def transform(
         logger.error(str(e))
         raise typer.Exit()
     except exceptions.G2GValueError as e:
-        logger.error(e.msg)
+        logger.error(str(e))
         raise typer.Exit()
     except exceptions.G2GVCFError as e:
-        logger.error(e.msg)
+        logger.error(str(e))
         raise typer.Exit()
     except exceptions.G2GBedError as e:
-        logger.error(e.msg)
+        logger.error(str(e))
         raise typer.Exit()
     except exceptions.G2GRegionError as e:
-        logger.error(e.msg)
+        logger.error(str(e))
         raise typer.Exit()
     except exceptions.G2GFastaError as e:
-        logger.error(e.msg)
+        logger.error(str(e))
         raise typer.Exit()
     except exceptions.G2GError as e:
-        logger.error(e.msg)
+        logger.error(str(e))
         raise typer.Exit()
 
 
@@ -706,16 +700,16 @@ def parse_region(
         logger.error(str(e))
         raise typer.Exit()
     except exceptions.G2GValueError as e:
-        logger.error(e.msg)
+        logger.error(str(e))
         raise typer.Exit()
     except exceptions.G2GBedError as e:
-        logger.error(e.msg)
+        logger.error(str(e))
         raise typer.Exit()
     except exceptions.G2GRegionError as e:
-        logger.error(e.msg)
+        logger.error(str(e))
         raise typer.Exit()
     except exceptions.G2GFastaError as e:
-        logger.error(e.msg)
+        logger.error(str(e))
         raise typer.Exit()
 
 
@@ -753,10 +747,10 @@ def fasta_format(
         logger.error(str(e))
         raise typer.Exit()
     except exceptions.G2GValueError as e:
-        logger.error(e.msg)
+        logger.error(str(e))
         raise typer.Exit()
     except exceptions.G2GVCFError as e:
-        logger.error(e.msg)
+        logger.error(str(e))
         raise typer.Exit()
 
 
@@ -789,10 +783,10 @@ def gtf2db(
         logger.error(str(e))
         raise typer.Exit()
     except exceptions.G2GValueError as e:
-        logger.error(e.msg)
+        logger.error(str(e))
         raise typer.Exit()
     except exceptions.G2GVCFError as e:
-        logger.error(e.msg)
+        logger.error(str(e))
         raise typer.Exit()
 
 
@@ -823,6 +817,6 @@ def vci_query(
     except exceptions.KeyboardInterruptError as e:
         g2g_utils.exit(str(e))
     except exceptions.G2GValueError as e:
-        g2g_utils.exit(e.msg)
+        g2g_utils.exit(str(e))
     except exceptions.G2GError as e:
-        g2g_utils.exit(e.msg)
+        g2g_utils.exit(str(e))
