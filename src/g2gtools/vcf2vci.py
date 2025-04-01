@@ -4,7 +4,7 @@ A way to combine vcf files into a more succinct format.
 # standard library imports
 from dataclasses import dataclass
 from collections import OrderedDict
-from typing import Any
+from typing import Any, Callable, Iterator, TypeVar
 import copy
 import logging
 import multiprocessing
@@ -26,88 +26,188 @@ import g2gtools.gtf as gtf
 
 logger = g2g_utils.get_logger('g2gtools')
 
+# Define type variables for VCF readers and records
+VCFRecord = TypeVar('VCFRecord')
+VCFReader = Iterator[VCFRecord]
+
 
 @dataclass
 class VCFFileInformation:
-    file_name: str
-    discard_file: str = None
-    sample_name: str = None
-    sample_index: int = None
+    """
+    Represents information about a VCF file.
 
-    def __str__(self):
+    This class stores metadata about a VCF file, including its filename,
+    associated discard file, sample name, and sample index.
+
+    Attributes:
+        file_name (str): The path to the VCF file.
+        discard_file (str | None): Path to a discard file associated with this VCF.
+        sample_name (str | None): Name of the sample in the VCF file.
+        sample_index (int | None): Index of the sample in a multi-sample VCF file.
+    """
+    file_name: str
+    discard_file: str | None
+    sample_name: str | None
+    sample_index: int | None
+
+    def __init__(
+        self,
+        file_name: str,
+        discard_file: str | None = None,
+    ) -> None:
         """
-        Returns: The string representation.
+        Initialize a new VCFFileInformation instance.
+
+        Args:
+            file_name: The path to the VCF file.
+            discard_file: Path to a discard file associated with this VCF.
+                          Defaults to None.
+
+        Note:
+            sample_name and sample_index can be set after initialization.
+        """
+        self.file_name = file_name
+        self.discard_file = discard_file
+        self.sample_name = None
+        self.sample_index = None
+
+    def __str__(self) -> str:
+        """
+        Return a string representation of the VCF file information.
+
+        Returns:
+            str: A string containing the file name and sample name, separated
+                 by a comma.
         """
         return f'{self.file_name}, {self.sample_name}'
 
 
-class VCF2VCIInfo(object):
-    def __init__(self):
-        self.chromosome: str | None = None
 
-        # list of VCFFileInformation
-        self.vcf_files: list[VCFFileInformation] = []
-        self.fasta_file: str | None = None
-        self.log_level:  int | None = logging.INFO
-        self.gtf_file: str | None = None
-
-        # indel specific
-
-        self.prev_next_ref_pos_right: int = 1
-        self.prev_next_ref_pos_left: int = 1
-
-        self.diploid: bool = False
-        self.passed: bool = False
-        self.quality: bool = False
-        self.vcf_keep: bool = False
-
-        self.output_file_left: str | None = None
-        self.output_file_right: str | None = None
-        self.output_stats_file_left: str | None = None
-        self.output_stats_file_right: str | None = None
-
-        self.stats_left: dict[str, int] = {}
-        self.stats_right: dict[str, int] = {}
-
-
-#: list[pysam.libctabix.TabixIterator],
-#: Any
-# -> Generator[list[pysam.libctabixproxies.TupleProxy | None]]:
-def walk_vcfs_together(
-    readers,
-    **kwargs,
-):
+class VCF2VCIInfo:
     """
-    Simultaneously iterate over two or more VCF readers. For each genomic
-    position with a variant, return a list of size equal to the number of
-    VCF readers. This list contains the VCF record from readers that have
+    Configuration and state information for VCF to VCI conversion.
+
+    This class stores all the necessary information and settings required for
+    converting VCF files to VCI format, including input files, output paths,
+    conversion parameters, and statistics tracking.
+
+    Attributes:
+        chromosome (str | None): Target chromosome for conversion.
+        vcf_files (list[VCFFileInformation]): List of VCF files to process.
+        fasta_file (str | None): Path to the reference FASTA file.
+        log_level (int | None): Logging level, defaults to logging.INFO.
+        gtf_file (str | None): Path to the GTF annotation file.
+        prev_next_ref_pos_left (int): Previous reference position for left alignment.
+        prev_next_ref_pos_right (int): Previous reference position for right alignment.
+        diploid (bool): Whether to process as diploid genome.
+        passed (bool): Whether to only include variants that passed filters.
+        quality (bool): Whether to include quality information.
+        vcf_keep (bool): Whether to keep original VCF files after conversion.
+        output_file_left (str | None): Path to the output file for left-aligned variants.
+        output_file_right (str | None): Path to the output file for right-aligned variants.
+        output_stats_file_left (str | None): Path to the statistics file for left-aligned variants.
+        output_stats_file_right (str | None): Path to the statistics file for right-aligned variants.
+        stats_left (dict[str, int]): Statistics for left-aligned variants.
+        stats_right (dict[str, int]): Statistics for right-aligned variants.
+    """
+
+    chromosome: str | None
+    vcf_files: list[VCFFileInformation]
+    fasta_file: str | None
+    log_level: int | None
+    gtf_file: str | None
+    prev_next_ref_pos_left: int
+    prev_next_ref_pos_right: int
+    diploid: bool
+    passed: bool
+    quality: bool
+    vcf_keep: bool
+    output_file_left: str | None
+    output_file_right: str | None
+    output_stats_file_left: str | None
+    output_stats_file_right: str | None
+    stats_left: dict[str, int]
+    stats_right: dict[str, int]
+
+    def __init__(self) -> None:
+        """
+        Initialize a new VCF2VCIInfo instance with default values.
+
+        All attributes are initialized to their default values:
+        - File paths are set to None
+        - Boolean flags are set to False
+        - Containers are initialized as empty
+        - Position counters are set to 1
+        - Log level defaults to INFO
+        """
+        self.chromosome = None
+        # list of VCFFileInformation
+        self.vcf_files = []
+        self.fasta_file = None
+        self.log_level = logging.INFO
+        self.gtf_file = None
+        # indel specific
+        self.prev_next_ref_pos_right = 1
+        self.prev_next_ref_pos_left = 1
+        self.diploid = False
+        self.passed = False
+        self.quality = False
+        self.vcf_keep = False
+        self.output_file_left = None
+        self.output_file_right = None
+        self.output_stats_file_left = None
+        self.output_stats_file_right = None
+        self.stats_left = {}
+        self.stats_right = {}
+
+
+def walk_vcfs_together(
+    readers: list[VCFReader | None],
+    **kwargs: Any,
+) -> Iterator[list[VCFRecord | None]]:
+    """
+    Simultaneously iterate over two or more VCF readers.
+
+    For each genomic position with a variant, return a list of size equal to the
+    number of VCF readers. This list contains the VCF record from readers that have
     this variant, and None for readers that don't have it. Inputs must be
     sorted in the same way and use the same reference.
 
     Args:
-        readers:
-        **kwargs: If 'vcf_record_sort_key' is passed in, it should be a function
-            that takes a VCF record and returns a  tuple that can be used as a
-            key for comparing and sorting VCF records across all readers. This
-            tuple defines what it means for two variants to be equal (i.e.
-            whether it's only their position or also their allele values), and
-            implicitly determines the chromosome ordering since the tuple's 1st
-            element is typically the chromosome name (or calculated from it).
+        readers: A list of VCF readers (iterators over VCF records).
+            Readers can be None, in which case None will always be returned
+            for that position in the result.
+
+        **kwargs: Additional keyword arguments.
+            vcf_record_sort_key: If provided, should be a function that takes a
+                VCF record and returns a tuple that can be used as a key for
+                comparing and sorting VCF records across all readers. This tuple
+                defines what it means for two variants to be equal (i.e., whether
+                it's only their position or also their allele values), and implicitly
+                determines the chromosome ordering since the tuple's 1st element is
+                typically the chromosome name (or calculated from it).
 
     Returns:
-
+        An iterator yielding lists of VCF records (or None). Each list has the same
+        length as the input readers list. For each position, the list contains the
+        VCF record from each reader that has a variant at that position, or None
+        for readers that don't have a variant there.
     """
+    # define the default sort key function if not provided
     if 'vcf_record_sort_key' in kwargs:
-        get_key = kwargs['vcf_record_sort_key']
+        get_key: Callable[[VCFRecord], tuple[Any, ...]] = kwargs[
+            'vcf_record_sort_key'
+        ]
     else:
 
-        def get_key(r):
+        def get_key(r: VCFRecord) -> tuple[str, int]:
             return (
                 r.contig,
                 r.pos,
             )
 
-    nexts = []
+    # initialize with the first record from each reader
+    nexts: list[VCFRecord | None] = []
     for reader in readers:
         try:
             if reader:
@@ -117,25 +217,38 @@ def walk_vcfs_together(
         except StopIteration:
             nexts.append(None)
 
-    min_k = (None,)
+    # start with a minimal key that will be replaced
+    min_k: tuple[Any, ...] = (None,)
+
+    # Continue until all readers are exhausted
     while any([r is not None for r in nexts]):
-        next_idx_to_k = dict(
+        # map reader indices to their current record's sort key
+        next_idx_to_k: dict[int, tuple[Any, ...]] = dict(
             (i, get_key(r)) for i, r in enumerate(nexts) if r is not None
         )
-        keys_with_prev_contig = [
+
+        # find keys that match the previous contig (chromosome)
+        keys_with_prev_contig: list[tuple[Any, ...]] = [
             k for k in next_idx_to_k.values() if k[0] == min_k[0]
         ]
 
+        # determine the minimum key (position) to process next
         if any(keys_with_prev_contig):
             min_k = min(keys_with_prev_contig)
         else:
             min_k = min(next_idx_to_k.values())
 
-        min_k_idxs = set([i for i, k in next_idx_to_k.items() if k == min_k])
+        # find all readers that have a record at this minimum position
+        min_k_idxs: set[int] = set(
+            [i for i, k in next_idx_to_k.items() if k == min_k]
+        )
+
+        # yield a list with records for readers at this position, None for others
         yield [
             nexts[i] if i in min_k_idxs else None for i in range(len(nexts))
         ]
 
+        # advance the readers that were just processed
         for i in min_k_idxs:
             try:
                 nexts[i] = next(readers[i])
@@ -162,17 +275,17 @@ def update_stats(stats: dict[str, int], reason: str) -> dict[str, int]:
     return stats
 
 
-def process_piece(vcf2vci_params: VCF2VCIInfo) -> dict[str, Any]:
+def process_piece(params: VCF2VCIInfo) -> dict[str, Any]:
     """
     Process this 'piece' of the VCF file.
 
     Args:
-        vcf2vci_params: The parameters dictating what piece to process.
+        params: The parameters dictating what piece to process.
 
     Returns:
         The results of the processing.
     """
-    logger = g2g_utils.configure_logging('g2gtools', vcf2vci_params.log_level)
+    logger = g2g_utils.configure_logging('g2gtools', params.log_level)
 
     stats = {}
 
@@ -182,23 +295,23 @@ def process_piece(vcf2vci_params: VCF2VCIInfo) -> dict[str, Any]:
         output_stats_file_left = None
         output_stats_file_right = None
 
-        if vcf2vci_params.output_file_left:
-            output_file_left = open(vcf2vci_params.output_file_left, 'w')
+        if params.output_file_left:
+            output_file_left = open(params.output_file_left, 'w')
 
-        if vcf2vci_params.output_file_right:
-            output_file_right = open(vcf2vci_params.output_file_right, 'w')
+        if params.output_file_right:
+            output_file_right = open(params.output_file_right, 'w')
 
-        if vcf2vci_params.output_stats_file_left:
-            output_stats_file_left = open(vcf2vci_params.output_stats_file_left, 'w')
+        if params.output_stats_file_left:
+            output_stats_file_left = open(params.output_stats_file_left, 'w')
 
-        if vcf2vci_params.output_stats_file_right:
-            output_stats_file_right = open(vcf2vci_params.output_stats_file_right, 'w')
+        if params.output_stats_file_right:
+            output_stats_file_right = open(params.output_stats_file_right, 'w')
 
         mi = ['L']
-        if vcf2vci_params.diploid:
+        if params.diploid:
             mi = ['L', 'R']
 
-        logger.warning(f'Processing Chromosome {vcf2vci_params.chromosome}...')
+        logger.warning(f'Processing Chromosome {params.chromosome}...')
 
         iterators = []
         discard_functions = []
@@ -207,7 +320,7 @@ def process_piece(vcf2vci_params: VCF2VCIInfo) -> dict[str, Any]:
 
         if tabix:
 
-            for i, file_info in enumerate(vcf2vci_params.vcf_files):
+            for i, file_info in enumerate(params.vcf_files):
                 try:
                     vcf_tabix = pysam.TabixFile(file_info.file_name)
                 except OSError:
@@ -219,7 +332,7 @@ def process_piece(vcf2vci_params: VCF2VCIInfo) -> dict[str, Any]:
 
                 try:
                     vcf_iterator = vcf_tabix.fetch(
-                        vcf2vci_params.chromosome,  # 3052782, 3052784,
+                        params.chromosome,  # 3052782, 3052784,
                         parser=pysam.asVCF(),
                     )
                     iterators.append(vcf_iterator)
@@ -238,7 +351,7 @@ def process_piece(vcf2vci_params: VCF2VCIInfo) -> dict[str, Any]:
                     discard_functions.append(lambda rec: None)
 
         else:
-            for i, file_info in enumerate(vcf2vci_params.vcf_files):
+            for i, file_info in enumerate(params.vcf_files):
                 try:
                     vcf_vf = pysam.VariantFile(file_info.file_name)
                 except OSError:
@@ -250,7 +363,7 @@ def process_piece(vcf2vci_params: VCF2VCIInfo) -> dict[str, Any]:
 
                 try:
                     vcf_iterator = vcf_vf.fetch(
-                        vcf2vci_params.chromosome  # , 3052780, 3052785
+                        params.chromosome  # , 3052780, 3052785
                     )
                     iterators.append(vcf_iterator)
                 except ValueError:
@@ -275,8 +388,8 @@ def process_piece(vcf2vci_params: VCF2VCIInfo) -> dict[str, Any]:
         transcript_info_left = None
         transcript_info_right = None
 
-        if vcf2vci_params.gtf_file:
-            transcript_info = gtf.parse_gtf(vcf2vci_params.gtf_file, vcf2vci_params.chromosome)
+        if params.gtf_file:
+            transcript_info = gtf.parse_gtf(params.gtf_file, params.chromosome)
             transcript_features = transcript_info['features']
             transcript_tree = transcript_info['tree']
 
@@ -284,27 +397,27 @@ def process_piece(vcf2vci_params: VCF2VCIInfo) -> dict[str, Any]:
             transcript_info_right = copy.deepcopy(transcript_features)
 
         line_numbers = 0
-        #print('iterators=' + str(type(iterators)))
-        #print('iterators[0]=' + str(type(iterators[0])))
+        # print('iterators=' + str(type(iterators)))
+        # print('iterators[0]=' + str(type(iterators[0])))
         for vcf_records in walk_vcfs_together(iterators):
             # print('vcf_records=' + str(type(vcf_records)))
             for i, vcf_record in enumerate(vcf_records):
-                #print('vcf_record=' + str(type(vcf_record)))
-                #logger.debug(vcf_record)
+                # print('vcf_record=' + str(type(vcf_record)))
+                # logger.debug(vcf_record)
                 if vcf_record is None:
                     continue
                 # logger.debug(vcf_record.alt)
                 # logger.debug(type(vcf_record.alt))
                 logger.debug('------------')
-                #print(f'{vcf_record.pos=}')
+                # print(f'{vcf_record.pos=}')
 
                 if tabix:
                     gt = vcf.parse_gt_tuple_orig(
-                        vcf_record, vcf2vci_params.vcf_files[i].sample_index
+                        vcf_record, params.vcf_files[i].sample_index
                     )
                 else:
                     gt = vcf.parse_gt_tuple(
-                        vcf_record, vcf2vci_params.vcf_files[i].sample_name
+                        vcf_record, params.vcf_files[i].sample_name
                     )
 
                 # logger.debug(gt)
@@ -313,27 +426,24 @@ def process_piece(vcf2vci_params: VCF2VCIInfo) -> dict[str, Any]:
                 line_numbers = line_numbers + 1
                 if gt.is_snp:
                     # snp
-                    if (
-                        vcf2vci_params.passed
-                        and 'PASS' not in vcf_record.filter
-                    ):
+                    if params.passed and 'PASS' not in vcf_record.filter:
                         discard_functions[i](vcf_record)
 
                     # logger.debug(f"Processing SNP {vcf_record}")
                     n += 1
 
-                    if vcf2vci_params.quality and gt.fi == '0':
+                    if params.quality and gt.fi == '0':
                         discard_functions[i](vcf_record)
                     elif gt.left is None or gt.right is None:
                         discard_functions[i](vcf_record)
                     else:
-                        if vcf2vci_params.diploid:
+                        if params.diploid:
                             # 0 is the same as REF and do not need
                             if gt.gt_left != 0:
                                 vpos = vcf_record.pos + (1 if tabix else 0)
 
                                 output_file_left.write(
-                                    f'{vcf2vci_params.chromosome}_L\t'
+                                    f'{params.chromosome}_L\t'
                                     f'{vpos}\t'
                                     '.\t'
                                     f'{vcf_record.ref}\t'
@@ -341,17 +451,21 @@ def process_piece(vcf2vci_params: VCF2VCIInfo) -> dict[str, Any]:
                                     '.\n'
                                 )
 
-                                if vcf2vci_params.gtf_file:
-                                    overlapping_features = transcript_tree[vpos]
+                                if params.gtf_file:
+                                    overlapping_features = transcript_tree[
+                                        vpos
+                                    ]
                                     for interval in overlapping_features:
                                         feature_id = interval.data
-                                        transcript_info_left[feature_id].snp_count += 1
+                                        transcript_info_left[
+                                            feature_id
+                                        ].snp_count += 1
 
                             if gt.gt_right != 0:
                                 vpos = vcf_record.pos + (1 if tabix else 0)
 
                                 output_file_right.write(
-                                    f'{vcf2vci_params.chromosome}_R\t'
+                                    f'{params.chromosome}_R\t'
                                     f'{vpos}\t'
                                     '.\t'
                                     f'{vcf_record.ref}\t'
@@ -359,11 +473,15 @@ def process_piece(vcf2vci_params: VCF2VCIInfo) -> dict[str, Any]:
                                     '.\n'
                                 )
 
-                                if vcf2vci_params.gtf_file:
-                                    overlapping_features = transcript_tree[vpos]
+                                if params.gtf_file:
+                                    overlapping_features = transcript_tree[
+                                        vpos
+                                    ]
                                     for interval in overlapping_features:
                                         feature_id = interval.data
-                                        transcript_info_right[feature_id].snp_count += 1
+                                        transcript_info_right[
+                                            feature_id
+                                        ].snp_count += 1
 
                         else:
                             if gt.gt_left == gt.gt_right and gt.gt_left != 0:
@@ -379,7 +497,7 @@ def process_piece(vcf2vci_params: VCF2VCIInfo) -> dict[str, Any]:
                                 vpos = vcf_record.pos + (1 if tabix else 0)
 
                                 output_file_left.write(
-                                    f'{vcf2vci_params.chromosome}\t'
+                                    f'{params.chromosome}\t'
                                     f'{vpos}\t'
                                     '.\t'
                                     f'{vcf_record.ref}\t'
@@ -387,26 +505,27 @@ def process_piece(vcf2vci_params: VCF2VCIInfo) -> dict[str, Any]:
                                     '.\n'
                                 )
 
-                                if vcf2vci_params.gtf_file:
-                                    overlapping_features = transcript_tree[vpos]
+                                if params.gtf_file:
+                                    overlapping_features = transcript_tree[
+                                        vpos
+                                    ]
                                     for interval in overlapping_features:
                                         feature_id = interval.data
-                                        transcript_info_left[feature_id].snp_count += 1
+                                        transcript_info_left[
+                                            feature_id
+                                        ].snp_count += 1
                 else:
                     # indel
                     logger.debug(f'Processing INDEL {vcf_record}')
 
-                    if (
-                        vcf2vci_params.passed
-                        and 'PASS' not in vcf_record.filter
-                    ):
+                    if params.passed and 'PASS' not in vcf_record.filter:
                         logger.debug('TOSSED: FILTERED ON PASS')
                         logger.debug(vcf_record)
                         stats = update_stats(stats, 'FILTERED ON PASS')
                         discard_functions[i](vcf_record)
                         continue
 
-                    elif vcf2vci_params.quality and gt.fi == '0':
+                    elif params.quality and gt.fi == '0':
                         # FI : Whether a sample was a Pass(1) or
                         #      fail (0) based on FILTER values
 
@@ -425,7 +544,7 @@ def process_piece(vcf2vci_params: VCF2VCIInfo) -> dict[str, Any]:
                         discard_functions[i](vcf_record)
                         continue
 
-                    elif not vcf2vci_params.diploid and gt.left != gt.right:
+                    elif not params.diploid and gt.left != gt.right:
                         # haploid or hexaploid
                         # gt must be equal
                         logger.debug('TOSSED: HETEROZYGOUS')
@@ -441,22 +560,18 @@ def process_piece(vcf2vci_params: VCF2VCIInfo) -> dict[str, Any]:
                         # logger.debug(l_or_r)
                         if l_or_r == 'L':
                             # logger.debug('->LEFT')
-                            lr_out = '_L' if vcf2vci_params.diploid else ''
+                            lr_out = '_L' if params.diploid else ''
                             alt_seq = str(gt.left)
-                            stats = vcf2vci_params.stats_left
+                            stats = params.stats_left
                             output_file = output_file_left
-                            prev_next_ref_pos = (
-                                vcf2vci_params.prev_next_ref_pos_left
-                            )
+                            prev_next_ref_pos = params.prev_next_ref_pos_left
                         else:
                             # logger.debug('->RIGHT')
-                            lr_out = '_R' if vcf2vci_params.diploid else ''
+                            lr_out = '_R' if params.diploid else ''
                             alt_seq = str(gt.right)
-                            stats = vcf2vci_params.stats_right
+                            stats = params.stats_right
                             output_file = output_file_right
-                            prev_next_ref_pos = (
-                                vcf2vci_params.prev_next_ref_pos_right
-                            )
+                            prev_next_ref_pos = params.prev_next_ref_pos_right
 
                         logger.debug(f'prev_next_ref_pos={prev_next_ref_pos}')
 
@@ -471,10 +586,10 @@ def process_piece(vcf2vci_params: VCF2VCIInfo) -> dict[str, Any]:
 
                         orig_alt_seq = alt_seq
 
-                        #s = vcf_record[
-                        #    vcf2vci_params.vcf_files[i].sample_index
-                        #]
-                        #logger.debug(f'SAMPLE: {s}')
+                        # s = vcf_record[
+                        #    params.vcf_files[i].sample_index
+                        # ]
+                        # logger.debug(f'SAMPLE: {s}')
                         logger.debug(
                             f'REF="{gt.ref}", ALT_L="{gt.left}", '
                             f'ALT_R="{gt.right}", POS={vcf_record.pos}'
@@ -554,7 +669,7 @@ def process_piece(vcf2vci_params: VCF2VCIInfo) -> dict[str, Any]:
                             ref_str = ref_seq if ref_seq else '.'
                             alt_str = alt_seq if alt_seq else '.'
                             out = (
-                                f'{vcf2vci_params.chromosome}{lr_out}\t'
+                                f'{params.chromosome}{lr_out}\t'
                                 f'{vcf_record.pos + (1 if tabix else 0)}\t'
                                 f'{shared_bases}\t{ref_str}\t{alt_str}\t'
                                 f'{fragment_size}\n'
@@ -567,11 +682,15 @@ def process_piece(vcf2vci_params: VCF2VCIInfo) -> dict[str, Any]:
                             if l_or_r == 'L':
                                 for interval in overlapping_features:
                                     feature_id = interval.data
-                                    transcript_info_left[feature_id].indel_count += 1
+                                    transcript_info_left[
+                                        feature_id
+                                    ].indel_count += 1
                             else:
                                 for interval in overlapping_features:
                                     feature_id = interval.data
-                                    transcript_info_right[feature_id].indel_count += 1
+                                    transcript_info_right[
+                                        feature_id
+                                    ].indel_count += 1
 
                         else:
                             # THIS SHOULD NOT HAPPEN
@@ -580,36 +699,34 @@ def process_piece(vcf2vci_params: VCF2VCIInfo) -> dict[str, Any]:
                         stats = update_stats(stats, 'ACCEPTED')
 
                         if l_or_r == 'L':
-                            vcf2vci_params.stats_left = stats
-                            vcf2vci_params.prev_next_ref_pos_left = (
-                                next_ref_pos
-                            )
+                            params.stats_left = stats
+                            params.prev_next_ref_pos_left = next_ref_pos
                             logger.debug(
-                                'setting vcf2vci_params.prev_next_ref_pos_left='
-                                f'{vcf2vci_params.prev_next_ref_pos_left}'
+                                'setting params.prev_next_ref_pos_left='
+                                f'{params.prev_next_ref_pos_left}'
                             )
                         else:
-                            vcf2vci_params.stats_right = stats
-                            vcf2vci_params.prev_next_ref_pos_right = (
-                                next_ref_pos
-                            )
+                            params.stats_right = stats
+                            params.prev_next_ref_pos_right = next_ref_pos
                             logger.debug(
-                                'setting vcf2vci_params.prev_next_ref_pos_right='
-                                f'{vcf2vci_params.prev_next_ref_pos_right}'
+                                'setting params.prev_next_ref_pos_right='
+                                f'{params.prev_next_ref_pos_right}'
                             )
 
-        if vcf2vci_params.output_file_left:
+        if params.output_file_left:
             output_file_left.close()
 
-        if vcf2vci_params.output_file_right:
+        if params.output_file_right:
             output_file_right.close()
 
         # output all gene info from stats
-        if vcf2vci_params.output_stats_file_left:
+        if params.output_stats_file_left:
             transcript_list = list(transcript_info_left.values())
 
             # Sort the list by gene_id first, then by transcript_id
-            sorted_transcripts = sorted(transcript_list, key=lambda x: (x.gene_id, x.transcript_id))
+            sorted_transcripts = sorted(
+                transcript_list, key=lambda x: (x.gene_id, x.transcript_id)
+            )
 
             for transcript in sorted_transcripts:
                 output_stats_file_left.write(
@@ -622,11 +739,13 @@ def process_piece(vcf2vci_params: VCF2VCIInfo) -> dict[str, Any]:
 
             output_file_left.close()
 
-        if vcf2vci_params.output_stats_file_right:
+        if params.output_stats_file_right:
             transcript_list = list(transcript_info_right.values())
 
             # Sort the list by gene_id first, then by transcript_id
-            sorted_transcripts = sorted(transcript_list, key=lambda x: (x.gene_id, x.transcript_id))
+            sorted_transcripts = sorted(
+                transcript_list, key=lambda x: (x.gene_id, x.transcript_id)
+            )
 
             for transcript in sorted_transcripts:
                 output_stats_file_right.write(
@@ -646,9 +765,9 @@ def process_piece(vcf2vci_params: VCF2VCIInfo) -> dict[str, Any]:
         raise Exception(f'Unknown exception: {e}')
 
     return {
-        'chrom': vcf2vci_params.chromosome,
+        'chrom': params.chromosome,
         'stats': stats,
-        'vcf2vci_params': vcf2vci_params,
+        'params': params,
         'line_numbers': line_numbers,
     }
 
@@ -735,7 +854,7 @@ def process(
     quality: bool = False,
     diploid: bool = False,
     num_processes: int | None = None,
-    bgzip: bool = False
+    bgzip: bool = False,
 ) -> None:
     """
     Parse the VCF file and create a VCI file.
@@ -782,7 +901,9 @@ def process(
                     output_file_dir,
                     f'{os.path.basename(output_file)}.errors.vcf',
                 )
-                logger.warning(f'Output VCF indel discard file: {vcf_discard_file}')
+                logger.warning(
+                    f'Output VCF indel discard file: {vcf_discard_file}'
+                )
 
             vcf_file_inputs.append(
                 VCFFileInformation(vcf_file, vcf_discard_file)
@@ -985,8 +1106,12 @@ def process(
             files_stats_right = []
 
             if diploid:
-                output_stats_file_left = g2g_utils.adjust_file_name(output_stats_file, 'L')
-                output_stats_file_right = g2g_utils.adjust_file_name(output_stats_file, 'R')
+                output_stats_file_left = g2g_utils.adjust_file_name(
+                    output_stats_file, 'L'
+                )
+                output_stats_file_right = g2g_utils.adjust_file_name(
+                    output_stats_file, 'R'
+                )
             else:
                 output_stats_file_left = output_stats_file
                 output_stats_file_right = None
@@ -996,10 +1121,14 @@ def process(
                 if diploid:
                     files_stats_right.append(mi.output_stats_file_right)
 
-            g2g_utils.concatenate_files(files_stats_left, output_stats_file_left, True)
+            g2g_utils.concatenate_files(
+                files_stats_left, output_stats_file_left, True
+            )
 
             if diploid:
-                g2g_utils.concatenate_files(files_stats_right, output_stats_file_right, True)
+                g2g_utils.concatenate_files(
+                    files_stats_right, output_stats_file_right, True
+                )
 
         if bgzip:
             logger.warning('Compressing VCI File and indexing')

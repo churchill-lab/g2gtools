@@ -116,7 +116,6 @@ def configure_logging(
         # assume we are no using built in and not g2g defined
         log.setLevel(level)
 
-
     return log
 
 
@@ -747,11 +746,12 @@ def adjust_file_name(filename: str, value: str) -> str:
 
     if len(parts) == 1:
         # No extension found, just append the value
-        return f"{filename}.{value}"
+        return f'{filename}.{value}'
     else:
         # Insert the value before the extension
         base_name, extension = parts
-        return f"{base_name}.{value}.{extension}"
+        return f'{base_name}.{value}.{extension}'
+
 
 def get_dir_and_file(filename):
     abspath = os.path.abspath(filename)
@@ -883,5 +883,7 @@ def exit(message: str = '', parser: argparse.ArgumentParser = None) -> None:
 
 def convert_if_bytes(data):
     if isinstance(data, bytes):
-        return data.decode('utf-8')  # Decode bytes to string using UTF-8 encoding
+        return data.decode(
+            'utf-8'
+        )  # Decode bytes to string using UTF-8 encoding
     return data

@@ -563,22 +563,22 @@ def patch(
         logger.error(str(e))
         raise typer.Exit()
     except exceptions.G2GValueError as e:
-        logger.error(e.msg)
+        logger.error(str(e))
         raise typer.Exit()
     except exceptions.G2GVCFError as e:
-        logger.error(e.msg)
+        logger.error(str(e))
         raise typer.Exit()
     except exceptions.G2GBedError as e:
-        logger.error(e.msg)
+        logger.error(str(e))
         raise typer.Exit()
     except exceptions.G2GRegionError as e:
-        logger.error(e.msg)
+        logger.error(str(e))
         raise typer.Exit()
     except exceptions.G2GFastaError as e:
-        logger.error(e.msg)
+        logger.error(str(e))
         raise typer.Exit()
     except exceptions.G2GError as e:
-        logger.error(e.msg)
+        logger.error(str(e))
         raise typer.Exit()
 
 

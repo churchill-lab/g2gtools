@@ -24,115 +24,178 @@ import g2gtools.vci as vci
 logger = g2g_utils.get_logger('g2gtools')
 
 
-class FastaPatchParams(object):
-    def __init__(self):
+class FastaPatchParams:
+    """
+    Parameters for patching a FASTA file with variants.
+
+    This class encapsulates all the parameters needed for the FASTA patching
+    process, including input/output file paths, regions, VCI (Variant Call
+    Information) details, and other configuration options.
+
+    Attributes:
+        input_region (str | region.Region| None): Region to patch in the input
+            file.
+            For haploid genomes: "chr:start-end"
+            For diploid genomes: "chr(_L|_R):start-end"
+        input_file (str | None): Path to the input FASTA file.
+        temp_dir (str | None): Directory for temporary files.
+        output_file (str | None): Path to the output FASTA file.
+        output_region (str | region.Region | None): Region identifier for the
+            output file.
+        output_header (str | fasta.FastaHeader | None): Header to use for the
+            output FASTA sequence.
+        vci_file (str | None): Path to the VCI file containing variants.
+        vci_query (str | None): Query to filter variants from the VCI file.
+        reverse (bool): Whether to reverse the patching direction.
+        gen_temp (bool): Whether to generate temporary files.
+        offset (int): Offset to apply to coordinates.
+        log_level (int | None): Logging level for the patching process.
+    """
+
+    # Type annotations for instance variables
+    input_region: str | region.Region | None
+    input_file: str | None
+    temp_dir: str | None
+    output_file: str | None
+    output_region: str | region.Region | None
+    output_header: str | fasta.FastaHeader | None
+    vci_file: str | None
+    vci_query: str | None
+    reverse: bool
+    gen_temp: bool
+    offset: int
+    log_level: int | None
+
+    def __init__(self) -> None:
+        """
+        Initialize a new FastaPatchParams object with default values.
+        """
         # input region, must match the format of the input fasta file
         # if fasta file is haploid, format is chr:start-end
         # if fasta file is diploid, format is chr(_L|_R):start-end
         self.input_region = None
-
         # original input fasta file
         self.input_file = None
-
         # temporary directory
         self.temp_dir = None
-
         self.output_file = None
         self.output_region = None
         self.output_header = None
-
         # vci information
         self.vci_file = None
         self.vci_query = None
         self.reverse = False
-
         self.gen_temp = True
-
         # offset
         self.offset = 0
+        self.log_level = logging.INFO
 
-        self.log_level:  int | None = logging.INFO
+    def __str__(self) -> str:
+        """
+        Get a string representation of the patch parameters.
 
-    def __str__(self):
+        Returns:
+            A string containing the input file, output file, location, and offset.
+        """
         return (
             f'Input: {self.input_file}\nOutput: {self.output_file}\n'
             f'Location: {self.input_region}\nOffset: {self.offset}'
         )
 
 
-class FastaPatchResult(object):
-    def __init__(self):
+class FastaPatchResult:
+    """
+    Result of a FASTA patching operation.
+
+    This class stores the results of patching a FASTA file with variants,
+    including the output file path and the count of applied patches.
+
+    Attributes:
+        output_file (str | None): Path to the output FASTA file.
+        count (int): Number of patches applied.
+    """
+
+    # Type annotations for instance variables
+    output_file: str | None
+    count: int
+
+    def __init__(self) -> None:
+        """
+        Initialize a new FastaPatchResult object with default values.
+        """
         self.output_file = None
         self.count = 0
 
-    def __str__(self):
+    def __str__(self) -> str:
+        """
+        Get a string representation of the patch result.
+
+        Returns:
+            A string containing the output file path.
+        """
         return f'File: {self.output_file}'
 
 
-def process_piece(fasta_patch_params: FastaPatchParams) -> FastaPatchResult:
+def process_piece(params: FastaPatchParams) -> FastaPatchResult:
     """
     Process the 'piece' of information.
 
     Args:
-        fasta_patch_params: The parameters dictating what piece to process.
+        params: The parameters dictating what piece to process.
 
     Returns:
         The results of the processing.
     """
-    logger = g2g_utils.configure_logging('g2gtools', fasta_patch_params.log_level)
-    logger.debug(f'params:input_region = {fasta_patch_params.input_region}')
-    logger.debug(f'params:input_file = {fasta_patch_params.input_file}')
-    logger.debug(f'params:temp_dir = {fasta_patch_params.temp_dir}')
-    logger.debug(f'params:output_file = {fasta_patch_params.output_file}')
-    logger.debug(f'params:output_region = {fasta_patch_params.output_region}')
-    logger.debug(f'params:output_header = {fasta_patch_params.output_header}')
-    logger.debug(f'params:vci_file = {fasta_patch_params.vci_file}')
-    logger.debug(f'params:vci_query = {fasta_patch_params.vci_query}')
-    logger.debug(f'params:reverse = {fasta_patch_params.reverse}')
-    logger.debug(f'params:gen_temp = {fasta_patch_params.gen_temp}')
-    logger.debug(f'params:offset = {fasta_patch_params.offset}')
+    logger = g2g_utils.configure_logging('g2gtools', params.log_level)
+    logger.debug(f'params:input_region = {params.input_region}')
+    logger.debug(f'params:input_file = {params.input_file}')
+    logger.debug(f'params:temp_dir = {params.temp_dir}')
+    logger.debug(f'params:output_file = {params.output_file}')
+    logger.debug(f'params:output_region = {params.output_region}')
+    logger.debug(f'params:output_header = {params.output_header}')
+    logger.debug(f'params:vci_file = {params.vci_file}')
+    logger.debug(f'params:vci_query = {params.vci_query}')
+    logger.debug(f'params:reverse = {params.reverse}')
+    logger.debug(f'params:gen_temp = {params.gen_temp}')
+    logger.debug(f'params:offset = {params.offset}')
 
     fasta_patch_result = FastaPatchResult()
-    fasta_patch_result.output_file = fasta_patch_params.output_file
+    fasta_patch_result.output_file = params.output_file
 
     byte_start, byte_end, byte_len_seq = 0, 0, 0
     line = None
     mm = None
 
     try:
-        fasta_file = fasta.FastaFile(fasta_patch_params.input_file)
-        vci_file = vci.VCIFile(fasta_patch_params.vci_file)
+        fasta_file = fasta.FastaFile(params.input_file)
+        vci_file = vci.VCIFile(params.vci_file)
 
-        if fasta_patch_params.gen_temp:
-            prefix = g2g_utils.location_to_filestring(
-                fasta_patch_params.input_region
-            )
+        if params.gen_temp:
+            prefix = g2g_utils.location_to_filestring(params.input_region)
             tmp_fasta = g2g_utils.gen_file_name(
                 prefix=f'{prefix}_',
                 extension='fa',
                 append_time=False,
-                output_dir=fasta_patch_params.temp_dir,
+                output_dir=params.temp_dir,
             )
             logger.debug(f'tmp_fasta={tmp_fasta}')
 
             working = open(tmp_fasta, 'w')
-            if fasta_patch_params.output_header.description:
+            if params.output_header.description:
                 fasta_header_string = (
-                    f'>{fasta_patch_params.output_header.id} '
-                    f'{fasta_patch_params.output_header.description}'
+                    f'>{params.output_header.id} '
+                    f'{params.output_header.description}'
                 )
             else:
-                fasta_header_string = f'>{fasta_patch_params.output_header.id}'
+                fasta_header_string = f'>{params.output_header.id}'
             working.write(f'{fasta_header_string}\n')
 
-            logger.debug(f'Fasta Fetch {fasta_patch_params.input_region}')
-            logger.debug(
-                f'Fasta Fetch {fasta_patch_params.input_region.start}'
-            )
+            logger.debug(f'Fasta Fetch {params.input_region}')
+            logger.debug(f'Fasta Fetch {params.input_region.start}')
             sequence = fasta_file.fetch(
-                fasta_patch_params.input_region.seq_id,
-                fasta_patch_params.input_region.start - 1,
-                fasta_patch_params.input_region.end,
+                params.input_region.seq_id,
+                params.input_region.start - 1,
+                params.input_region.end,
             )
 
             if len(sequence) < 50:
@@ -148,21 +211,19 @@ def process_piece(fasta_patch_params: FastaPatchParams) -> FastaPatchResult:
             fasta_patch_result.output_file = tmp_fasta
             fasta_index = fasta.FAI(tmp_fasta)
         else:
-            fasta_index = fasta.FAI(fasta_patch_params.input_file)
-            tmp_fasta = fasta_patch_params.input_file
+            fasta_index = fasta.FAI(params.input_file)
+            tmp_fasta = params.input_file
 
-        offset = fasta_patch_params.offset
-        reverse = fasta_patch_params.reverse
+        offset = params.offset
+        reverse = params.reverse
 
-        logger.info(f'Processing {fasta_patch_params.output_header.id}...')
+        logger.info(f'Processing {params.output_header.id}...')
 
         fd_l = open(tmp_fasta, 'r+b')
         mm = mmap.mmap(fd_l.fileno(), 0)
 
-        logger.debug(f'VCI Fetch {fasta_patch_params.vci_query}')
-        for line in vci_file.fetch(
-            fasta_patch_params.vci_query, parser=pysam.asTuple()
-        ):
+        logger.debug(f'VCI Fetch {params.vci_query}')
+        for line in vci_file.fetch(params.vci_query, parser=pysam.asTuple()):
             # CHROM POS ANCHOR DEL INS FRAG
             if line[5] != '.':
                 continue
@@ -178,20 +239,20 @@ def process_piece(fasta_patch_params: FastaPatchParams) -> FastaPatchResult:
             fasta_patch_result.count += 1
 
             byte_start, byte_end, byte_len_seq = fasta_index.get_pos(
-                fasta_patch_params.output_region.seq_id, position - 1, position
+                params.output_region.seq_id, position - 1, position
             )
 
             logger.debug(f'LINE: {line}')
             logger.debug(f'WAS {chr(mm[byte_start])}')
             logger.debug(
-                f'Patching {fasta_patch_params.output_region.seq_id}:'
+                f'Patching {params.output_region.seq_id}:'
                 f'{position - 1} from {deleted_bases} to {inserted_bases}'
             )
             mm[byte_start] = ord(inserted_bases)
     except KeyboardInterrupt:
         raise KeyboardInterruptError()
     except ValueError:
-        logger.debug(f'No SNPS found in region {fasta_patch_params.vci_query}')
+        logger.debug(f'No SNPS found in region {params.vci_query}')
     except Exception as e:
         logger.debug(e)
         logger.debug(f'{byte_start}, {byte_end}, {byte_len_seq}')
@@ -256,7 +317,7 @@ def process(
     filename_output: str | None = None,
     bgzip: bool = False,
     reverse: bool = False,
-    num_processes: int | None = None
+    num_processes: int | None = None,
 ) -> None:
     """
     Patch a Fasta file by replacing the bases where the SNPs are located as
@@ -298,7 +359,9 @@ def process(
             else:
                 if bgzip:
                     if filename_output.lower().endswith(('.fa', '.fasta')):
-                        logger.warning(f'Output Fasta File: {filename_output}.gz')
+                        logger.warning(
+                            f'Output Fasta File: {filename_output}.gz'
+                        )
                     elif filename_output.lower().endswith('.gz'):
                         logger.warning(f'Output Fasta File: {filename_output}')
                         filename_output = filename_output[:-3]
@@ -381,9 +444,7 @@ def process(
                         f'{reg.seq_id}:{reg.start}-{reg.end}', None
                     )
 
-                params.vci_query = (
-                    f'{reg.seq_id}:{reg.start}-{reg.end}'
-                )
+                params.vci_query = f'{reg.seq_id}:{reg.start}-{reg.end}'
                 all_params.append(params)
             else:
                 logger.debug('VCI File is diploid')
@@ -412,9 +473,7 @@ def process(
                         f'{reg.seq_id}_L:{reg.start}-{reg.end}', None
                     )
 
-                params.vci_query = (
-                    f'{reg.seq_id}_L:{reg.start}-{reg.end}'
-                )
+                params.vci_query = f'{reg.seq_id}_L:{reg.start}-{reg.end}'
                 all_params.append(params)
 
                 params_r = copy.deepcopy(params)
@@ -443,9 +502,7 @@ def process(
                         f'{reg.seq_id}_R:{reg.start}-{reg.end}', None
                     )
 
-                params_r.vci_query = (
-                    f'{reg.seq_id}_R:{reg.start}-{reg.end}'
-                )
+                params_r.vci_query = f'{reg.seq_id}_R:{reg.start}-{reg.end}'
                 all_params.append(params_r)
 
         args = zip(all_params)

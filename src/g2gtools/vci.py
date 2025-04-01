@@ -1,7 +1,7 @@
 # standard library imports
 import collections
 import time
-from collections import OrderedDict
+from typing import Any
 
 # 3rd party library imports
 import pysam
@@ -15,7 +15,6 @@ import g2gtools.g2g_utils as g2g_utils
 import g2gtools.region as region
 
 logger = g2g_utils.get_logger('g2gtools')
-
 
 InfoFields = ['chr', 'start', 'end', 'shared', 'inserted', 'deleted', 'pos']
 IntervalInfo = collections.namedtuple('IntervalInfo', InfoFields)
@@ -33,22 +32,6 @@ MappingFields = [
     'vcf_pos',
 ]
 IntervalMapping = collections.namedtuple('IntervalMapping', MappingFields)
-
-#
-# VCIFile
-#
-# HEADERS
-# ##EXECUTION_TIME
-# ##INDEL_VCF
-# ##INDEL_SNP
-# ##STRAIN
-# ##VCF_KEEP
-# ##FILTER_PASSED
-# ##FILTER_QUALITY
-# ##DIPLOID
-# ##PROCESSES
-# #CHROM POS SHARE INS DEL FRAG
-# DATA
 
 
 def intersect_regions(
@@ -87,10 +70,41 @@ def intersect_regions(
 
 class VCIFile:
     """
-    Encapsulate a VCI (Variant Call Information) File
+    Encapsulate a VCI (Variant Call Information) File.
+
+    The file should have the following format:
+    HEADERS
+        ##EXECUTION_TIME
+        ##INDEL_VCF
+        ##INDEL_SNP
+        ##STRAIN
+        ##VCF_KEEP
+        ##FILTER_PASSED
+        ##FILTER_QUALITY
+        ##DIPLOID
+        ##PROCESSES
+    #CHROM  POS    SHARE  DEL    INS    FRAG    DATA
+        1   3007272    GCC    .  CC 3007274
+        1   3028959    A  .  G  21683
+        1   3043840    .  A  G  .
+        1   3051725    TTTCCTTCC  .  TTCC   22773
+        1   3054924    G  C  .  3187
+        1   3062123    TATACATAC  ATAC   .  7213
+
+    Attributes:
+        file_name (str): The path to the VCI file.
+        mapping_tree (dict[str, IntervalTree]): Dictionary mapping sequence IDs to interval trees.
+        headers (dict[str, str]): Dictionary of header values from the VCI file.
+        seq_ids (list[str] | None): List of sequence IDs to use, overriding what's in the file.
+        is_reversed (bool): Whether the file is reversed.
+        contigs (dict[str, int]): Dictionary mapping contig names to their lengths.
+        valid (bool): Whether the file is valid.
+        debug_level (int): Debug level for logging.
+        tabix_file (pysam.TabixFile): The underlying tabix file.
     """
 
-    HEADERS = [
+    # Class constants
+    HEADERS: list[str] = [
         'CREATION_TIME',
         'INDEL_VCF',
         'INDEL_SNP',
@@ -102,6 +116,17 @@ class VCIFile:
         'PROCESSES',
     ]
 
+    # Instance variables type annotations
+    file_name: str
+    mapping_tree: dict[str, IntervalTree]
+    headers: dict[str, str]
+    seq_ids: list[str] | None
+    is_reversed: bool
+    contigs: dict[str, int]
+    valid: bool
+    debug_level: int
+    tabix_file: pysam.TabixFile
+
     def __init__(
         self,
         file_name: str,
@@ -111,7 +136,7 @@ class VCIFile:
         encoding: str = 'ascii',
         seq_ids: list[str] | None = None,
         reverse: bool = False,
-    ):
+    ) -> None:
         """
         Initialize VCI File.
 
@@ -126,32 +151,29 @@ class VCIFile:
             seq_ids: Override what is in the file and just use these seq ids.
             reverse: Is the file reversed.
         """
-        self.file_name: str = file_name
+        self.file_name = file_name
         try:
+            # attempt to decode the file name if it's in bytes
             self.file_name = self.file_name.decode()
         except (UnicodeDecodeError, AttributeError):
             pass
-
-        self.mapping_tree: dict[str, IntervalTree] = {}
-        self.headers: dict[str, str] = {}
-        self.seq_ids: list[str] = seq_ids
-        self.is_reversed: bool = reverse
-        self.contigs: dict[str, int] = {}
-        self.valid: bool = False
-        self.debug_level: int = 0
-
-        self.tabix_file: pysam.TabixFile = pysam.TabixFile(
+        self.mapping_tree = {}
+        self.headers = {}
+        self.seq_ids = seq_ids
+        self.is_reversed = reverse
+        self.contigs = {}
+        self.valid = False
+        self.debug_level = 0
+        self.tabix_file = pysam.TabixFile(
             self.file_name,
             mode=mode,
             parser=parser,
             index=index,
             encoding=encoding,
         )
-
         g2g_utils.index_file(
             file_name=file_name, file_format='vci', overwrite=False
         )
-
         self.parse_header()
 
     def get_filename(self) -> str:
@@ -163,7 +185,7 @@ class VCIFile:
         """
         return self.file_name
 
-    def __getattr__(self, name):
+    def __getattr__(self, name: str) -> Any:
         """
         Get the attribute of the VCI File.
 
@@ -171,7 +193,7 @@ class VCIFile:
             name: The attribute name.
 
         Returns:
-            The attribute value.
+            Any: The attribute value from the underlying tabix_file.
         """
         return getattr(self.tabix_file, name)
 
@@ -185,8 +207,9 @@ class VCIFile:
         multiple_iterators: bool | None = False,
     ) -> pysam.libctabix.TabixIterator:
         """
-        Fetch reads in the specified region or reference. Without a contig or
-        region all mapped reads in the file will be fetched.
+        Fetch reads in the specified region or reference.
+
+        Without a contig or region all mapped reads in the file will be fetched.
 
         Args:
             reference: The chromosome or contig.
@@ -197,14 +220,15 @@ class VCIFile:
             multiple_iterators: Whether multiple iterators can be used.
 
         Returns:
-            An iterator over a collection of reads.
+            pysam.libctabix.TabixIterator: An iterator over a collection of
+                                           reads.
         """
-        # todo: potentially alter the reference value or the region value???
+        # TODO: potentially alter the reference value or the region value
         return self.tabix_file.fetch(
             reference, start, end, region, parser, multiple_iterators
         )
 
-    def is_diploid(self):
+    def is_diploid(self) -> bool:
         """
         Check if this is a DIPLOID VCI File.
 
@@ -215,7 +239,7 @@ class VCIFile:
             return self.headers['DIPLOID'].lower() in ['true', 't', 'yes', '1']
         return False
 
-    def is_haploid(self):
+    def is_haploid(self) -> bool:
         """
         Check if this is a HAPLOID VCI File.
 
@@ -227,25 +251,22 @@ class VCIFile:
                 return False
         return True
 
-    def parse_header(self):
+    def parse_header(self) -> None:
         """
         Parse the VCI header file.
         """
         self.headers = {}
-
         for header_line in self.tabix_file.header:
             header_line = g2g_utils.s(header_line)
-
             if header_line.startswith('##'):
                 elem = header_line[2:].split('=')
-
                 if elem[0] == 'CONTIG':
                     info = elem[1].split(':')
                     self.contigs[info[0]] = int(info[1])
                 else:
                     self.headers[elem[0]] = elem[1]
 
-    def get_seq_ids(self):
+    def get_seq_ids(self) -> list[str] | None:
         """
         Return all the contigs or chromosomes in the mapping tree.
 
@@ -263,80 +284,62 @@ class VCIFile:
         Args:
             reverse: Whether to switch inserted and deleted.
         """
-        # start = time.time()
+        start = time.time()
         mapping_tree = {}
         try:
             total_num_lines_chrom = 0
             total_num_lines_processed = 0
-
             _chrom = 0
             _pos = 1
             _shared = 2
             _deleted = 3 if not reverse else 4
             _inserted = 4 if not reverse else 3
             _fragment = 5
-
             contigs = self.tabix_file.contigs
-
             if self.seq_ids:
                 contigs = self.seq_ids
-
             # create a bx tree for the indels
             for contig in contigs:
                 # contig_start_time = time.time()
-
                 num_lines_chrom = 0
                 num_lines_processed = 0
-
                 pos_from = 0
                 pos_to = 0
-
                 if contig not in mapping_tree:
                     mapping_tree[contig] = IntervalTree()
-
                 iterator = None
-
                 try:
                     iterator = self.tabix_file.fetch(
                         contig, parser=pysam.asTuple()
                     )
                 except Exception:
                     pass
-
                 if iterator is None:
                     continue
-
                 for rec in iterator:
                     num_lines_chrom += 1
                     total_num_lines_chrom += 1
-
                     if len(rec) != 6:
                         raise G2GError(
                             'Unexpected line in VCI file. Line #'
                             f'{total_num_lines_chrom:,}: {rec}'
                         )
-
                     if rec[2] == '.':
                         continue
-
                     if rec[_inserted] == '.':
                         inserted_bases = 0
                     else:
                         inserted_bases = len(rec[_inserted])
-
                     if rec[_deleted] == '.':
                         deleted_bases = 0
                     else:
                         deleted_bases = len(rec[_deleted])
-
                     fragment = int(rec[_fragment])
-#g2gtools [09:35:22] Inserting interval 195349534 - 195359214
-#g2gtools [09:35:22] pos_from=195359216, pos_to=195305722
-#g2gtools [09:35:22] Inserting interval 195359216 - 195363317
-# 1	195363316	CA	A	.	4101
-# 1	195365691	.	G	T	.
-
-
+                    # g2gtools [09:35:22] Inserting interval 195349534 - 195359214
+                    # g2gtools [09:35:22] pos_from=195359216, pos_to=195305722
+                    # g2gtools [09:35:22] Inserting interval 195359216 - 195363317
+                    # 1 195363316  CA A  .  4101
+                    # 1 195365691  .  G  T  .
                     # logger.debug(f'pos_from={pos_from}, pos_to={pos_to}')
                     # logger.debug(
                     #      f'Inserting interval {pos_from} - {pos_from+fragment}'
@@ -352,16 +355,12 @@ class VCIFile:
                         rec[_pos],  # pos
                     )
                     interval = Interval(pos_from, pos_from + fragment, info)
-
                     # logging.debug(interval)
-
                     mapping_tree[contig].insert_interval(interval)
-
                     pos_from += fragment + deleted_bases
                     pos_to += fragment + inserted_bases
                     num_lines_processed += 1
                     total_num_lines_processed += 1
-
                 if self.is_diploid():
                     info = IntervalInfo(
                         contig,  # chr
@@ -386,9 +385,7 @@ class VCIFile:
                         None,  # pos
                     )
                     interval = Interval(pos_from, self.contigs[contig], info)
-
                 mapping_tree[contig].insert_interval(interval)
-
                 # elapsed_time = g2g_utils.format_time(
                 #     contig_start_time, time.time()
                 # )
@@ -396,14 +393,12 @@ class VCIFile:
                 #     f'Parsed {num_lines_processed:,} '
                 #     f'lines for contig {contig} in {elapsed_time}'
                 # )
-
             self.valid = True
             self.mapping_tree = mapping_tree
         except Exception:
             g2g_utils.show_error()
-
-        # fmt_time = g2g_utils.format_time(start, time.time())
-        # logging.info('Parsing complete: {fmt_time}')
+        fmt_time = g2g_utils.format_time(start, time.time())
+        logger.info(f'Parsing complete: {fmt_time}')
 
     def add_to_tree(self, contig: str, tree: IntervalTree) -> None:
         """
@@ -431,14 +426,11 @@ class VCIFile:
             A list on IntervalMappings or None if none are found.
         """
         mappings = []
-
         if chromosome not in self.mapping_tree:
             # logging.debug(f'Chromosome {chromosome} not in mapping tree')
             # logging.debug(f'Chromosomes: {list(self.mapping_tree.keys())}')
             return None
-
         all_intervals = self.mapping_tree[chromosome].find(start, end)
-
         if len(all_intervals) == 0:
             # logging.debug('No intervals found')
             return None
@@ -456,11 +448,9 @@ class VCIFile:
                 offset = abs(real_start - interval.start)
                 size = abs(real_end - real_start)
                 i_start = interval.value[1] + offset
-
                 # 'from_chr', 'from_start', 'from_end', 'from_seq',
                 # 'to_chr', 'to_start', 'to_end', 'to_seq',
                 # 'same_bases', 'vcf_pos'
-
                 mappings.append(
                     IntervalMapping(
                         chromosome,
@@ -476,7 +466,6 @@ class VCIFile:
                     )
                 )
                 # logging.debug(f'Mapping {len(mappings)-1}={mappings[-1]}')
-
         return mappings
 
 
@@ -486,7 +475,7 @@ def vci_query(vci_file_name_in: str, reg: region.Region) -> None:
 
     Args:
         vci_file_name_in: The name of the VCI file.
-        region: The region to query.
+        reg: The region to query.
     """
     start = time.time()
 
@@ -528,26 +517,28 @@ def vci_query(vci_file_name_in: str, reg: region.Region) -> None:
 
 
 def convert_region(
-        vci_file: str | VCIFile,
-        reg: region.Region | list[region.Region] | str | list[str]
-    ):
+    vci_file: str | VCIFile,
+    reg: region.Region | list[region.Region] | str | list[str],
+) -> region.Region | list[region.Region] | str | list[str] | None:
     """
     Convert location(s) to new coordinates.
 
-    :param vci_file: a string or VCIFile
-    :param reg: a location or list of locations
-    :return: a list of regions or a single region
+    Args:
+        vci_file: a string or VCIFile
+        reg: a location or list of locations
+
+    Returns:
+        A list of regions or a single region.
     """
     start_time = time.time()
     all_regions = []
 
     try:
 
-
         if isinstance(reg, region.Region):
-            all_regions.append(region)
+            all_regions.append(reg)
         elif isinstance(reg, str):
-            all_regions.append(region.parse_region(region))
+            all_regions.append(region.parse_region(reg))
         elif isinstance(reg, list):
             for loc in reg:
                 if isinstance(loc, region.Region):
@@ -565,12 +556,14 @@ def convert_region(
 
             seq_ids = [r.seq_id for r in all_regions]
             if vci_file.is_diploid():
-                seq_ids = [f'{r}_L' for r in seq_ids] + [f'{r}_R' for r in seq_ids]
+                seq_ids = [f'{r}_L' for r in seq_ids] + [
+                    f'{r}_R' for r in seq_ids
+                ]
 
             vci_file.seq_ids = seq_ids
             vci_file.parse(reverse=False)
 
-        logger.warning(f'Inout VCI File: {vci_file.get_filename()}')
+        logger.warning(f'Input VCI File: {vci_file.get_filename()}')
         logger.info(f'VCI File is diploid: {vci_file.is_diploid()}')
 
         left_right = [''] if vci_file.is_haploid() else ['_L', '_R']
@@ -590,13 +583,11 @@ def convert_region(
 
             for lr in left_right:
                 seq_id = f'{r.seq_id}{lr}'
-                mappings = vci_file.find_mappings(
-                    seq_id, r.start - 1, r.end
-                )
+                mappings = vci_file.find_mappings(seq_id, r.start - 1, r.end)
 
                 # unmapped
                 if mappings is None:
-                    #ret[r] = None
+                    # ret[r] = None
                     logger.debug(f'\t{r} -> No mappings')
                     fail += 0
                     continue
@@ -608,10 +599,7 @@ def convert_region(
                 end = mappings[-1].to_end
 
                 new_r = region.Region(seq_id, start, end)
-                ret.append({
-                    'original': r,
-                    'new': new_r
-                })
+                ret.append({'original': r, 'new': new_r})
 
                 logger.debug(f'\t{r} -> {new_r}')
 
@@ -627,4 +615,3 @@ def convert_region(
         logger.warning(f'Time: {fmt_time}')
 
     return ret
-

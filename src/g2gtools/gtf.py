@@ -4,15 +4,17 @@
 
 # standard library imports
 from bz2 import BZ2File
-from collections import namedtuple
-from collections import OrderedDict
+from collections import namedtuple, OrderedDict
+from dataclasses import dataclass
 from gzip import GzipFile
 from typing import TextIO
 import sys
 import time
+import traceback
+import pandas as pd
 
 # 3rd party library imports
-# none
+from intervaltree import IntervalTree
 
 # local library imports
 from g2gtools.exceptions import G2GGTFError
@@ -52,43 +54,75 @@ ATTRIBUTES_TO_ALTER_GFF = {
 }
 
 
-class GTF(object):
+class GTF:
     """
-    Simple GTF object for parsing GTF files
+    Simple GTF object for parsing GTF files.
 
-    http://blogger.nextgenetics.net/?e=27
+    This class provides functionality to read and iterate through GTF
+    (Gene Transfer Format) files, supporting transparent gzip decompression.
+    It parses each line of a GTF file into a GTFRecord object with appropriate
+    fields according to the GTF specification.
 
-    Supports transparent gzip decompression.
+    Reference: http://blogger.nextgenetics.net/?e=27
+
+    Attributes:
+        file_name (str): Path to the GTF file.
+        current_line (str): The current line being processed.
+        current_record (GTFRecord | None): The current parsed GTF record.
+        reader (GzipFile | TextIO | BZ2File | None): File reader object for the GTF file.
     """
 
-    def __init__(self, file_name: str):
+    # Type annotations for instance variables
+    file_name: str
+    current_line: str
+    current_record: GTFRecord | None
+    reader: GzipFile | TextIO | BZ2File | None
+
+    def __init__(self, file_name: str) -> None:
         """
-        Instantiate a GTF object.
+        Initialize a new GTF file reader.
 
         Args:
-            file_name: The name of the GTF file.
+            file_name: Path to the GTF file to read.
         """
-        self.file_name: str = file_name
-        self.current_line: str = ''
-        self.current_record: GTFRecord | None = None
-        # self.reader: Iterator = iter(g2g_utils.open_resource(file_name))
-        # self.reader = iter(g2g_utils.open_resource(file_name))
-        self.reader: GzipFile | TextIO | BZ2File | None = (
-            g2g_utils.open_resource(file_name)
-        )
+        self.file_name = file_name
+        self.current_line = ''
+        self.current_record = None
+        self.reader = g2g_utils.open_resource(file_name)
 
-    def __iter__(self):
+    def __iter__(self) -> 'GTF':
+        """
+        Make the GTF object iterable.
+
+        Returns:
+            The GTF object itself as an iterator.
+        """
         return self
 
-    def __next__(self):
+    def __next__(self) -> GTFRecord:
+        """
+        Get the next GTF record from the file.
+
+        Reads the next line from the GTF file, skipping comment lines
+        (those starting with '#' or '!'), parses it, and returns a
+        GTFRecord object.
+
+        Returns:
+            A GTFRecord object representing the next record in the file.
+
+        Raises:
+            StopIteration: When the end of the file is reached.
+        """
         self.current_line = g2g_utils.s(self.reader.__next__())
+
+        # Skip comment lines
         while self.current_line.startswith(
             '#'
         ) or self.current_line.startswith('!'):
             self.current_line = g2g_utils.s(self.reader.__next__())
 
+        # Parse the line into a GTFRecord
         self.current_record = parse_gtf_line(self.current_line)
-
         return self.current_record
 
 
@@ -181,7 +215,7 @@ def convert_gtf_file(
     vci_file: str | vci.VCIFile,
     gtf_file_name_in: str,
     gtf_file_name_out: str | None = None,
-    reverse: bool | None = False
+    reverse: bool | None = False,
 ) -> None:
     """
     Convert GTF file.
@@ -297,9 +331,13 @@ def convert_gtf_file(
             gtf_unmapped_file.close()
 
         if vci_file.is_haploid():
-            logger.warning(f'Converted {success:,} records from {total:,} records')
+            logger.warning(
+                f'Converted {success:,} records from {total:,} records'
+            )
         else:
-            logger.warning(f'Converted {int(success/2):,} records from {total:,} records')
+            logger.warning(
+                f'Converted {int(success/2):,} records from {total:,} records'
+            )
 
         logger.warning('GTF file converted')
     except KeyboardInterrupt:
@@ -309,13 +347,11 @@ def convert_gtf_file(
         logger.warning(f'Time: {fmt_time}')
 
 
-
-
 def convert_gff_file(
     vci_file: str | vci.VCIFile,
     gff_file_name_in: str,
     gff_file_name_out: str | None = None,
-    reverse: bool | None = False
+    reverse: bool | None = False,
 ) -> None:
     """
     Convert GFF file.
@@ -397,7 +433,9 @@ def convert_gff_file(
                 start = mappings[0].to_start + 1
                 end = mappings[-1].to_end
 
-                logger.debug(f'({record.start}, {record.end}) => ({start}, {end})')
+                logger.debug(
+                    f'({record.start}, {record.end}) => ({start}, {end})'
+                )
 
                 elem = gff_file.current_line.rstrip().split('\t')
                 elem[0] = seq_id
@@ -423,9 +461,13 @@ def convert_gff_file(
                     gff_unmapped_file.close()
 
                 if vci_file.is_haploid():
-                    logger.warning(f'Converted {success:,} records from {total:,} records')
+                    logger.warning(
+                        f'Converted {success:,} records from {total:,} records'
+                    )
                 else:
-                    logger.warning(f'Converted {int(success / 2):,} records from {total:,} records')
+                    logger.warning(
+                        f'Converted {int(success / 2):,} records from {total:,} records'
+                    )
 
                 logger.warning('GFF file converted')
     except KeyboardInterrupt:
@@ -479,14 +521,28 @@ def odict_to_attributes_gff(attributes: dict[str, str]) -> str:
 
     return '.'
 
-from dataclasses import dataclass
-import traceback
-import pandas as pd
-from intervaltree import IntervalTree
 
 @dataclass
 class GeneInfo:
-    """Store gene information from GTF file."""
+    """
+    Store gene information from GTF file.
+
+    This class represents a gene entry parsed from a GTF (Gene Transfer Format) file,
+    containing genomic coordinates and identifiers for a specific gene. It also
+    tracks variant counts within the gene region.
+
+    Attributes:
+        gene_id (str): The unique identifier for the gene (e.g., "ENSG00000139618").
+        gene_name (str): The common name or symbol of the gene (e.g., "BRCA2").
+        chrom (str): The chromosome name where this gene is located (e.g., "chr13").
+        start (int): The starting position of the gene on the chromosome.
+        end (int): The ending position of the gene on the chromosome (inclusive).
+        snp_count (int): Number of single nucleotide polymorphisms (SNPs) in this gene.
+                         Defaults to 0.
+        indel_count (int): Number of insertions and deletions (indels) in this gene.
+                           Defaults to 0.
+    """
+
     gene_id: str
     gene_name: str
     chrom: str
@@ -495,9 +551,29 @@ class GeneInfo:
     snp_count: int = 0
     indel_count: int = 0
 
+
 @dataclass
 class TranscriptInfo:
-    """Store transcript information from GTF file."""
+    """
+    Store transcript information from GTF file.
+
+    This class represents a transcript entry parsed from a GTF (Gene Transfer Format) file,
+    containing genomic coordinates and identifiers for a specific transcript. It also
+    tracks variant counts within the transcript region.
+
+    Attributes:
+        gene_id (str): The unique identifier for the gene this transcript belongs to.
+        gene_name (str): The common name or symbol of the gene (e.g., "BRCA1").
+        transcript_id (str): The unique identifier for this specific transcript.
+        chrom (str): The chromosome name where this transcript is located (e.g., "chr1").
+        start (int): The starting position of the transcript on the chromosome.
+        end (int): The ending position of the transcript on the chromosome (inclusive).
+        snp_count (int): Number of single nucleotide polymorphisms (SNPs) in this transcript.
+                         Defaults to 0.
+        indel_count (int): Number of insertions and deletions (indels) in this transcript.
+                           Defaults to 0.
+    """
+
     gene_id: str
     gene_name: str
     transcript_id: str
@@ -506,6 +582,7 @@ class TranscriptInfo:
     end: int
     snp_count: int = 0
     indel_count: int = 0
+
 
 def parse_gtf(gtf_file: str, chrom: str = None):
     """
@@ -517,7 +594,7 @@ def parse_gtf(gtf_file: str, chrom: str = None):
     Returns:
         Dictionary mapping Ensembl gene IDs to GeneInfo objects
     """
-    logger.info(f"Parsing GTF file: {gtf_file}")
+    logger.info(f'Parsing GTF file: {gtf_file}')
     transcripts = {}
     transcripts_tree = IntervalTree()
 
@@ -532,15 +609,17 @@ def parse_gtf(gtf_file: str, chrom: str = None):
             header=None,
             usecols=cols,
             names=['chrom', 'feature', 'start', 'end', 'attributes'],
-            low_memory=False  # Avoid DtypeWarning
+            low_memory=False,  # Avoid DtypeWarning
         )
-        df['chrom'] = df['chrom'].astype(str)  # Ensure chromosome is string type
+        df['chrom'] = df['chrom'].astype(
+            str
+        )  # Ensure chromosome is string type
 
         # Filter for gene entries only
-        #filtered_df = df[df['feature'] == 'gene']
+        # filtered_df = df[df['feature'] == 'gene']
         filtered_df = df[df['feature'] == 'transcript']
 
-        logger.debug(f"Found {len(filtered_df)} entries in GTF file")
+        logger.debug(f'Found {len(filtered_df)} entries in GTF file')
 
         # Process each gene entry
         for _, row in filtered_df.iterrows():
@@ -573,19 +652,20 @@ def parse_gtf(gtf_file: str, chrom: str = None):
                         start=int(row['start']),
                         end=int(row['end']),
                         snp_count=0,
-                        indel_count=0
+                        indel_count=0,
                     )
 
-                    transcripts_tree[int(row['start']):int(row['end'])] = transcript_id_match
+                    transcripts_tree[
+                        int(row['start']) : int(row['end'])
+                    ] = transcript_id_match
 
-        logger.info(f"Successfully parsed {len(transcripts)} transcripts from GTF file")
+        logger.info(
+            f'Successfully parsed {len(transcripts)} transcripts from GTF file'
+        )
 
-        return {
-            'features': transcripts,
-            'tree': transcripts_tree
-        }
+        return {'features': transcripts, 'tree': transcripts_tree}
 
     except Exception as e:
-        logger.error(f"Error parsing GTF file: {e}")
+        logger.error(f'Error parsing GTF file: {e}')
         logger.error(traceback.format_exc())
         sys.exit(1)

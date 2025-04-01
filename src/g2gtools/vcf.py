@@ -8,38 +8,38 @@
 ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
 ##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Genotype Quality">
 ##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Read Depth">
-#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	SAMPLE1
-#chr1	2	rs123456	A	G	100	PASS	NS=3;DP=30;AF=0.5	GT:GQ:DP	0/0:99:10    # Homozygous reference
-#chr1	3	rs123457	A	G,T	100	PASS	NS=3;DP=30;AF=0.5	GT:GQ:DP	1/2:99:10    # Heterozygous with two different alt alleles
-#chr1	5	rs123458	C	T	100	PASS	NS=3;DP=30;AF=0.5	GT:GQ:DP	0/1:99:10    # Heterozygous (ref and first alt)
-#chr1	6	rs123459	C	G	100	PASS	NS=3;DP=30;AF=0.5	GT:GQ:DP	1/1:99:10    # Homozygous alternate
-#chr1	8	rs123460	T	A,C,G	100	PASS	NS=3;DP=30;AF=0.5	GT:GQ:DP	0/3:99:10    # Heterozygous (ref and third alt)
-#chr1	9	rs123461	T	G	100	PASS	NS=3;DP=30;AF=0.5	GT:GQ:DP	./.:99:10    # Missing genotype
-#chr1	10	rs123462	G	A	100	PASS	NS=3;DP=30;AF=0.5	GT:GQ:DP	1/1:99:10    # Homozygous alternate
-#chr1	11	rs123463	G	C	100	PASS	NS=3;DP=30;AF=0.5	GT:GQ:DP	0/1:99:10    # Heterozygous
+# CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT	SAMPLE1
+# chr1	2	rs123456	A	G	100	PASS	NS=3;DP=30;AF=0.5	GT:GQ:DP	0/0:99:10    # Homozygous reference
+# chr1	3	rs123457	A	G,T	100	PASS	NS=3;DP=30;AF=0.5	GT:GQ:DP	1/2:99:10    # Heterozygous with two different alt alleles
+# chr1	5	rs123458	C	T	100	PASS	NS=3;DP=30;AF=0.5	GT:GQ:DP	0/1:99:10    # Heterozygous (ref and first alt)
+# chr1	6	rs123459	C	G	100	PASS	NS=3;DP=30;AF=0.5	GT:GQ:DP	1/1:99:10    # Homozygous alternate
+# chr1	8	rs123460	T	A,C,G	100	PASS	NS=3;DP=30;AF=0.5	GT:GQ:DP	0/3:99:10    # Heterozygous (ref and third alt)
+# chr1	9	rs123461	T	G	100	PASS	NS=3;DP=30;AF=0.5	GT:GQ:DP	./.:99:10    # Missing genotype
+# chr1	10	rs123462	G	A	100	PASS	NS=3;DP=30;AF=0.5	GT:GQ:DP	1/1:99:10    # Homozygous alternate
+# chr1	11	rs123463	G	C	100	PASS	NS=3;DP=30;AF=0.5	GT:GQ:DP	0/1:99:10    # Heterozygous
 #
-#Position 2: Homozygous reference (0/0) - No change to the reference sequence
-#Position 3: Heterozygous with two different alt alleles (1/2) - G in one haplotype, T in the other
-#Position 5: Heterozygous with reference and first alt (0/1) - C in one haplotype, T in the other
-#Position 6: Homozygous alternate (1/1) - G in both haplotypes
-#Position 8: Heterozygous with reference and third alt (0/3) - T in one haplotype, G in the other
-#Position 9: Missing genotype (./.) - Typically kept as reference
-#Position 10: Homozygous alternate (1/1) - A in both haplotypes
-#Position 11: Heterozygous (0/1) - G in one haplotype, C in the other
+# Position 2: Homozygous reference (0/0) - No change to the reference sequence
+# Position 3: Heterozygous with two different alt alleles (1/2) - G in one haplotype, T in the other
+# Position 5: Heterozygous with reference and first alt (0/1) - C in one haplotype, T in the other
+# Position 6: Homozygous alternate (1/1) - G in both haplotypes
+# Position 8: Heterozygous with reference and third alt (0/3) - T in one haplotype, G in the other
+# Position 9: Missing genotype (./.) - Typically kept as reference
+# Position 10: Homozygous alternate (1/1) - A in both haplotypes
+# Position 11: Heterozygous (0/1) - G in one haplotype, C in the other
 #
-#>EXAMPLE1
-#AAACCCTTTGGG
+# >EXAMPLE1
+# AAACCCTTTGGG
 #
-#The resulting haplotypes after applying these variants would be:
+# The resulting haplotypes after applying these variants would be:
 #
-#>EXAMPLE1_haplotype1
-#AAGCCTTAGAG
-#>EXAMPLE1_haplotype2
-#AATCTGTATAC
+# >EXAMPLE1_haplotype1
+# AAGCCTTAGAG
+# >EXAMPLE1_haplotype2
+# AATCTGTATAC
 
 # standard library imports
 from collections import namedtuple
-from typing import IO
+from typing import TextIO
 import re
 
 # 3rd party library imports
@@ -81,47 +81,74 @@ GENOTYPE_UNPHASED = '/'
 GENOTYPE_PHASED = '|'
 
 REGEX_ALT = re.compile(r'(^[A|C|G|T]+)')
+REGEX_ALT = re.compile(r'^([ACGT]+)')
 
 
-class VCFFile(object):
+class VCFFile:
     """
-    Simple VCF object for parsing VCF files
-    """
+    Simple VCF object for parsing VCF files.
 
-    def __init__(self, file_name: str):
+    This class provides functionality to read and iterate through VCF files,
+    supporting transparent gzip decompression. It parses the header to extract
+    sample information and provides methods to access genotype data.
+
+    Attributes:
+        file_name (str): Path to the VCF file.
+        samples (dict[str, int] | None): Dictionary mapping sample names to their column indices.
+        current_line (str | None): The current line being processed.
+        current_record (VCFRecord | None): The current parsed VCF record.
+        reader (TextIO): File reader object for the VCF file.
+    """
+    file_name: str
+    samples: dict[str, int] | None
+    current_line: str | None
+    current_record: VCFRecord | None
+    reader: TextIO
+
+    def __init__(self, file_name: str) -> None:
         """
-        Encapsulate VCF file information.
+        Initialize a new VCF file reader.
 
         Args:
             file_name: The name of the VCF file.
+
+        Raises:
+            G2GVCFError: If the VCF header cannot be parsed correctly.
         """
-        self.file_name: str = file_name
+        self.file_name = file_name
         self.samples = None
-        self.current_line: str | None = None
-        self.current_record: VCFRecord | None = None
-        self.reader: IO = g2g_utils.open_resource(file_name)
+        self.current_line = None
+        self.current_record = None
+        self.reader = g2g_utils.open_resource(file_name)
         self.parse_header()
 
-    def parse_header(self):
+    def parse_header(self) -> None:
         """
         Parse the VCF file header.
+
+        Reads through the metadata lines (starting with ##) and extracts
+        sample names from the header line (starting with #).
 
         Raises:
             G2GVCFError: When the VCF file isn't formatted correctly.
         """
         self.current_line = next(self.reader)
 
+        # Skip metadata lines
         while self.current_line.startswith('##'):
             self.current_line = next(self.reader)
 
+        # Parse column header line
         if self.current_line.startswith('#'):
             elem = self.current_line.strip().split('\t')
-            samples = elem[9:]
-            self.samples = dict(zip(samples, (x for x in range(len(samples)))))
+            samples = elem[9:]  # Sample names start at column 10
+
+            # Create mapping from sample names to their indices
+            self.samples = dict(zip(samples, range(len(samples))))
         else:
             raise G2GVCFError('Improperly formatted VCF file')
 
-    def parse_gt(self, sample: str):
+    def parse_gt(self, sample: str) -> GTData:
         """
         Parse the GT field from the VCF record.
 
@@ -130,6 +157,9 @@ class VCFFile(object):
 
         Returns:
             Parsed GT data into a GTData object.
+
+        Raises:
+            G2GVCFError: When the sample doesn't exist or is None.
         """
         if sample is None:
             raise G2GVCFError('Sample must contain a value')
@@ -137,27 +167,37 @@ class VCFFile(object):
         sample_index = self.get_sample_index(sample)
         return parse_gt(self.current_record, sample_index)
 
-    def __iter__(self):
+    def __iter__(self) -> 'VCFFile':
         """
-        Iterable.
+        Make the VCF object iterable.
+
+        Returns:
+            The VCF object itself as an iterator.
         """
         return self
 
-    def next(self):
+    def __next__(self) -> VCFRecord:
         """
-        Explicitly call next on the reader.
+        Get the next VCF record from the file.
 
         Returns:
-            A VCFRecord.
+            A VCFRecord object representing the next variant in the file.
+
+        Raises:
+            StopIteration: When the end of the file is reached.
         """
         self.current_line = next(self.reader)
 
+        # Skip any remaining header lines
         while self.current_line.startswith('#'):
             self.current_line = next(self.reader)
 
+        # Parse the VCF line into a record
         self.current_record = parse_vcf_line(self.current_line)
-
         return self.current_record
+
+    # For Python 2 compatibility - in Python 3.10+ this isn't needed
+    next = __next__
 
     def get_sample_index(self, sample: str) -> int:
         """
@@ -176,6 +216,15 @@ class VCFFile(object):
             return self.samples[sample]
 
         raise G2GVCFError(f"Unknown sample: '{sample}'")
+
+    def close(self) -> None:
+        """
+        Close the VCF file reader.
+
+        This method should be called when done with the VCF file to release resources.
+        """
+        if hasattr(self.reader, 'close'):
+            self.reader.close()
 
 
 def parse_vcf_line(line: str | None) -> VCFRecord | None:
@@ -297,11 +346,11 @@ def parse_gt(vcf_record: VCFRecord, sample_name: str) -> GTData:
                 gt_right = genotypes[1]
 
                 # check for to see if ALT is <CN*> or something not ACGT
-                if not REGEX_ALT.match(gt_left):
+                if not REGEX_ALT.match(str(gt_left)):
                     left = None
                     gt_left = None
 
-                if not REGEX_ALT.match(gt_right):
+                if not REGEX_ALT.match(str(gt_right)):
                     right = None
                     gt_right = None
 
@@ -372,7 +421,9 @@ def parse_gt_tuple(
     """
 
     # check for to see if ALT is <CN*> or something not ACGT
-    if (vcf_record.alts is not None) and ','.join(vcf_record.alts).find('<') == -1:
+    if (vcf_record.alts is not None) and ','.join(vcf_record.alts).find(
+        '<'
+    ) == -1:
         try:
             # parse the GT field
             gt = sample_data['GT']

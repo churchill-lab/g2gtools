@@ -165,9 +165,7 @@ SELECT  *,
 SQL_TRANSCRIPTS_SIMPLE_ORDER_BY = ' ORDER BY g._key '
 
 
-def gtf2db(
-    gtf_file_name: str, database_file_name: str
-) -> None:
+def gtf2db(gtf_file_name: str, database_file_name: str) -> None:
     """
     Convert a GTF file into SQLite
 
@@ -316,7 +314,12 @@ def gtf2db(
 
     logger.warning('GTF File parsed')
     logger.warning(f'Parsed {counter:,} records')
-    stats = {k: v for k, v in sorted(stats.items(), reverse=True, key=lambda item: item[1])}
+    stats = {
+        k: v
+        for k, v in sorted(
+            stats.items(), reverse=True, key=lambda item: item[1]
+        )
+    }
     for k, v in stats.items():
         logger.warning(f'  {v:>10,} {k}')
 
@@ -351,7 +354,35 @@ def gtf2db(
     logger.warning(f'Time: {fmt_time}')
 
 
-class GTFObject(object):
+class GTFObject:
+    """
+    Base class for GTF file entries.
+
+    This class serves as the foundation for Gene, Transcript, and Exon objects,
+    providing common attributes found in GTF file entries such as identifiers,
+    coordinates, and strand information.
+
+    Attributes:
+        ensembl_id (str | None): Ensembl identifier for the feature.
+        seqid (str | None): Sequence identifier (chromosome or contig).
+        start (int | None): Start position of the feature (1-based).
+        end (int | None): End position of the feature (inclusive).
+        strand (str | None): Strand orientation ('+', '-', or '.').
+        source (str | None): Source of the annotation.
+        name (str | None): Name or alias of the feature.
+        biotype (str | None): Biological type of the feature.
+    """
+
+    # Type annotations for instance variables
+    ensembl_id: str | None
+    seqid: str | None
+    start: int | None
+    end: int | None
+    strand: str | None
+    source: str | None
+    name: str | None
+    biotype: str | None
+
     def __init__(
         self,
         ensembl_id: str | None = None,
@@ -359,7 +390,17 @@ class GTFObject(object):
         start: int | None = None,
         end: int | None = None,
         strand: str | None = None,
-    ):
+    ) -> None:
+        """
+        Initialize a new GTF object.
+
+        Args:
+            ensembl_id: Ensembl identifier for the feature.
+            seqid: Sequence identifier (chromosome or contig).
+            start: Start position of the feature (1-based).
+            end: End position of the feature (inclusive).
+            strand: Strand orientation ('+', '-', or '.').
+        """
         self.ensembl_id = ensembl_id
         self.seqid = seqid
         self.start = start
@@ -371,6 +412,22 @@ class GTFObject(object):
 
 
 class Gene(GTFObject):
+    """
+    Represents a gene annotation from a GTF file.
+
+    This class extends GTFObject to represent gene features, including
+    a collection of associated transcripts.
+
+    Attributes:
+        transcripts (OrderedDict): Dictionary of transcripts associated with this gene,
+                                  keyed by transcript Ensembl ID.
+
+    Inherits all attributes from GTFObject.
+    """
+
+    # Type annotations for instance variables
+    transcripts: OrderedDict[str, 'Transcript']
+
     def __init__(
         self,
         ensembl_id: str | None = None,
@@ -378,11 +435,27 @@ class Gene(GTFObject):
         start: int | None = None,
         end: int | None = None,
         strand: str | None = None,
-    ):
+    ) -> None:
+        """
+        Initialize a new Gene object.
+
+        Args:
+            ensembl_id: Ensembl gene identifier.
+            seqid: Sequence identifier (chromosome or contig).
+            start: Start position of the gene (1-based).
+            end: End position of the gene (inclusive).
+            strand: Strand orientation ('+', '-', or '.').
+        """
         GTFObject.__init__(self, ensembl_id, seqid, start, end, strand)
         self.transcripts = OrderedDict()
 
-    def __str__(self):
+    def __str__(self) -> str:
+        """
+        Get a string representation of the gene.
+
+        Returns:
+            A string containing the gene ID, location, and strand.
+        """
         return (
             f'Gene: {self.ensembl_id} '
             f'{self.seqid}:{self.start}-{self.end} ({self.strand})'
@@ -390,6 +463,23 @@ class Gene(GTFObject):
 
 
 class Transcript(GTFObject):
+    """
+    Represents a transcript annotation from a GTF file.
+
+    This class extends GTFObject to represent transcript features, including
+    collections of associated genes and exons.
+
+    Attributes:
+        gene_ids (OrderedDict): Dictionary of gene IDs associated with this transcript.
+        exons (OrderedDict): Dictionary of exons in this transcript, keyed by exon Ensembl ID.
+
+    Inherits all attributes from GTFObject.
+    """
+
+    # Type annotations for instance variables
+    gene_ids: OrderedDict[str, str]
+    exons: OrderedDict[str, 'Exon']
+
     def __init__(
         self,
         ensembl_id: str | None = None,
@@ -397,12 +487,28 @@ class Transcript(GTFObject):
         start: int | None = None,
         end: int | None = None,
         strand: str | None = None,
-    ):
+    ) -> None:
+        """
+        Initialize a new Transcript object.
+
+        Args:
+            ensembl_id: Ensembl transcript identifier.
+            seqid: Sequence identifier (chromosome or contig).
+            start: Start position of the transcript (1-based).
+            end: End position of the transcript (inclusive).
+            strand: Strand orientation ('+', '-', or '.').
+        """
         GTFObject.__init__(self, ensembl_id, seqid, start, end, strand)
         self.gene_ids = OrderedDict()
         self.exons = OrderedDict()
 
-    def __str__(self):
+    def __str__(self) -> str:
+        """
+        Get a string representation of the transcript.
+
+        Returns:
+            A string containing the transcript ID, location, and strand.
+        """
         return (
             f'Transcript: {self.ensembl_id} '
             f'{self.seqid}:{self.start}-{self.end} ({self.strand})'
@@ -410,6 +516,25 @@ class Transcript(GTFObject):
 
 
 class Exon(GTFObject):
+    """
+    Represents an exon annotation from a GTF file.
+
+    This class extends GTFObject to represent exon features, including
+    associations with genes and transcripts, and exon numbering information.
+
+    Attributes:
+        gene_id (str | None): Ensembl gene identifier this exon belongs to.
+        transcript_ids (OrderedDict): Dictionary of transcript IDs this exon is part of.
+        _exon_number (int | None): Position of this exon in its transcript.
+
+    Inherits all attributes from GTFObject.
+    """
+
+    # Type annotations for instance variables
+    gene_id: str | None
+    transcript_ids: OrderedDict[str, str]
+    _exon_number: int | None
+
     def __init__(
         self,
         ensembl_id: str | None = None,
@@ -417,18 +542,43 @@ class Exon(GTFObject):
         start: int | None = None,
         end: int | None = None,
         strand: str | None = None,
-    ):
+    ) -> None:
+        """
+        Initialize a new Exon object.
+
+        Args:
+            ensembl_id: Ensembl exon identifier.
+            seqid: Sequence identifier (chromosome or contig).
+            start: Start position of the exon (1-based).
+            end: End position of the exon (inclusive).
+            strand: Strand orientation ('+', '-', or '.').
+        """
         GTFObject.__init__(self, ensembl_id, seqid, start, end, strand)
         self.gene_id = None
         self.transcript_ids = OrderedDict()
         self._exon_number = None
 
     @property
-    def exon_number(self):
+    def exon_number(self) -> int | None:
+        """
+        Get the exon number within its transcript.
+
+        Returns:
+            The exon number or None if not set.
+        """
         return self._exon_number
 
     @exon_number.setter
-    def exon_number(self, value):
+    def exon_number(self, value: str | int | None) -> None:
+        """
+        Set the exon number within its transcript.
+
+        Args:
+            value: The exon number to set (integer or string representation).
+
+        Raises:
+            G2GValueError: If the value cannot be converted to an integer.
+        """
         if value:
             try:
                 self._exon_number = int(value)
@@ -437,12 +587,16 @@ class Exon(GTFObject):
                     f'Illegal value for exon_number {value}, must be an integer'
                 )
 
-    def __str__(self):
+    def __str__(self) -> str:
+        """
+        Get a string representation of the exon.
+
+        Returns:
+            A string containing the exon ID, location, strand, and exon number (if available).
+        """
         en = ''
-
         if self.exon_number:
-            en = ' #{0}'.format(self.exon_number)
-
+            en = f' #{self.exon_number}'
         return (
             f'Exon: {self.ensembl_id} '
             f'{self.seqid}:{self.start}-{self.end} ({self.strand}) {en}'
@@ -450,7 +604,9 @@ class Exon(GTFObject):
 
 
 def location_to_sql(
-    location: region.Region, use_strand: bool = False, overlap: bool | None = True
+    location: region.Region,
+    use_strand: bool = False,
+    overlap: bool | None = True,
 ) -> tuple[str, dict]:
     """
     Utility function to convert a Region into a SQL condition.
@@ -679,7 +835,7 @@ def get_genes_simple(
     database_file_name: str,
     location: region.Region | None = None,
     use_strand: bool | None = False,
-    overlap: bool | None = True
+    overlap: bool | None = True,
 ) -> list[Gene]:
     """
     Get Gene objects.

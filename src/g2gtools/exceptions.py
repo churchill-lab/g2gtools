@@ -1,130 +1,88 @@
 """
-Collection of module errors
+Collection of module errors.
+
+This module defines the exception hierarchy used throughout the g2gtools package.
+All custom exceptions inherit from the base G2GError class, which itself inherits
+from the standard Exception class.
 """
-
-# standard library imports
-# none
-
-# 3rd party library imports
-# none
-
-# local library imports
-# none
 
 
 class G2GError(Exception):
     """
-    Simple base exception, root of all G2G exceptions
-    """
+    Base exception class for all g2gtools errors.
 
-    def __init__(self, msg=None):
-        self.msg = msg
-        super(G2GError, self).__init__(self.msg)
+    This is the root exception from which all other g2gtools-specific
+    exceptions inherit.
+    """
+    def __init__(self, msg: str | None = None) -> None:
+        """
+        Initialize a new G2GError.
+
+        Args:
+            msg: The error message. Defaults to None.
+        """
+        # no need to store msg as an attribute since Exception already does this
+        super().__init__(msg)
+
+
+# File-related exceptions
+class G2GBAMError(G2GError):
+    """Exception raised for errors related to BAM/SAM files."""
+    pass
+
+
+class G2GBedError(G2GError):
+    """Exception raised for errors related to BED files."""
+    pass
+
+
+class G2GFastaError(G2GError):
+    """Exception raised for errors related to FASTA sequence files."""
+    pass
+
+
+class G2GVCFError(G2GError):
+    """Exception raised for errors related to Variant Call Format files."""
+    pass
+
+
+class G2GGTFError(G2GError):
+    """Exception raised for errors related to Gene Transfer Format files."""
+    pass
+
+
+# Format and parsing exceptions
+class G2GCigarFormatError(G2GError):
+    """Exception raised for errors in CIGAR string format in SAM/BAM files."""
+    pass
 
 
 class G2GValueError(G2GError):
     """
-    Generic value error for G2G
+    Exception raised for errors in the value of parameters.
+
+    This exception is used when a function receives a parameter with an
+    inappropriate value (e.g., incorrect data type, out of range).
     """
-
-    def __init__(self, msg=None):
-        self.msg = msg
-        super(G2GValueError, self).__init__(self.msg)
+    pass
 
 
-class G2GBAMError(G2GError):
-    """
-    BAM/SAM file errors
-    """
-
-    def __init__(self, msg=None):
-        self.msg = msg
-        super(G2GBAMError, self).__init__(self.msg)
-
-
-class G2GBedError(G2GError):
-    """
-    BED file errors
-    """
-
-    def __init__(self, msg=None):
-        self.msg = msg
-        super(G2GBedError, self).__init__(self.msg)
-
-
-class G2GChainFileError(G2GError):
-    """
-    Chain file errors
-    """
-
-    def __init__(self, msg=None):
-        self.msg = msg
-        super(G2GChainFileError, self).__init__(self.msg)
-
-
-class G2GCigarFormatError(G2GError):
-    """
-    Cigar exception/error
-    """
-
-    def __init__(self, msg=None):
-        self.msg = msg
-        super(G2GCigarFormatError, self).__init__(self.msg)
-
-
-class G2GFastaError(G2GError):
-    """
-    Fasta file errors
-    """
-
-    def __init__(self, msg=None):
-        self.msg = msg
-        super(G2GFastaError, self).__init__(self.msg)
-
-
+# Operation-specific exceptions
 class G2GFetchError(G2GError):
-    """
-    G2G Fetch errors
-    """
-
-    def __init__(self, msg=None):
-        self.msg = msg
-        super(G2GFetchError, self).__init__(self.msg)
+    """Exception raised for errors during sequence or data fetching operations."""
+    pass
 
 
 class G2GRegionError(G2GError):
-    """
-    Region errors
-    """
-
-    def __init__(self, msg=None):
-        self.msg = msg
-        super(G2GRegionError, self).__init__(self.msg)
-
-
-class G2GVCFError(G2GError):
-    """
-    VCF file errors
-    """
-
-    def __init__(self, msg=None):
-        self.msg = msg
-        super(G2GVCFError, self).__init__(self.msg)
-
-
-class G2GGTFError(G2GError):
-    """
-    GTF file errors
-    """
-
-    def __init__(self, msg=None):
-        self.msg = msg
-        super(G2GGTFError, self).__init__(self.msg)
+    """Exception raised for errors related to genomic region specifications or operations."""
+    pass
 
 
 class KeyboardInterruptError(Exception):
     """
-    Keyboard Interrupt errors
-    """
+    Exception raised to handle keyboard interrupts.
 
+    This exception is used to properly catch and handle keyboard
+    interrupts (Ctrl+C) during long-running operations.
+    """
     pass

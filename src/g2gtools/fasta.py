@@ -1,8 +1,11 @@
 """
 Collection of functions related to FASTA files.
 """
+
 # standard library imports
 from io import StringIO
+from pathlib import Path
+from typing import Any, Iterator
 import collections
 import difflib
 import os
@@ -30,59 +33,27 @@ FASTA_HEADER_FIELDS = ['id', 'description']
 FastaHeader = collections.namedtuple('FastaHeader', FASTA_HEADER_FIELDS)
 
 
-class FastaFile(object):
+class FAIEntry:
     """
-    Encapsulate a Fasta file
+    Represents an entry in a FASTA index file.
 
-    Delegation used with `pysam.FastaFile`
+    This class stores information about a single sequence in a FASTA file,
+    including its identifier, length, and file offset information needed
+    for random access.
+
+    Attributes:
+        idx (str | None): Sequence identifier.
+        length (int | None): Length of the sequence.
+        offset (int | None): Byte offset of the sequence in the FASTA file.
+        line_len (int | None): Number of bases per line.
+        line_len_bytes (int | None): Number of bytes per line including newlines.
     """
+    idx: str | None
+    length: int | None
+    offset: int | None
+    line_len: int | None
+    line_len_bytes: int | None
 
-    def __init__(self, filename):
-        self.filename = filename
-        self._fasta_file = None
-        self._fasta_file = pysam.FastaFile(self.filename)
-
-        self.fai = FAI(self.filename)
-        self.haploid = False
-        self.diploid = False
-
-        for record in self.fai.records:
-            if record.endswith(('_L', '_R')):
-                self.diploid = True
-                self.haploid = False
-                break
-
-        if not self.diploid:
-            self.haploid = True
-
-    def get_filename(self) -> str:
-        """
-        Get the filename of the Fasta File.
-
-        Returns:
-            The filename.
-        """
-        return self.filename
-
-    def is_diploid(self):
-        return self.diploid
-
-    def is_haploid(self):
-        return self.haploid
-
-    def fetch_list(self, reference=None, start=None, end=None, region=None):
-        _start = 0 if start < 0 else start
-        return list(
-            self._fasta_file.fetch(
-                reference=reference, start=_start, end=end, region=region
-            )
-        )
-
-    def __getattr__(self, name):
-        return getattr(self._fasta_file, name)
-
-
-class FAIEntry(object):
     def __init__(
         self,
         idx: str | None = None,
@@ -90,16 +61,16 @@ class FAIEntry(object):
         offset: int | None = -1,
         line_len: int | None = None,
         line_len_bytes: int | None = None,
-    ):
+    ) -> None:
         """
         Initialize a FAIEntry object.
 
         Args:
-            idx: The index.
-            length: The length.
-            offset: The entry offset.
-            line_len: The length of the line.
-            line_len_bytes: The length of the line in bytes.
+            idx: The sequence identifier.
+            length: The length of the sequence.
+            offset: The byte offset of the sequence in the FASTA file.
+            line_len: The number of bases per line.
+            line_len_bytes: The number of bytes per line including newlines.
         """
         self.idx = idx
         self.length = length
@@ -107,23 +78,49 @@ class FAIEntry(object):
         self.line_len = line_len
         self.line_len_bytes = line_len_bytes
 
-    def __str__(self):
+    def __str__(self) -> str:
+        """
+        Get a string representation of the FAIEntry.
+
+        Returns:
+            A tab-delimited string representation of the entry.
+        """
         return (
             f'{self.idx}\t{self.length}\t{self.offset}\t'
             f'{self.line_len}\t{self.line_len_bytes}'
         )
 
 
-class FAI(object):
-    def __init__(self, fasta_file_name: str):
+class FAI:
+    """
+    Represents a FASTA index file (.fai).
+
+    This class provides access to the index of a FASTA file, which enables
+    efficient random access to sequences within the file. It reads and parses
+    the .fai file format used by samtools and pysam.
+
+    Attributes:
+        fasta_file (str): Path to the FASTA file.
+        fai_file (str): Path to the FASTA index file.
+        records (collections.OrderedDict): Dictionary mapping sequence IDs to
+        FAIEntry objects.
+    """
+    fasta_file: str
+    fai_file: str
+    records: collections.OrderedDict[str, FAIEntry]
+
+    def __init__(self, fasta_file_name: str) -> None:
         """
-        Initialize a `.fasta.FAI` file, an index into the Fasta file.
+        Initialize a FASTA index object.
+
+        Reads the .fai file associated with the given FASTA file. Tries both
+        .fai and .gz.fai extensions.
 
         Args:
-            fasta_file_name: The name of the Fasta file.
+            fasta_file_name: The path to the FASTA file.
 
-        Returns:
-            The initialized FAI object.
+        Raises:
+            G2GFastaError: If the index file cannot be found.
         """
         self.fasta_file = fasta_file_name
         self.fai_file = f'{fasta_file_name}.fai'
@@ -138,23 +135,54 @@ class FAI(object):
             else:
                 raise G2GFastaError('Unable to find fasta index file')
 
-    def __getitem__(self, entry):
+    def __getitem__(self, entry: str | int) -> FAIEntry:
+        """
+        Get a FAIEntry by sequence ID or index.
+
+        Args:
+            entry: Sequence ID (str) or index position (int).
+
+        Returns:
+            The FAIEntry object for the specified sequence.
+
+        Raises:
+            G2GFastaError: If the entry is not found in the index.
+        """
         try:
             if isinstance(entry, int):
                 entry = tuple(self.records.keys())[entry]
-
             return self.records[entry]
         except KeyError:
             raise G2GFastaError(f'{entry} not in {self.fai_file}.')
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[str]:
+        """
+        Iterate over sequence IDs in the index.
+
+        Returns:
+            An iterator over sequence IDs.
+        """
         for keys in self.records:
             yield keys
 
-    def __repr__(self):
+    def __repr__(self) -> str:
+        """
+        Get a string representation of the FAI object.
+
+        Returns:
+            A string representation including the class name and FAI file path.
+        """
         return f'{self.__class__}("{self.fai_file}")'
 
-    def read(self):
+    def read(self) -> None:
+        """
+        Read and parse the FASTA index file.
+
+        Populates the records dictionary with FAIEntry objects.
+
+        Raises:
+            ValueError: If a duplicate sequence ID is found in the index.
+        """
         with open(self.fai_file) as index:
             for line in index:
                 line = line.strip()
@@ -172,30 +200,35 @@ class FAI(object):
                         int(line_len_bytes),
                     )
 
-    def get_pos(self, seq_id, start, end) -> tuple[int, int, int]:
+    def get_pos(
+        self, seq_id: str, start: int, end: int
+    ) -> tuple[int, int, int]:
         """
-        Get the byte positions of the fasta file using the specified location
+        Get the byte positions in the FASTA file for a specified sequence region.
+
+        Calculates the byte offsets needed for random access to a specific
+        region of a sequence, accounting for line breaks in the FASTA format.
 
         Args:
             seq_id: The sequence identifier.
-            start: The start position.
-            end: The end position.
+            start: The start position (0-based).
+            end: The end position (exclusive).
 
         Returns:
-            A tuple of starting byte, ending byte, and byte length.
+            A tuple of (starting_byte, ending_byte, byte_length).
         """
         chrom = self.records[seq_id]
-
         fai_entry_length = chrom.length
         fai_entry_offset = chrom.offset
         fai_entry_line_length = chrom.line_len
         fai_entry_line_length_bytes = chrom.line_len_bytes
+
         seq_len = end - start
         fai_diff = fai_entry_line_length_bytes - fai_entry_line_length
         line_ratio = fai_entry_line_length * fai_diff
         newlines_total = int(fai_entry_length / line_ratio)
-        newlines_before = 0
 
+        newlines_before = 0
         if start > 0:
             newlines_before = int(start / line_ratio)
 
@@ -206,12 +239,126 @@ class FAI(object):
 
         return byte_start, byte_end, byte_len_seq
 
-    def dump(self):
+    def dump(self) -> None:
+        """
+        Print a human-readable representation of the FASTA index.
+
+        Displays information about the FASTA file, index file, and all records.
+        """
         print('FAI')
         print(f'Fasta File: {self.fasta_file}')
         print(f'FAI File: {self.fai_file}')
         for record in self.records:
             print(str(self.records[record]))
+
+
+class FastaFile:
+    """
+    Encapsulate a Fasta file.
+
+    This class provides a wrapper around pysam.FastaFile with additional
+    functionality for handling haploid and diploid genomes. It uses delegation
+    to provide access to the underlying pysam.FastaFile methods.
+
+    Attributes:
+        filename (str): Path to the FASTA file.
+        _fasta_file (pysam.FastaFile): The underlying pysam FASTA file object.
+        fai (FAI): The FASTA index object.
+        haploid (bool): Whether the FASTA file represents a haploid genome.
+        diploid (bool): Whether the FASTA file represents a diploid genome.
+    """
+    filename: str
+    _fasta_file: pysam.FastaFile
+    fai: FAI
+    haploid: bool
+    diploid: bool
+
+    def __init__(self, filename: str) -> None:
+        """
+        Initialize a FastaFile object.
+
+        Args:
+            filename: Path to the FASTA file.
+        """
+        self.filename = filename
+        self._fasta_file = pysam.FastaFile(self.filename)
+        self.fai = FAI(self.filename)
+        self.haploid = False
+        self.diploid = False
+
+        # determine if the FASTA file is haploid or diploid
+        for record in self.fai.records:
+            if record.endswith(('_L', '_R')):
+                self.diploid = True
+                self.haploid = False
+                break
+        if not self.diploid:
+            self.haploid = True
+
+    def get_filename(self) -> str:
+        """
+        Get the filename of the Fasta File.
+
+        Returns:
+            The filename.
+        """
+        return self.filename
+
+    def is_diploid(self) -> bool:
+        """
+        Check if this FASTA file represents a diploid genome.
+
+        Returns:
+            True if this is a diploid genome, False otherwise.
+        """
+        return self.diploid
+
+    def is_haploid(self) -> bool:
+        """
+        Check if this FASTA file represents a haploid genome.
+
+        Returns:
+            True if this is a haploid genome, False otherwise.
+        """
+        return self.haploid
+
+    def fetch_list(
+        self,
+        reference: str | None = None,
+        start: int | None = None,
+        end: int | None = None,
+        region: str | None = None,
+    ) -> list[str]:
+        """
+        Fetch sequence as a list of characters.
+
+        Args:
+            reference: The reference sequence name.
+            start: The start position (0-based).
+            end: The end position (exclusive).
+            region: Region string in format "chr:start-end".
+
+        Returns:
+            A list of characters representing the sequence.
+        """
+        _start = 0 if start < 0 else start
+        return list(
+            self._fasta_file.fetch(
+                reference=reference, start=_start, end=end, region=region
+            )
+        )
+
+    def __getattr__(self, name: str) -> Any:
+        """
+        Delegate attribute access to the underlying pysam.FastaFile object.
+
+        Args:
+            name: The attribute name to access.
+
+        Returns:
+            The attribute value from the underlying pysam.FastaFile object.
+        """
+        return getattr(self._fasta_file, name)
 
 
 def extract(
@@ -220,7 +367,7 @@ def extract(
     output_file_name: str | None = None,
     reverse: bool | None = False,
     complement: bool | None = False,
-    raw: bool | None = False
+    raw: bool | None = False,
 ):
     """
     Extract the Fasta sequences.
@@ -242,7 +389,9 @@ def extract(
         fasta_file = g2g_utils.check_file(fasta_file)
         fasta_file = pysam.FastaFile(fasta_file)
 
-    logger.warning(f'Input Fasta File: {g2g_utils.convert_if_bytes(fasta_file.filename)}')
+    logger.warning(
+        f'Input Fasta File: {g2g_utils.convert_if_bytes(fasta_file.filename)}'
+    )
 
     if output_file_name:
         output_file_name = g2g_utils.check_file(output_file_name, 'w')
@@ -314,10 +463,10 @@ def extract(
         logger.warning(f'Fasta file created')
 
     except G2GRegionError as e:
-        logger.info(e.msg.rstrip())
+        logger.info(str(e).rstrip())
         raise e
     except G2GFastaError as e:
-        logger.info(e.msg.rstrip())
+        logger.info(str(e).rstrip())
         raise e
     finally:
         fasta_out.close()
@@ -331,10 +480,10 @@ def extract_id(
     output_file_name: str | None = None,
     reverse: bool | None = False,
     complement: bool | None = False,
-    raw: bool | None = False
+    raw: bool | None = False,
 ):
     """
-    Extract the Fasta sequences.
+    Extract the Fasta sequences for a given identifier.
 
     Args:
         fasta_file: Either the name of the Fasta file or a FastaFile object.
@@ -350,7 +499,9 @@ def extract_id(
         fasta_file = g2g_utils.check_file(fasta_file)
         fasta_file = pysam.FastaFile(fasta_file)
 
-    logger.warning(f'Input Fasta File: {g2g_utils.convert_if_bytes(fasta_file.filename)}')
+    logger.warning(
+        f'Input Fasta File: {g2g_utils.convert_if_bytes(fasta_file.filename)}'
+    )
 
     if output_file_name:
         output_file_name = g2g_utils.check_file(output_file_name, 'w')
@@ -381,10 +532,10 @@ def extract_id(
                 fasta_out.write('\n')
 
     except G2GRegionError as e:
-        logger.info(e.msg.rstrip())
+        logger.info(str(e).rstrip())
         raise e
     except G2GFastaError as e:
-        logger.info(e.msg.rstrip())
+        logger.info(str(e).rstrip())
         raise e
     finally:
         if output_file_name:
@@ -393,34 +544,74 @@ def extract_id(
         logger.warning(f'Time: {fmt_time}')
 
 
-def diff_files(file_name_1: str, file_name_2: str) -> None:
+
+
+def diff_files(file_name_1: str, file_name_2: str, verbose: bool = True) -> tuple[set[str], set[str], set[str]]:
     """
-    Print the number of differences in the 2 files.
+    Compare two FASTA files and identify sequences that are identical, different, or unique to each file.
+
+    This function opens two FASTA files and compares their sequences by reference ID.
+    It identifies which sequences are identical between the files, which have the same ID
+    but different content, and which are unique to each file.
 
     Args:
-        file_name_1: The first Fasta file name.
-        file_name_2: The second Fasta file name.
+        file_name_1: Path to the first FASTA file
+        file_name_2: Path to the second FASTA file
+        verbose: Whether to print summary statistics to stdout (default: True)
+
+    Returns:
+        A tuple containing three sets:
+        - Set of sequence IDs that are identical between the files
+        - Set of sequence IDs that have different content between the files
+        - Set of sequence IDs that are unique to either file
+
+    Raises:
+        FileNotFoundError: If either of the specified files doesn't exist
+        ValueError: If the files cannot be opened as FASTA files
     """
-    fasta_1 = pysam.FastaFile(file_name_1)
-    fasta_2 = pysam.FastaFile(file_name_2)
+    # Validate input files
+    for file_path in (file_name_1, file_name_2):
+        if not Path(file_path).exists():
+            raise FileNotFoundError(f"FASTA file not found: {file_path}")
 
-    fa_equal = {}
-    fa_diff = {}
+    # Open FASTA files using context managers for proper resource handling
+    with pysam.FastaFile(file_name_1) as fasta_1, pysam.FastaFile(file_name_2) as fasta_2:
+        # Get all reference IDs from both files
+        refs_1 = set(fasta_1.references)
+        refs_2 = set(fasta_2.references)
 
-    for seq_id1 in fasta_1.references:
-        if seq_id1 in fasta_2.references:
-            print(f'Comparing {seq_id1}')
+        # Find common references and unique references
+        common_refs = refs_1.intersection(refs_2)
+        unique_refs = refs_1.symmetric_difference(refs_2)
 
-            if fasta_1.fetch(seq_id1) == fasta_2.fetch(seq_id1):
-                fa_equal[seq_id1] = seq_id1
+        # Compare sequences for common references
+        identical_seqs = set()
+        different_seqs = set()
+
+        for seq_id in common_refs:
+            if fasta_1.fetch(seq_id) == fasta_2.fetch(seq_id):
+                identical_seqs.add(seq_id)
             else:
-                fa_diff[seq_id1] = seq_id1
+                different_seqs.add(seq_id)
 
-    print(f'# EQUAL: {len(fa_equal)}')
-    print(f'# DIFF: {len(fa_diff)}')
+    # Print summary if verbose mode is enabled
+    if verbose:
+        print(f"# EQUAL: {len(identical_seqs)}")
+        print(f"# DIFF: {len(different_seqs)}")
+        print(f"# UNIQUE: {len(unique_refs)}")
 
-    for seq in fa_diff:
-        print(seq)
+        if different_seqs:
+            print("\nSequences with different content:")
+            for seq in sorted(different_seqs):
+                print(f"  {seq}")
+
+        if unique_refs:
+            print("\nUnique sequences:")
+            for seq in sorted(unique_refs):
+                source = "file 1" if seq in refs_1 else "file 2"
+                print(f"  {seq} (only in {source})")
+
+    return identical_seqs, different_seqs, unique_refs
 
 
 def diff_sequence(sequence_1: str, sequence_2: str) -> None:
@@ -499,10 +690,8 @@ def get_pos(
 
 
 def reformat(
-    fasta_file_name: str,
-    output_file_name: str = None,
-    length: int = 60
-):
+    fasta_file_name: str, output_file_name: str = None, length: int = 60
+) -> None:
     """
     Reformat a Fasta file to specified maximum line length.
 
@@ -552,7 +741,7 @@ def fasta_extract_transcripts(
     fasta_file: str | FastaFile,
     database_file_name: str,
     output_file_name: str | None = None,
-    raw: bool | None = False
+    raw: bool | None = False,
 ) -> None:
     """
     Extract the transcripts sequences from the fasta_file given the database.
@@ -593,7 +782,9 @@ def fasta_extract_transcripts(
                 logger.debug(
                     'Skipping, transcript seqid not in fasta references'
                 )
-                logger.debug(f'{transcript.seqid} not in {fasta_file.references}')
+                logger.debug(
+                    f'{transcript.seqid} not in {fasta_file.references}'
+                )
                 continue
 
             new_sequence = StringIO()
@@ -602,7 +793,9 @@ def fasta_extract_transcripts(
             for ensembl_id, exon in transcript.exons.items():
                 logger.debug(f'Exon ID={ensembl_id};{exon}')
 
-                partial_seq = fasta_file.fetch(exon.seqid, exon.start - 1, exon.end)
+                partial_seq = fasta_file.fetch(
+                    exon.seqid, exon.start - 1, exon.end
+                )
                 partial_seq_str = str(partial_seq)
 
                 if transcript.strand == 1:
@@ -635,10 +828,10 @@ def fasta_extract_transcripts(
         logger.warning(f'Fasta file created')
 
     except G2GValueError as e:
-        logger.info(e.msg.rstrip())
+        logger.info(str(e).rstrip())
         raise e
     except G2GFastaError as e:
-        logger.info(e.msg.rstrip())
+        logger.info(str(e).rstrip())
         raise e
     finally:
         fmt_time = g2g_utils.format_time(start, time.time())
@@ -649,7 +842,7 @@ def fasta_extract_exons(
     fasta_file: str | FastaFile,
     database_file_name: str,
     output: str | None,
-    raw: bool | None = False
+    raw: bool | None = False,
 ) -> None:
     """
     Extract the exons sequences from the fasta_file given the database.
@@ -719,10 +912,10 @@ def fasta_extract_exons(
 
         logger.warning(f'Extracted {num_exons:,} exons')
     except G2GValueError as e:
-        logger.info(e.msg.rstrip())
+        logger.info(str(e).rstrip())
         raise e
     except G2GFastaError as e:
-        logger.info(e.msg.rstrip())
+        logger.info(str(e).rstrip())
         raise e
     finally:
         fmt_time = g2g_utils.format_time(start, time.time())

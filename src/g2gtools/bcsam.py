@@ -1,8 +1,13 @@
 """
 Collection of functions related to BAM and SAM files.
 
-Note: pysam uses 0-based coordinates.
+This module provides utilities for working with BAM and SAM files through pysam.
+It includes functions for reading, writing, and manipulating alignment data.
+
+Note: pysam uses 0-based coordinates while many genomic formats use 1-based
+coordinates.
 """
+
 # standard library imports
 from collections import namedtuple
 from typing import Any
@@ -25,32 +30,32 @@ import g2gtools.vci as vci
 
 logger = g2g_utils.get_logger('g2gtools')
 
-FLAG_NONE = 0x0  # base value
-FLAG_PAIRED = 0x1  # template having multiple segments in sequencing
-FLAG_PROPER_PAIR = 0x2  # each segment properly aligned according aligner
-FLAG_UNMAP = 0x4  # segment unmapped
-FLAG_MUNMAP = 0x8  # next segment in template unmapped (mate unmapped)
-FLAG_REVERSE = 0x10  # SEQ being reverse complemented
-FLAG_MREVERSE = 0x20  # SEQ of the next segment in template being reversed
-FLAG_READ1 = 0x40  # the first segment in the template
-FLAG_READ2 = 0x80  # the last segment in the template
-FLAG_SECONDARY = 0x100  # secondary alignment
-FLAG_QCFAIL = 0x200  # not passing quality controls
-FLAG_DUP = 0x400  # PCR or optical duplicate
-FLAG_SUPPLEMENTARY = 0x800  # supplementary alignment
+FLAG_NONE = 0x0         # base value
+FLAG_PAIRED = 0x1       # read paired
+FLAG_PROPER_PAIR = 0x2  # read mapped in proper pair
+FLAG_UNMAP = 0x4        # read unmapped
+FLAG_MUNMAP = 0x8       # mate unmapped
+FLAG_REVERSE = 0x10     # read reverse strand
+FLAG_MREVERSE = 0x20    # mate reverse strand
+FLAG_READ1 = 0x40       # first in pair
+FLAG_READ2 = 0x80       # second in pair
+FLAG_SECONDARY = 0x100  # not primary alignment
+FLAG_QCFAIL = 0x200     # read fails platform/vendor quality checks
+FLAG_DUP = 0x400        # read is PCR or optical duplicate
+FLAG_SUPP = 0x800       # supplementary alignment
 
 REGEX_CIGAR = re.compile(r'(\d+)([\w=])')
 REGEX_CIGAR_LENGTH = re.compile(r'\D')
 
-CIGAR_M = 'M'
-CIGAR_I = 'I'
-CIGAR_D = 'D'
-CIGAR_N = 'N'
-CIGAR_S = 'S'
-CIGAR_H = 'H'
-CIGAR_P = 'P'
-CIGAR_E = '='
-CIGAR_X = 'X'
+CIGAR_M = 'M' # Match
+CIGAR_I = 'I' # Insertion
+CIGAR_D = 'D' # Deletion
+CIGAR_N = 'N' # Reference Skip
+CIGAR_S = 'S' # Soft Clipping
+CIGAR_H = 'H' # Hard Clipping
+CIGAR_P = 'P' # Padding
+CIGAR_E = '=' # Match (Exact)
+CIGAR_X = 'X' # Mismatch
 
 CIGAR_m = 0
 CIGAR_i = 1
@@ -62,7 +67,7 @@ CIGAR_p = 6
 CIGAR_e = 7
 CIGAR_x = 8
 
-CIGAR_N2C = {
+CIGAR_N2C: dict[str | int : str] = {
     0: 'M',  # alignment match (can be a sequence match or mismatch)
     1: 'I',  # insertion to the reference
     2: 'D',  # deletion from the reference
@@ -83,7 +88,7 @@ CIGAR_N2C = {
     '8': 'X',
 }
 
-CIGAR_C2N = {
+CIGAR_C2N: dict[str:int] = {
     'M': 0,
     'I': 1,
     'D': 2,
@@ -100,32 +105,57 @@ Cigar = namedtuple('Cigar', ['code', 'length', 'start', 'end'])
 
 def open_alignment_file(file_name: str) -> pysam.AlignmentFile | None:
     """
-    Open a pysam.AlignmentFile based upon the type of file it is.
+    Open a sequence alignment file with the appropriate mode based on file
+    extension.
+
+    This function detects the file type (BAM, SAM, or CRAM) based on the file
+    extension and opens it with the correct pysam mode. It provides a convenient
+    way to handle different alignment file formats with a single interface.
 
     Args:
-        file_name: Name of the file to open.
+        file_name: Path to the alignment file to open. Supported formats are:
+                  - BAM (.bam): Binary Alignment Map format
+                  - SAM (.sam): Sequence Alignment Map text format
+                  - CRAM (.cram): Compressed alignment format
 
     Returns:
-        A pysam.AlignmentFile.
+        A pysam.AlignmentFile object if the file extension is recognized,
+        or None if the file extension is not supported.
+
+    Note:
+        The returned file should be closed by the caller when no longer needed.
     """
-    # function to return the file extension
-    file_extension = pathlib.Path(file_name).suffix
+    # Check if the file exists
+    if not os.path.exists(file_name):
+        return None
 
-    if file_extension.lower() == '.bam':
-        return pysam.AlignmentFile(file_name, 'rb')
-    elif file_extension.lower() == '.sam':
-        return pysam.AlignmentFile(file_name, 'r')
-    elif file_extension.lower() == '.cram':
-        return pysam.AlignmentFile(file_name, 'rc')
+    # Define mapping of file extensions to pysam modes
+    mode_map: dict[str, str] = {
+        '.bam':  'rb',  # read binary
+        '.sam':  'r',   # read text
+        '.cram': 'rc',  # read CRAM
+    }
 
-    return None
+    # Extract the file extension and convert to lowercase once
+    file_extension = pathlib.Path(file_name).suffix.lower()
+
+    # Get the appropriate mode or return None for unsupported extensions
+    mode = mode_map.get(file_extension)
+    if mode is None:
+        return None
+
+    try:
+        return pysam.AlignmentFile(file_name, mode)
+    except Exception:
+        # Handle potential pysam errors
+        return None
 
 
 def convert_bcsam_file(
     vci_file: str | vci.VCIFile,
     bcsam_file_name_in: str,
     bcsam_file_name_out: str,
-    reverse: bool = False
+    reverse: bool = False,
 ) -> None:
     """
     Convert genome coordinates (in BAM/CRAM/SAM format) between assemblies.
@@ -135,11 +165,9 @@ def convert_bcsam_file(
         bcsam_file_name_in: Input BAM/CRAM/SAM file to convert.
         bcsam_file_name_out: Name of output BAM/CRAM/SAM file.
         reverse: True to process VCI in reverse.
-        debug_level: Debug level (0=WARN,1=INFO,2+=DEBUG).
     """
+    start = time.time()
     try:
-        start = time.time()
-
         if not isinstance(vci_file, vci.VCIFile):
             vci_file = g2g_utils.check_file(vci_file)
             logger.info('Parsing VCI File')
@@ -164,18 +192,22 @@ def convert_bcsam_file(
         new_header['HD'] = {'VN': 1.0, 'SO': 'coordinate'}
 
         # replace SQ
-        # Filter the records in alignment_file_in.header['SQ'] to keep only those that are in the vci file
-        filtered_header_sq = [record for record in alignment_file_in.header['SQ'] if record['SN'] in vci_file.contigs]
+        # Filter the records in alignment_file_in.header['SQ'] to keep only
+        # those that are in the vci file
+        filtered_header_sq = [
+            record
+            for record in alignment_file_in.header['SQ']
+            if record['SN'] in vci_file.contigs
+        ]
 
         new_header['SQ'] = filtered_header_sq
 
         if 'PG' not in new_header:
             new_header['PG'] = []
 
-        new_header['PG'].append({
-            'ID': 'g2gtools',
-            'VN': importlib.metadata.version('g2gtools')
-        })
+        new_header['PG'].append(
+            {'ID': 'g2gtools', 'VN': importlib.metadata.version('g2gtools')}
+        )
 
         if 'CO' not in new_header:
             new_header['CO'] = []
@@ -202,7 +234,9 @@ def convert_bcsam_file(
                 unmapped_file_name, 'wh', template=alignment_file_in
             )
         else:
-            raise G2GBAMError('Unable to create file based upon file extension')
+            raise G2GBAMError(
+                'Unable to create file based upon file extension'
+            )
 
         # create map from contig name to new ID index.
         # If build using input BAM, IDs are out of sync and it contains contigs not in the VCI file.
@@ -305,7 +339,9 @@ def convert_bcsam_file(
                         if alignment.is_reverse:
                             alignment_new.flag |= FLAG_REVERSE
 
-                        alignment_new.reference_id = name_to_id[mappings[0].to_chr]
+                        alignment_new.reference_id = name_to_id[
+                            mappings[0].to_chr
+                        ]
                         alignment_new.reference_start = mappings[0].to_start
                         alignment_new.cigartuples = alignment.cigartuples
                         new_file.write(alignment_new)
@@ -324,7 +360,9 @@ def convert_bcsam_file(
                         if alignment.is_reverse:
                             alignment_new.flag |= FLAG_REVERSE
 
-                        alignment_new.reference_id = name_to_id[mappings[0].to_chr]
+                        alignment_new.reference_id = name_to_id[
+                            mappings[0].to_chr
+                        ]
                         alignment_new.reference_start = mappings[0].to_start
                         alignment_new.cigartuples = convert_cigar(
                             alignment.cigartuples,
@@ -456,7 +494,9 @@ def convert_bcsam_file(
                         alignment_new.reference_id = name_to_id[
                             read1_mappings[0].to_chr
                         ]
-                        alignment_new.reference_start = read1_mappings[0].to_start
+                        alignment_new.reference_start = read1_mappings[
+                            0
+                        ].to_start
                         alignment_new.cigarstring = alignment.cigarstring
                         alignment_new.next_reference_id = name_to_id[
                             read1_mappings[0].to_chr
@@ -481,7 +521,9 @@ def convert_bcsam_file(
                         alignment_new.reference_id = name_to_id[
                             read1_mappings[0].to_chr
                         ]
-                        alignment_new.reference_start = read1_mappings[0].to_start
+                        alignment_new.reference_start = read1_mappings[
+                            0
+                        ].to_start
                         alignment_new.cigarstring = alignment.cigarstring
                         alignment_new.next_reference_id = name_to_id[
                             read2_mappings[0].to_chr
@@ -508,7 +550,9 @@ def convert_bcsam_file(
                         alignment_new.reference_id = name_to_id[
                             read1_mappings[0].to_chr
                         ]
-                        alignment_new.reference_start = read1_mappings[0].to_start
+                        alignment_new.reference_start = read1_mappings[
+                            0
+                        ].to_start
                         alignment_new.cigarstring = alignment.cigarstring
                         alignment_new.next_reference_id = name_to_id[
                             read2_mappings[0].to_chr
@@ -535,7 +579,9 @@ def convert_bcsam_file(
                         alignment_new.reference_id = name_to_id[
                             read1_mappings[0].to_chr
                         ]
-                        alignment_new.reference_start = read1_mappings[0].to_start
+                        alignment_new.reference_start = read1_mappings[
+                            0
+                        ].to_start
                         alignment_new.cigartuples = convert_cigar(
                             alignment.cigartuples,
                             read_chr,
@@ -566,7 +612,9 @@ def convert_bcsam_file(
                         alignment_new.reference_id = name_to_id[
                             read1_mappings[0].to_chr
                         ]
-                        alignment_new.reference_start = read1_mappings[0].to_start
+                        alignment_new.reference_start = read1_mappings[
+                            0
+                        ].to_start
                         alignment_new.cigartuples = convert_cigar(
                             alignment.cigartuples,
                             read_chr,
@@ -599,7 +647,9 @@ def convert_bcsam_file(
                         alignment_new.reference_id = name_to_id[
                             read1_mappings[0].to_chr
                         ]
-                        alignment_new.reference_start = read1_mappings[0].to_start
+                        alignment_new.reference_start = read1_mappings[
+                            0
+                        ].to_start
                         alignment_new.cigartuples = convert_cigar(
                             alignment.cigartuples,
                             read_chr,
@@ -651,7 +701,9 @@ def convert_bcsam_file(
             logger.info(
                 f"  {map_statistics['fail_cannot_map']:>10} TOTAL FAILURES"
             )
-            logger.info(f"  {map_statistics['fail_cannot_map']:>10} Cannot Map")
+            logger.info(
+                f"  {map_statistics['fail_cannot_map']:>10} Cannot Map"
+            )
 
         if map_statistics_pair['total'] > 0:
             total_success = 0
@@ -715,60 +767,77 @@ def convert_bcsam_file(
         logger.warning(f'Time: {fmt_time}')
 
 
-#
-# Functions dealing with CIGAR strings
-#
-#
-#    BAM	OP	    Description
-#    0	    M	    alignment match
-#    1	    I	    insertion to reference
-#    2	    D	    deletion from reference
-#    3	    N	    skipped region from the reference
-#    4	    S	    soft clipping (clipped sequence present in SEQ)
-#    5	    H	    hard clipping (clipped sequences NOT present in SEQ)
-#    6	    P	    padding (silent deletion from padded reference)
-#    7	    =	    sequence match
-#    8	    X	    sequence mismatch
-#
-
-
-def cigarlist_to_cigarstring(cigar_list: Cigar | tuple[int, int]) -> str:
+def cigarlist_to_cigarstring(cigar_list: Cigar | list[tuple[int, int]]) -> str:
     """
-    Convert a list of tuples into a cigar string.
+    Convert a CIGAR list representation to a CIGAR string.
 
-    Example::
+    Transforms a list of CIGAR operations (either as Cigar objects or tuples)
+    into the standard string representation used in SAM/BAM files.
 
-             [ (0, 10), (1, 1), (0, 75), (2, 2), (0, 20) ]
-        =>       10M      1I      75M      2D      20M
-        =>                10M1I75M2D20M
-
+    Examples:
+        >>> cigarlist_to_cigarstring([(0, 10), (1, 1), (0, 75), (2, 2), (0, 20)])
+        '10M1I75M2D20M'
 
     Args:
-        cigar_list: A list of tuples where each tuple is a (code, length)
+        cigar_list: A CIGAR representation, either:
+                   - A Cigar object containing CigarOp elements
+                   - A list of tuples where each tuple is (operation_code, length)
+                     Operation codes follow the BAM format:
+                     0=M (match/mismatch), 1=I (insertion), 2=D (deletion), etc.
 
     Returns:
-        The cigar string.
+        A string representation of the CIGAR in standard SAM/BAM format.
 
     Raises:
-        G2GCigarFormatError: On invalid cigar string.
+        G2GCigarFormatError: If any CIGAR operation has an invalid code.
+        TypeError: If the input is neither a Cigar object nor a list of tuples.
     """
-    cigar = ''
-    i = None
+    # handle empty input
+    if not cigar_list:
+        return ''
 
+    # process based on input type
     if isinstance(cigar_list, Cigar):
+        # process Cigar object
         try:
-            for i in cigar_list:
-                cigar += str(i.length) + i.code
-        except KeyError:
-            raise G2GCigarFormatError(f'Invalid cigar code: {i}')
-    else:
-        try:
-            for i in cigar_list:
-                cigar += str(i[1]) + CIGAR_N2C[i[0]]
-        except KeyError:
-            raise G2GCigarFormatError(f'Invalid cigar code: {i}')
+            return ''.join(f'{op.length}{op.code}' for op in cigar_list)
+        except (AttributeError, KeyError) as e:
+            # identify the problematic operation if possible
+            for i, op in enumerate(cigar_list):
+                if not hasattr(op, 'code') or not hasattr(op, 'length'):
+                    raise G2GCigarFormatError(
+                        f'Invalid Cigar operation at position {i}: {op}'
+                    )
+            # if we can't identify the specific issue, raise a general error
+            raise G2GCigarFormatError(f'Invalid Cigar object: {e}')
 
-    return cigar
+    elif isinstance(cigar_list, list):
+        # process list of tuples
+        try:
+            return ''.join(
+                f'{length}{CIGAR_N2C[code]}' for code, length in cigar_list
+            )
+        except (IndexError, KeyError, ValueError) as e:
+            # find the problematic tuple
+            for i, item in enumerate(cigar_list):
+                if not isinstance(item, tuple) or len(item) != 2:
+                    raise G2GCigarFormatError(
+                        f'Invalid tuple at position {i}: {item}, '
+                        'expected (code, length)'
+                    )
+                code, length = item
+                if code not in CIGAR_N2C:
+                    raise G2GCigarFormatError(
+                        f'Invalid CIGAR operation code at position {i}: {code}'
+                    )
+            # if we can't identify the specific issue, raise a general error
+            raise G2GCigarFormatError(f'Error processing CIGAR list: {e}')
+
+    else:
+        # handle invalid input type
+        raise TypeError(
+            f'Expected Cigar object or list of tuples, got {type(cigar_list).__name__}'
+        )
 
 
 def cigar_to_string(cigar: list[tuple[int, int]]) -> str:
@@ -786,48 +855,8 @@ def cigar_to_string(cigar: list[tuple[int, int]]) -> str:
     Returns:
         The cigar string.
     """
-    cigar_str = ''
-    for i in cigar:
-        cigar_str = f'{cigar_str}{i[0]}{i[1]}'
+    return ''.join(f"{length}{CIGAR_N2C.get(op, '?')}" for op, length in cigar)
 
-    return cigar_str
-
-
-def cigar_string_to_list(cigar_string: str):
-    """
-    Convert a list of tuples into a cigar string
-
-    Example:
-                         10M1I75M2D20M
-        =>       10M      1I      75M      2D      20M
-        =>   [ (0, 10), (1, 1), (0, 75), (2, 2), (0, 20) ]
-
-    Args:
-        cigar_string: The cigar string.
-
-    Returns:
-        A list of tuples, each tuple being (code:int, length:int)
-
-    Raises:
-        G2GCigarFormatError: On an invalid cigar string.
-    """
-    matches = REGEX_CIGAR.findall(cigar_string)
-    possible_length = len(REGEX_CIGAR_LENGTH.findall(cigar_string))
-
-    if len(matches) != possible_length:
-        raise G2GCigarFormatError(f'Invalid cigar string: {cigar_string}')
-
-    lst = []
-    m = ''
-    try:
-        for m in matches:
-            lst.append(1)  # (CIGAR_CODES_REV[m[1]], int(m[0])))
-    except KeyError:
-        raise G2GCigarFormatError(
-            f'Invalid cigar string: {cigar_string} : {str(m)} '
-        )
-
-    return lst
 
 
 def cigar_convert(
@@ -990,19 +1019,42 @@ def cigar_convert(
 
 def cigar_combine_consecutive(cigar: list[Cigar]) -> list[Cigar]:
     """
-    Combine consecutive features in a cigar string.
+    Combine consecutive CIGAR elements with the same operation code.
 
-    For example, 2 N's become 1
+    This function iteratively scans through a list of Cigar objects and combines
+    adjacent elements that have the same operation code (e.g., M, I, D, S).
+    For example, 2M followed by 3M would be combined into 5M, or 10N followed
+    by 5N would become 15N.
+
+    The function continues combining elements until no more consecutive elements
+    with the same code exist in the list.
 
     Args:
-        cigar: The cigar string.
+        cigar: A list of Cigar objects representing a CIGAR string.
+               Each Cigar object contains an operation code, length, and
+               genomic coordinates.
+
+    Returns:
+        A new list of Cigar objects with consecutive identical operations combined.
+        The resulting list will have the same or fewer elements than the input list.
+
+    Example:
+        >>> # Assuming Cigar objects with code, length, start, end
+        >>> cigar = [
+        ...     Cigar('M', 10, 100, 110),
+        ...     Cigar('M', 5, 110, 115),
+        ...     Cigar('I', 2, 115, 115),
+        ...     Cigar('M', 20, 115, 135)
+        ... ]
+        >>> result = cigar_combine_consecutive(cigar)
+        >>> # Result would be:
+        >>> # [Cigar('M', 15, 100, 115), Cigar('I', 2, 115, 115), Cigar('M', 20, 115, 135)]
     """
     done = False
-
     while not done:
         done = True
         i = 0
-
+        # Find the first pair of consecutive elements with the same code
         for i in range(0, len(cigar) - 1):
             # logger.debug(f"{i} = {cigar[i]}")
             # logger.debug(f"{i + 1} = {cigar[i + 1]}")
@@ -1010,15 +1062,28 @@ def cigar_combine_consecutive(cigar: list[Cigar]) -> list[Cigar]:
                 done = False
                 break
 
+        # If we found a pair to combine
         if not done:
-            cigar_temp = []
+            cigar_temp: list[Cigar] = []
+
+            # Keep all elements before the pair
             cigar_temp.extend(cigar[:i])
 
+            # Get the two consecutive elements
             cm1 = cigar[i]
             cm2 = cigar[i + 1]
+
+            # Create a new combined element
+            # The new element has:
+            # - Same code as the original elements
+            # - Combined length (sum of both lengths)
+            # - Start position from the first element
+            # - End position from the second element
             cm_new = Cigar(
                 cm1.code, cm1.length + cm2.length, cm1.start, cm2.end
             )
+
+            # Add the combined element
             cigar_temp.append(cm_new)
 
             # logger.debug(
@@ -1026,7 +1091,10 @@ def cigar_combine_consecutive(cigar: list[Cigar]) -> list[Cigar]:
             #     f"into {cm_new}"
             # )
 
+            # Keep all elements after the pair
             cigar_temp.extend(cigar[i + 2 :])
+
+            # Update the cigar list for the next iteration
             cigar = cigar_temp
 
     return cigar
@@ -1034,48 +1102,64 @@ def cigar_combine_consecutive(cigar: list[Cigar]) -> list[Cigar]:
 
 def cigar_fix_pre_and_post_m(cigar: list[Cigar]) -> list[Cigar]:
     """
-    Fix pre and post M's in the Cigar string.
+    Convert elements before the first M and after the last M to soft clips (S).
+
+    This function handles two specific cases in CIGAR string processing:
+    1. Pre-M fix: Converts all elements before the first match (M) to a single soft clip (S)
+    2. Post-M fix: Converts all elements after the last match (M) to a single soft clip (S)
+
+    This is necessary because elements like insertions (I) or hard clips (H) that appear
+    before the first alignment match or after the last match should be represented as
+    soft clips in the final CIGAR string.
 
     Args:
-        cigar: The list of Cigar objects.
+        cigar: A list of Cigar objects representing a CIGAR string.
 
     Returns:
-        The fixed cigar as a list.
+        A modified list of Cigar objects with proper soft clips at the beginning and end.
+
+    Example:
+        >>> # Input: [I(2), H(3), M(10), D(5), M(15), I(3)]
+        >>> # Output: [S(5), M(10), D(5), M(15), S(3)]
+        >>> # (where the first I(2)+H(3) becomes S(5), and the last I(3) becomes S(3))
     """
-    # pre M to S fix
+    # Pre-M to S fix: Convert all elements before the first M to a single S
     i = 0
     for i in range(0, len(cigar)):
         if cigar[i].code == CIGAR_M:
             break
 
-    if i != 0:
+    if i != 0:  # If there are elements before the first M
         first_m = i
-
         length = 0
+        # Calculate the total length of elements to convert to soft clips
         for i in range(0, first_m):
             if cigar[i].code in [CIGAR_I, CIGAR_S, CIGAR_H]:
                 length += cigar[i].length
 
-        temp_cigar = [Cigar(CIGAR_S, length, 0, 0)]
-        temp_cigar.extend(cigar[i + 1 :])
-
+        # Create a new CIGAR with a soft clip followed by all elements after the first M
+        temp_cigar: list[Cigar] = [Cigar(CIGAR_S, length, 0, 0)]
+        temp_cigar.extend(cigar[first_m:])
         cigar = temp_cigar
 
-    # post M to S fix
+    # Post-M to S fix: Convert all elements after the last M to a single S
     for i in reversed(range(0, len(cigar))):
         if cigar[i].code == CIGAR_M:
             break
 
-    if i > 0 and i != (len(cigar) - 1):
+    if i > 0 and i != (
+        len(cigar) - 1
+    ):  # If there are elements after the last M
         last_m = i
-
         length = 0
+        # Calculate the total length of elements to convert to soft clips
         for i in range(last_m + 1, len(cigar)):
             if cigar[i].code in [CIGAR_M, CIGAR_I, CIGAR_S]:
                 length += cigar[i].length
 
-        temp_cigar = []
-        temp_cigar.extend(cigar[: i - 1])
+        # Create a new CIGAR with all elements up to the last M followed by a soft clip
+        temp_cigar: list[Cigar] = []
+        temp_cigar.extend(cigar[: last_m + 1])
         temp_cigar.append(Cigar(CIGAR_S, length, 0, 0))
         cigar = temp_cigar
 
@@ -1084,19 +1168,31 @@ def cigar_fix_pre_and_post_m(cigar: list[Cigar]) -> list[Cigar]:
 
 def cigar_remove_softs_between_m(cigar: list[Cigar]) -> list[Cigar]:
     """
-    Remove soft if surrounded by Ms.
+    Remove soft clips (S) that are surrounded by matches (M) in a CIGAR string.
+
+    This function iteratively scans the CIGAR string for soft clip elements that
+    are directly preceded and followed by match elements. When found, these soft
+    clips are removed from the CIGAR string.
+
+    This is typically done because soft clips between matches are not biologically
+    meaningful and likely represent artifacts in the alignment process.
 
     Args:
-        cigar: The cigar as a list.
+        cigar: A list of Cigar objects representing a CIGAR string.
 
     Returns:
-        The new cigar list.
+        A modified list of Cigar objects with soft clips between matches removed.
+
+    Example:
+        >>> # Input: [M(10), S(5), M(20)]
+        >>> # Output: [M(10), M(20)]
     """
     done = False
-
     while not done:
         done = True
         i = 0
+
+        # Find a soft clip that's not at the beginning or end
         for i in range(1, len(cigar) - 1):
             if cigar[i].code == CIGAR_S:
                 done = False
@@ -1105,8 +1201,10 @@ def cigar_remove_softs_between_m(cigar: list[Cigar]) -> list[Cigar]:
         if done:
             break
 
+        # Look for M elements before and after the soft clip
         before = None
         after = None
+
         for x in reversed(range(i)):
             if cigar[x].code == CIGAR_M:
                 before = cigar[x]
@@ -1117,9 +1215,10 @@ def cigar_remove_softs_between_m(cigar: list[Cigar]) -> list[Cigar]:
                 after = cigar[x]
                 break
 
+        # If the soft clip is surrounded by matches, remove it
         if before and after:
             # logger.debug("Found 'S' between 'M' so removing 'S'")
-            cigar_temp = []
+            cigar_temp: list[Cigar] = []
             cigar_temp.extend(cigar[:i])
             cigar_temp.extend(cigar[i + 1 :])
             cigar = cigar_temp
@@ -1132,49 +1231,52 @@ def cigar_remove_softs_between_m(cigar: list[Cigar]) -> list[Cigar]:
 
 def cigar_fix_lengths(cigar: list[Cigar], sequence: str) -> list[Cigar]:
     """
-    Assign length to -1's
+    Fix CIGAR elements with undefined lengths (-1) and remove zero-length elements.
 
-    Since N's aren't mapped we look at the surrounding M's to find the length
-    of the N's
+    This function handles two main tasks:
+    1. Assigns proper lengths to CIGAR elements marked with -1 length
+       (typically deletions or skipped regions between matches)
+    2. Removes any CIGAR elements that end up with zero length
 
-    Example: 35M49N65M ==> 4M150D31M-1N65M, the -1 will be corrected by
-    finding the last position of the previous M and first position of the
-    next M
-
-    there are a few special cases that are handled
-    since there were multiple mappings, we will need to figure out the
-    location on the N's
+    For elements with -1 length, the function calculates the appropriate length
+    based on the genomic coordinates of surrounding match (M) elements. If no
+    surrounding matches are found, the element is converted to a soft clip.
 
     Args:
-        cigar: A list of Cigar objects.
-        sequence: The sequence.
+        cigar: A list of Cigar objects representing a CIGAR string.
+        sequence: The read sequence that corresponds to the CIGAR string.
+               Used to calculate proper lengths for soft clips.
 
     Returns:
-        The fixed cigar.
+        A modified list of Cigar objects with all lengths properly defined
+        and zero-length elements removed.
+
+    Example:
+        >>> # Input with -1 length N between two M elements:
+        >>> # [M(35), N(-1), M(65)]
+        >>> # Output (assuming the genomic distance is 49):
+        >>> # [M(35), N(49), M(65)]
     """
     done = False
-
     while not done:
         done = True
 
-        # find first element without a length
+        # Find first element with undefined length (-1)
         i = 0
-        for cm in cigar:
+        for i, cm in enumerate(cigar):
             if cm.length == -1:
                 break
-            i += 1
 
-        if i == len(cigar):
+        if i == len(cigar):  # No elements with -1 length found
             done = True
             break
 
         # logger.debug(f"Found '{cm.code}' at {i}: {cm}")
 
+        # Look for M elements before and after the -1 length element
         before = None
         after = None
 
-        # Simple case is surrounded by mapping positions, but might not be
-        # the case
         for x in reversed(range(i)):
             if cigar[x].code == CIGAR_M:
                 before = cigar[x]
@@ -1185,54 +1287,51 @@ def cigar_fix_lengths(cigar: list[Cigar], sequence: str) -> list[Cigar]:
                 after = cigar[x]
                 break
 
-        # special case of 89M2000N11M
-        # what happens when thi sis converted to 89M-1N11S (no M at end)
-        # we should have 89M11S
-
-        # logger.debug(f"Before: {before}")
-        # logger.debug(f"After: {after}")
-
-        # check if all cigar elements from here to end do not have a length
+        # Special case handling: check if all remaining elements have undefined length
         a = i
         while a < len(cigar) - 1:
             if cigar[a].length != -1:
                 break
             a += 1
 
-        # if a == len(cigar_mapping) -1 than all the rest have no length
-        # logger.debug(f"a={a}, len(cigar_mapping) - 1={len(cigar) - 1}")
+        # If we can't determine the length from surrounding matches,
+        # convert the rest to a soft clip
         if (
             (a == len(cigar) - 1 and cigar[a].start == -1)
             or not after
             or not before
         ):
-            # take the rest as a clip
             # logger.debug('Found a clip')
             temp_cigar_mappings = cigar[:i]
+
+            # Calculate the length for the soft clip
             temp_total = 0
             for t in temp_cigar_mappings:
                 if t.code in [CIGAR_M, CIGAR_I, CIGAR_S]:
                     temp_total += t.length
 
+            # Add a soft clip for the remaining sequence
             temp_cigar_mappings.append(
                 Cigar(CIGAR_S, len(sequence) - temp_total, -1, -1)
             )
+
             cigar = temp_cigar_mappings
             done = True
         else:
+            # Calculate the length based on genomic coordinates
             c = cigar[i]
             new_c = Cigar(
                 c.code, after.start - before.end, before.end, after.start
             )
             # logger.debug(f"Replacing, old = {c}, new = {new_c}")
             cigar[i] = new_c
-
             done = False
 
+    # Remove zero-length elements
     # logger.debug("Removing 0 length elements, if any")
-    new_cigar = []
+    new_cigar: list[Cigar] = []
     for cm in cigar:
-        if cm[1] == 0:
+        if cm.length == 0:  # Fixed from cm[1] to cm.length
             # logger.debug(f"Removing {cm}")
             continue
         new_cigar.append(cm)
@@ -1241,46 +1340,45 @@ def cigar_fix_lengths(cigar: list[Cigar], sequence: str) -> list[Cigar]:
 
 
 def convert_cigar(
-    cigar,
+    cigar: Cigar | list[tuple[int, int]],
     chromosome: str,
     vci_file: vci.VCIFile,
     sequence: str,
     position: int = 0,
-    debug_level: int = 0,
-):
+) -> list[tuple[int, int]]:
     """
-    Generate the cigar string of an old alignment.
+    Generate a new CIGAR string by converting an alignment between genome assemblies.
 
-    P1: Map M with bx; Inherit S and H; Inherit I but put -1D right behind it;
-        Put -1D or -1N when it’s there.
+    This function transforms a CIGAR string from one genome assembly to another using
+    the mapping information in a VCI file. The conversion follows several phases:
 
-    P1a: Convert xM, if it has zero length after mapping, to xS
-
-    P2: Remove S (including new S originate from unmapped M) if it is
-        surrounded by any pair of consecutive Ms that survived P2.
-
-    P3: Adjust the size of D or N that are inbetween Ms. Remove it if they
-        have zero length.
-
-    P4: Combine duplicated entries (I guess mostly M or S)
-
-    P5: Put yS for the unmapped regions before the first M and/or after the
-        last M (I believe adding S, H, I’s in those regions should get you y).
-        In this phase remove the remaining -1D or -1N in those regions first.
+    1. Map each CIGAR element to new coordinates
+    2. Remove soft clips (S) if surrounded by matches (M)
+    3. Fix element lengths for insertions, deletions, and skipped regions
+    4. Combine consecutive matching elements
+    5. Fix elements before the first match and after the last match
+    6. Validate and adjust the final CIGAR string
 
     Args:
-        cigar: cigartuples in the form [ (0, 10), (1, 1), (0, 75), (2, 2), (0, 20) ]
-        chromosome: The chromosome.
-        vci_file: The vci.VCIFile object.
-        sequence:
-        position:
-        debug_level: Debug level (0=WARN,1=INFO,2+=DEBUG).
+        cigar: CIGAR tuples in the form [(op_code, length), ...] where op_code is an
+               integer representing the operation (0=M, 1=I, 2=D, etc.) and length is
+               the number of bases affected.
+        chromosome: The chromosome name where the alignment is located.
+        vci_file: A VCIFile object containing the mapping between genome assemblies.
+        sequence: The read sequence that corresponds to the CIGAR string.
+        position: The starting position of the alignment on the chromosome (0-based).
+                 Defaults to 0.
 
     Returns:
-        cigartuples in the form [ (0, 10), (1, 1), (0, 75), (2, 2), (0, 20) ]
-    """
-    logger = g2g_utils.get_logger(debug_level)
+        A list of CIGAR tuples in the form [(op_code, length), ...] representing
+        the converted alignment in the target genome assembly.
 
+    Example:
+        >>> vci_file = vci.VCIFile("mouse.vci")
+        >>> old_cigar = [(0, 10), (1, 1), (0, 75), (2, 2), (0, 20)]
+        >>> new_cigar = convert_cigar(old_cigar, "chr1", vci_file, "ACGTACGTAC...")
+    """
+    logger = g2g_utils.get_logger()
     old_cigar = cigarlist_to_cigarstring(cigar)
     logger.debug(f'CIGAR CONVERSION : {old_cigar}')
 
@@ -1288,10 +1386,9 @@ def convert_cigar(
     # PHASE 1: Convert each CIGAR element to new mappings and construct an
     #          array on NEW cigar elements
     #
-
     logger.debug('CIGAR CONVERSION : PHASE 1 : Converting cigar elements')
     new_cigar = cigar_convert(cigar, chromosome, vci_file, position)
-    logger.debug('AFTER PHASE 1 : {new_cigar}')
+    logger.debug(f'AFTER PHASE 1 : {new_cigar}')
 
     if len(new_cigar) == 1:
         logger.debug('CIGAR CONVERSION : Skipping to end since only 1 element')
@@ -1299,7 +1396,6 @@ def convert_cigar(
         #
         # PHASE 2: Remove S if surrounded by M
         #
-
         logger.debug(
             'CIGAR CONVERSION : PHASE 2 : Remove S if surrounded by M'
         )
@@ -1309,7 +1405,6 @@ def convert_cigar(
         #
         # PHASE 3: Fix element lengths
         #
-
         logger.debug('CIGAR CONVERSION : PHASE 3 : Fix element lengths')
         new_cigar = cigar_fix_lengths(new_cigar, sequence)
         logger.debug(f'AFTER PHASE 3 : {new_cigar} ')
@@ -1317,15 +1412,13 @@ def convert_cigar(
         #
         # PHASE 4: Combine consecutive matching elements
         #
-
         logger.debug('CIGAR CONVERSION : PHASE 4 : Combining elements')
         new_cigar = cigar_combine_consecutive(new_cigar)
         logger.debug(f'AFTER PHASE 4 : {new_cigar} ')
 
         #
-        # PHASE 5: Combine consecutive matching elements
+        # PHASE 5: Fix elements before first M and after last M
         #
-
         logger.debug('CIGAR CONVERSION : PHASE 5 : Fix pre and post Ms')
         new_cigar = cigar_fix_pre_and_post_m(new_cigar)
         logger.debug(f'AFTER PHASE 5 : {new_cigar} ')
@@ -1333,7 +1426,7 @@ def convert_cigar(
     #
     # Final pass through CIGAR string
     #
-    # test cigar string length
+    # Test cigar string length
     #
     # SEQ: segment SEQuence. This field can be a '*' when the sequence is not
     #      stored. If not a '*', the length of the sequence must equal the sum
@@ -1341,13 +1434,11 @@ def convert_cigar(
     #      is identical to the reference base. No assumptions can be made on
     #      the letter cases.
     #
-
     logger.debug('CIGAR CONVERSION : PHASE 6 : Testing length and conversion')
-
     cigar_seq_length = 0
 
     # simplify the cigar, throw away the other stuff we used
-    simple_cigar = []
+    simple_cigar: list[tuple[int, int]] = []
     for c in new_cigar:
         simple_cigar.append((CIGAR_C2N[c.code], c.length))
         if c.code in [CIGAR_M, CIGAR_I, CIGAR_S, CIGAR_E, CIGAR_X]:
@@ -1358,7 +1449,7 @@ def convert_cigar(
             logger.debug(
                 f'CIGAR SEQ LENGTH={cigar_seq_length} != SEQ_LEN={len(sequence)}'
             )
-            # not equal according to chain file format, add the clipping length
+            # Not equal according to chain file format, add the clipping length
             simple_cigar.append((CIGAR_s, len(sequence) - cigar_seq_length))
     except TypeError:
         # avoids: TypeError: object of type 'NoneType' has no len()
@@ -1372,14 +1463,14 @@ def convert_cigar(
     logger.debug(
         f'CIGAR CONVERSION : {old_cigar} ==> {cigar_to_string(simple_cigar)}'
     )
-
     logger.debug(simple_cigar)
+
     return simple_cigar
 
 
-if __name__ == '__main__':
-    log = g2g_utils.get_logger(10)
-    cigarstring = '5I3D4M9D3S104M7D2I'
-    cigarlist = cigar_string_to_list(cigarstring)
-    log.debug(cigarstring)
-    log.debug(cigarlist)
+# if __name__ == '__main__':
+#    log = g2g_utils.get_logger()
+#    cigarstring = '5I3D4M9D3S104M7D2I'
+#    cigarlist = cigar_string_to_list(cigarstring)
+#    log.debug(cigarstring)
+#    log.debug(cigarlist)
