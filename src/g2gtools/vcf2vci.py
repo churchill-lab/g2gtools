@@ -1079,8 +1079,8 @@ def process(
         logger.info('Parsing VCF files...')
 
         args = zip(all_params)
-        pool = multiprocessing.Pool(num_processes)
-        results = pool.map(wrapper, args)
+        with multiprocessing.Pool(num_processes) as pool:
+            results = pool.map(wrapper, args)
 
         # parse results
         total = 0
@@ -1149,6 +1149,7 @@ def process(
         raise G2GError('Execution halted')
     except Exception as e:
         g2g_utils.show_error()
+        pool.terminate()
         raise G2GError(f'Execution halted unknown error: {e}')
     finally:
         g2g_utils.delete_dir(temp_directory)
