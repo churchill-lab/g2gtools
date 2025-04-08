@@ -782,7 +782,12 @@ def wrapper(args):
     Returns:
         The same as process_piece
     """
-    return process_piece(*args)
+    try:
+        result=process_piece(*args)
+    except Exception as e:
+        print (args)
+        raise e
+    return result
 
 
 def create_vci_header(
