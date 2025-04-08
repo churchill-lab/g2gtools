@@ -11,6 +11,8 @@ import multiprocessing
 import os
 import time
 
+multiprocessing.set_start_method('spawn',True)
+
 # 3rd party library imports
 import pysam
 
