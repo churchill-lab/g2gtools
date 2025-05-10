@@ -241,8 +241,8 @@ def convert_bed_file(
             for lr in left_right:
                 if reverse:
                     source_seq_id = f'{record.chrom}'
-                    assert f'{record.chrom[-2:]}' in lr
-                    target_seq_id = f'{record.chrom[:-2]}'
+                    assert f'{record.chrom[-len(lr):]}' in lr
+                    target_seq_id = f'{record.chrom[:-len(lr)]}'
                 else:
                     source_seq_id = f'{record.chrom}'
                     target_seq_id = f'{record.chrom}{lr}'
