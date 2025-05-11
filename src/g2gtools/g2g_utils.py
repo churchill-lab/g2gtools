@@ -20,7 +20,7 @@ import time
 import urllib
 
 # 3rd party library imports
-from rich.logging import RichHandler
+from rich.logging import RichHandler, Console
 from natsort import natsorted as _natsorted
 import pysam
 
@@ -49,7 +49,7 @@ def get_logger(logger_name: str = 'g2gtools') -> logging.Logger:
 
 
 def configure_logging(
-    logger_name: str = 'g2gtools', level: int = 0
+    logger_name: str = 'g2gtools', level: int = 0, stderr: bool = False
 ) -> logging.Logger:
     """
     Configure the logger with the specified `level`. Valid `level` values
@@ -71,6 +71,7 @@ def configure_logging(
     Args:
         logger_name: The name of the logger.
         level: The logging level; defaults to 0.
+        stderr: If True, log to stderr instead of stdout.
 
     Returns:
         logging.Logger: The logging object.
@@ -83,6 +84,7 @@ def configure_logging(
         show_time=True,
         show_path=False,
         omit_repeated_times=False,
+        console=Console(stderr=stderr),
     )
 
     if g2g_app_debug == 1:
@@ -92,6 +94,7 @@ def configure_logging(
             show_time=True,
             show_path=True,
             omit_repeated_times=False,
+            console=Console(stderr=stderr),
         )
 
     # this is configuring the root logger and below
