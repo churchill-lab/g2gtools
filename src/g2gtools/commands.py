@@ -55,17 +55,18 @@ def common(
 # #############################################################################
 @app.command(help='Convert coordinates of BAM|SAM|GTF|GFF|BED files')
 def convert(
-    input_file: Annotated[Path, typer.Option('--in', show_default=False, exists=True, dir_okay=False, resolve_path=True, help='Input file to convert to new coordinates')],
-    vci_file: Annotated[Path, typer.Option('--vci', show_default=False, exists=True, dir_okay=False, resolve_path=True, help='VCI file')],
-    output_file: Annotated[Path, typer.Option('--out', show_default=False, exists=False, dir_okay=False, writable=True, resolve_path=True, help='Name of output file')],
     file_format: Annotated[FileFormatEnum, typer.Option('-f', '--file-format',show_default=False,  help='Input file format', case_sensitive=False)],
+    vci_file: Annotated[Path, typer.Option('--vci', show_default=False, exists=True, dir_okay=False, resolve_path=True, help='VCI file')],
+    input_file: Annotated[Path, typer.Option('--in', show_default=False, exists=True, dir_okay=False, resolve_path=True, help='Input file to convert to new coordinates')],
+    output_file: Annotated[Path, typer.Option('--out', show_default=False, exists=False, dir_okay=False, writable=True, resolve_path=True, help='Name of output file')] = None,
     reverse: Annotated[bool, typer.Option('--reverse', help='Reverse the direction of the conversion')] = False,
     verbose: Annotated[int, typer.Option('-v', '--verbose', show_default=False, count=True, help='specify multiple times for more verbose output')] = 0
 ) -> None:
     """
     Convert coordinates of BAM|SAM|GTF|GFF|BED files
-    """
-    logger = g2g_utils.configure_logging('g2gtools', verbose)
+    """    
+    output_to_stderr = output_file is None
+    logger = g2g_utils.configure_logging('g2gtools', verbose, output_to_stderr)
     logger.debug('convert')
 
     try:
