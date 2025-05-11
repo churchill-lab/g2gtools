@@ -239,11 +239,16 @@ def convert_bed_file(
                 logger.info(f'Processed {total:,} lines')
 
             for lr in left_right:
-                seq_id = f'{record.chrom}{lr}'
+                if reverse:
+                    source_seq_id = f'{record.chrom}'
+                    target_seq_id = f'{record.chrom[:-len(lr)]}'
+                else:
+                    source_seq_id = f'{record.chrom}'
+                    target_seq_id = f'{record.chrom}{lr}'
 
                 # find mappings for this region
                 mappings = vci_file.find_mappings(
-                    seq_id, record.start - 1, record.end
+                    source_seq_id, record.start - 1, record.end
                 )
 
                 # handle unmapped regions
@@ -251,7 +256,17 @@ def convert_bed_file(
                     logger.debug('\tFail due to no mappings')
                     bed_unmapped_file.write(bed_file.current_line)
                     fail += 1
-                    continue
+                    if source_seq_id[-len(lr):] != lr:
+                        # A common reason for no mappings is that there is
+                        # a haploid chromosome in a file that otherwise
+                        # contains diploid alleles. (Think chrM regions 
+                        # when reverse converting a diploid bed back to 
+                        # a haploid bed.)
+                        # In that case, we do not want to write the same 
+                        # region to the unmapped file twice.
+                        break
+                    else:
+                        continue
 
                 logger.debug(f'{len(mappings)} mappings found')
                 success += 1
@@ -265,13 +280,18 @@ def convert_bed_file(
                 logger.debug(f'({record.start - 1}, {record.end})=>({start}, {end})')
                 logger.debug(elem)
 
-                elem[0] = seq_id
+                elem[0] = target_seq_id
                 elem[1] = str(start)  # convert to string for joining
                 elem[2] = str(end)  # convert to string for joining
 
                 temp_elem = '\t'.join(map(str, elem))
                 logger.debug(f'     NEW: {temp_elem}')
                 bed_out.write(f'{temp_elem}\n')
+                if reverse:
+                    # chr_L and chr_R have their own entries in bedfile
+                    # we are combining back to chr
+                    # if reverse, don't need to repeat with different suffix
+                    break  
 
         # close files
         if bed_file_name_out and bed_out:
