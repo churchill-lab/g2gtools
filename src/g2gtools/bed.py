@@ -241,7 +241,6 @@ def convert_bed_file(
             for lr in left_right:
                 if reverse:
                     source_seq_id = f'{record.chrom}'
-                    assert f'{record.chrom[-len(lr):]}' in lr
                     target_seq_id = f'{record.chrom[:-len(lr)]}'
                 else:
                     source_seq_id = f'{record.chrom}'
@@ -257,7 +256,17 @@ def convert_bed_file(
                     logger.debug('\tFail due to no mappings')
                     bed_unmapped_file.write(bed_file.current_line)
                     fail += 1
-                    continue
+                    if source_seq_id[-len(lr):] != lr:
+                        # A common reason for no mappings is that there is
+                        # a haploid chromosome in a file that otherwise
+                        # contains diploid alleles. (Think chrM regions 
+                        # when reverse converting a diploid bed back to 
+                        # a haploid bed.)
+                        # In that case, we do not want to write the same 
+                        # region to the unmapped file twice.
+                        break
+                    else:
+                        continue
 
                 logger.debug(f'{len(mappings)} mappings found')
                 success += 1
